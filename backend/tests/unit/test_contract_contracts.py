@@ -181,6 +181,36 @@ def test_ctr02_03_deterministic_nine_clauses_term_images_no_internal_notes():
     assert {round(value, 2) for value in placements} == {0.5, 2.0}
 
 
+@pytest.mark.parametrize("name", ["Locadora Sintética", "W" * 200])
+def test_long_company_footer_cannot_overlap_page_number(monkeypatch, name):
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfbase.pdfmetrics import stringWidth
+    from reportlab.pdfgen.canvas import Canvas
+
+    frozen = snapshot()
+    frozen.company.name = name
+    footers = []
+    original = Canvas.drawString
+
+    def draw_string(canvas, x, y, text, *args, **kwargs):
+        if x == 44 and y == 27:
+            footers.append(text)
+            # Reserve24pt for the page number and a visible separating gap.
+            assert x + stringWidth(text, "Helvetica", 8) <= A4[0] - 44 - 24
+        return original(canvas, x, y, text, *args, **kwargs)
+
+    monkeypatch.setattr(Canvas, "drawString", draw_string)
+    content = render_pdf(frozen, draft=False)
+    assert footers
+    if len(name) == 200:
+        assert all(text.endswith("...") for text in footers)
+    else:
+        assert all(text == f"Contrato v1 | {name}" for text in footers)
+    # The duplicate footer may be shortened, never the full authoritative field.
+    text = "".join(page.extract_text() for page in PdfReader(io.BytesIO(content)).pages)
+    assert "".join(name.split()) in "".join(text.split())
+
+
 def test_semantic_diff_uses_digests_not_private_image_bytes():
     old = snapshot().model_dump(mode="json")
     new = {**old, "number": 2, "issued_at": "later"}

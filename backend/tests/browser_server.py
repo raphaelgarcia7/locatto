@@ -5,6 +5,7 @@ integration. Test control endpoints exist only in this wrapper, never main.app.
 """
 
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from uuid import uuid4
@@ -36,6 +37,13 @@ from rentalops_api.rental_routes import rental_service
 from .conftest import isolated_engine, migration_config
 
 
+def business_fixture_clock() -> datetime:
+    # Only quotation/rental fixtures have fixed calendar scenarios. Their
+    # synthetic audit timestamps share this existing injected service clock.
+    # Auth, contracts, standalone payments and production defaults stay real.
+    return datetime(2026, 10, 10, 12, tzinfo=UTC)
+
+
 @asynccontextmanager
 async def lifespan(app):
     namespace = isolated_engine.__wrapped__()
@@ -61,13 +69,17 @@ async def lifespan(app):
         production_app.dependency_overrides[catalog_service] = lambda: catalog
         customers = CustomerService(build_session_factory(engine))
         production_app.dependency_overrides[customer_service] = lambda: customers
-        quotations = QuotationService(build_session_factory(engine))
+        quotations = QuotationService(
+            build_session_factory(engine), clock=business_fixture_clock
+        )
         production_app.dependency_overrides[quotation_service] = lambda: quotations
         payments = PaymentService(
             build_session_factory(engine), ProofStorage(Path(storage.name))
         )
         production_app.dependency_overrides[payment_service] = lambda: payments
-        rentals = RentalChangeService(build_session_factory(engine))
+        rentals = RentalChangeService(
+            build_session_factory(engine), clock=business_fixture_clock
+        )
         production_app.dependency_overrides[rental_service] = lambda: rentals
         contracts = ContractService(
             build_session_factory(engine), PhotoStorage(Path(storage.name))

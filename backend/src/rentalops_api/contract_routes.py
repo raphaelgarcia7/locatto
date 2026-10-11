@@ -73,7 +73,7 @@ async def upload_logo(
     service: Service,
     file: Annotated[UploadFile, File()],
     request_id: Annotated[UUID, Form()],
-    expected_version: Annotated[int, Form(ge=0)],
+    expected_version: Annotated[int, Form(ge=0, le=2_147_483_647)],
 ) -> dict[str, object]:
     try:
         await strict_form(request, {"file", "request_id", "expected_version"})

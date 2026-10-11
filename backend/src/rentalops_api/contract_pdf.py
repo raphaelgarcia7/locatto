@@ -295,11 +295,15 @@ def render_pdf(snapshot: ContractSnapshot, *, draft: bool) -> bytes:
         canvas.saveState()
         canvas.setFillColor(MUTED)
         canvas.setFont("Helvetica", 8)
-        canvas.drawString(
-            44,
-            27,
-            f"Contrato v{snapshot.number} | {snapshot.company.name or 'Locadora'}",
-        )
+        footer = f"Contrato v{snapshot.number} | {snapshot.company.name or 'Locadora'}"
+        # The full company field stays above; this duplicate must leave room
+        # for the page number even at the200-character company-name limit.
+        available = A4[0] - 88 - 24
+        if canvas.stringWidth(footer, "Helvetica", 8) > available:
+            while canvas.stringWidth(footer + "...", "Helvetica", 8) > available:
+                footer = footer[:-1]
+            footer += "..."
+        canvas.drawString(44, 27, footer)
         canvas.drawRightString(A4[0] - 44, 27, str(document.page))
         if draft:
             canvas.setFillColor(colors.HexColor("#8a3b22"))
