@@ -40,6 +40,8 @@ export type Payments = {
   deposit_remaining: string;
   balance_remaining: string;
   remaining: string;
+  extra_agreed?: string;
+  operational_debt?: string;
   pending: string;
   excess: string;
   deposit_validated: boolean;

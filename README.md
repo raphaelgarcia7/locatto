@@ -400,6 +400,52 @@ assinada com `signature_commercial_version`; assinatura anterior não é herdada
 Ver [regras implementadas](docs/product/rental-changes-v1.md) e
 [evidências e limites](docs/engineering/rop-013-evidence.md).
 
+## Retirada, devolução e ocorrências
+
+No aluguel do cliente, **Retirada, devolução e ocorrências** confere todos os
+produtos efetivos e quantidades da composição salva, sem omitir linhas. A saída
+integral exige sinal validado e contrato vigente assinado/conferido. Saldo zero
+é o fluxo normal; exceção explícita registra justificativa e autoria, mantendo
+a dívida. Terceiro exige nome e autorização privada do cliente, sem CPF adicional.
+
+Registre recebimentos reais por produto e condição: apto, higienização ou avaria.
+Aptos liberam somente a quantidade recebida no próximo dia de calendário em
+São Paulo, inclusive fins de semana/feriados. Faltantes e itens em manutenção
+continuam indisponíveis; previsão nova não libera atraso. As consultas e a
+confirmação revalidam a capacidade, sem cancelar compromissos existentes.
+
+Ocorrências permitem decisões explícitas de manutenção, reparo/liberação ou
+perda formalizada. Perda baixa estoque e resolve a quantidade de origem na mesma
+transação, sem devolução fictícia. Acordos financeiros são manuais, vinculados à
+ocorrência, separados do preço original e sem recebimento/estorno automático.
+Não existe job de multa; R$100/dia é referência dos termos aprovados, não cobrança.
+
+**Encerrar operacionalmente** é uma confirmação separada. Conforme complemento
+humano handover-return-v2, a equipe pode encerrar após contabilizar todos os itens
+e encaminhar explicitamente quantidades recebidas à manutenção vinculada. A dívida
+continua visível no aluguel e na consulta do cliente. O estado `completed` não
+libera manutenção: posterior reparo/liberação humana continua disponível e respeita
+recebimento real +1 e demais compromissos. Faltantes sem recebimento/perda impedem
+encerramento. Resultado desconhecido congela a tentativa para repetir a mesma
+chave/corpo; não representa sucesso nem autoriza um novo comando equivalente.
+
+A integração real `out/completed` da #13 está implementada: cancelamento após
+saída é recusado; extensão revalida apenas a demanda ainda em custódia, sem
+ressuscitar alocações recebidas; nova proposta baseada em concluída não copia dinheiro.
+
+API privada: `GET /rentals/{id}/operations`, `POST /handover-preview`, `/handover`,
+`/returns`, `/return-forecast`, `/incidents/{id}/resolutions`,
+`/incidents/{id}/financial-agreements` e `/close`, sob o prefixo da locação.
+Detail/history privados e download de contrato continuam nas rotas existentes.
+Todos os comandos usam sessão/Origin, versões comercial/locação/financeiro/contrato,
+`request_id` e motivo. `resolutions` admite `maintenance/repaired/released/lost`,
+quantidade e `agreed: true`; acordo recebe tipo `repair/replacement/delay` e dinheiro
+string decimal de duas casas. Migration `0011_handovers` preserva histórico imutável;
+downgrade recusa descartar custódia existente.
+
+Ver [regras e contratos v2](docs/product/handover-return-v2.md) e
+[matriz de evidência #14](docs/engineering/rop-014-evidence.md).
+
 ## Configuração local
 
 Preparação operacional #4: [runbook](infra/operations/README.md), Compose Linux com

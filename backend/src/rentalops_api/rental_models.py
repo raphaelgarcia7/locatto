@@ -37,7 +37,8 @@ class Rental(Base):
             ["payment_history.quotation_id", "payment_history.financial_version"],
         ),
         CheckConstraint(
-            "version >= 1 AND state IN ('confirmed','cancelled','review')",
+            "version >= 1 AND state IN "
+            "('confirmed','cancelled','review','out','completed')",
             name="ck_rental_state",
         ),
         CheckConstraint("confirmation_deposit > 0", name="ck_rental_deposit"),

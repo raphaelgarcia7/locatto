@@ -25,6 +25,8 @@ from rentalops_api.contracts import ContractService
 from rentalops_api.customer_routes import customer_service
 from rentalops_api.customers import CustomerService
 from rentalops_api.database import build_session_factory
+from rentalops_api.handover_routes import handover_service
+from rentalops_api.handovers import HandoverService
 from rentalops_api.main import app as production_app
 from rentalops_api.payment_routes import payment_service
 from rentalops_api.payment_storage import ProofStorage
@@ -85,6 +87,8 @@ async def lifespan(app):
             build_session_factory(engine), PhotoStorage(Path(storage.name))
         )
         production_app.dependency_overrides[contract_service] = lambda: contracts
+        custody = HandoverService(build_session_factory(engine))
+        production_app.dependency_overrides[handover_service] = lambda: custody
         yield
     finally:
         production_app.dependency_overrides.clear()

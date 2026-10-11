@@ -1,0 +1,200 @@
+from uuid import uuid4
+
+import pytest
+from fastapi.testclient import TestClient
+
+from rentalops_api.auth import AuthService, AuthSettings
+from rentalops_api.auth_routes import auth_service
+from rentalops_api.handover_contracts import (
+    FinancialAgreementCommand,
+    HandoverCommand,
+    OperationalCommand,
+    ResolutionCommand,
+    ReturnCommand,
+)
+from rentalops_api.handover_routes import handover_service
+from rentalops_api.main import app
+from rentalops_api.rental_routes import rental_service
+
+from .test_contract_api import HEADERS, ORIGIN, login
+from .test_handovers import command
+from .test_handovers import custody as custody_fixture
+
+pytestmark = pytest.mark.integration
+
+
+@pytest.fixture
+def custody(migrated_engine, tmp_path):
+    return custody_fixture.__wrapped__(migrated_engine, tmp_path)
+
+
+def test_ret07_private_routes_session_origin_csrf_strict_input_history(custody, caplog):
+    service, _, identifier, _, _ = custody
+    auth = AuthService(
+        service.factory, AuthSettings(ORIGIN, False, "synthetic-handover-api-key" * 3)
+    )
+    email = "synthetic-handover-api@example.invalid"
+    auth.create_user(email)
+    auth.set_password(
+        auth.issue_link(email, "access"), "synthetic contract passphrase", "loopback"
+    )
+    http = TestClient(app)
+    client = http, custody, email
+    app.dependency_overrides[auth_service] = lambda: auth
+    app.dependency_overrides[handover_service] = lambda: service
+    app.dependency_overrides[rental_service] = lambda: service
+    root = f"/rentals/{identifier}"
+    mutations = [
+        "handover-preview",
+        "handover",
+        "returns",
+        "return-forecast",
+        "close",
+        f"incidents/{uuid4()}/resolutions",
+        f"incidents/{uuid4()}/financial-agreements",
+    ]
+    try:
+        assert http.get(root + "/operations").status_code == 401
+        for path in mutations:
+            assert (
+                http.post(root + "/" + path, headers=HEADERS, json={}).status_code
+                == 401
+            )
+        login(client)
+        for path in mutations:
+            for headers in (
+                {},
+                {"Origin": "https://other.invalid"},
+                {"Origin": "null"},
+            ):
+                assert (
+                    http.post(root + "/" + path, headers=headers, json={}).status_code
+                    == 403
+                )
+        state = http.get(root + "/operations")
+        assert state.status_code == 200 and state.headers["cache-control"] == "no-store"
+        assert http.get(f"/rentals/{uuid4()}/operations").status_code == 404
+        value = state.json()
+        payload = command(
+            custody,
+            HandoverCommand,
+            lines=[
+                {
+                    "product_id": row["product_id"],
+                    "quantity": row["quantity"],
+                    "condition": "Conferência sintética",
+                }
+                for row in value["lines"]
+            ],
+            balance_exception="Exceção sintética registrada",
+            third_party={
+                "name": "Pessoa Sintética",
+                "authorization": "Autorização sintética explícita",
+            },
+        ).model_dump(mode="json")
+        assert (
+            http.post(
+                root + "/handover",
+                headers=HEADERS,
+                json={**payload, "actor_id": str(uuid4())},
+            ).status_code
+            == 422
+        )
+        result = http.post(root + "/handover", headers=HEADERS, json=payload)
+        assert result.status_code == 201
+        assert result.headers["cache-control"] == "no-store"
+        assert result.json()["handover"]["third_party"] == payload["third_party"]
+        assert (
+            http.post(root + "/handover", headers=HEADERS, json=payload).status_code
+            == 200
+        )
+        assert http.get(root + "/history").json()["total"] == 2
+        assert "Pessoa Sintética" not in caplog.text
+        assert "Autorização sintética explícita" not in caplog.text
+        state = result.json()
+        received = command(
+            custody,
+            ReturnCommand,
+            business_date="2026-10-08",
+            lines=[
+                {
+                    "product_id": row["product_id"],
+                    "quantity": row["quantity"],
+                    "condition": "damaged",
+                }
+                for row in state["lines"]
+            ],
+        ).model_dump(mode="json")
+        response = http.post(root + "/returns", headers=HEADERS, json=received)
+        assert response.status_code == 201
+        assert (
+            http.post(root + "/returns", headers=HEADERS, json=received).json()
+            == response.json()
+        )
+        assert (
+            http.post(
+                root + "/close",
+                headers=HEADERS,
+                json=command(custody).model_dump(mode="json"),
+            ).status_code
+            == 409
+        )
+        for incident in response.json()["incidents"]:
+            if incident["kind"] != "damaged":
+                continue
+            decision = command(
+                custody,
+                ResolutionCommand,
+                disposition="maintenance",
+                quantity=incident["quantity"],
+                agreed=True,
+            ).model_dump(mode="json")
+            url = root + f"/incidents/{incident['id']}/resolutions"
+            response = http.post(url, headers=HEADERS, json=decision)
+            assert response.status_code == 201
+            assert (
+                http.post(url, headers=HEADERS, json=decision).json() == response.json()
+            )
+        closing = command(custody, OperationalCommand).model_dump(mode="json")
+        response = http.post(root + "/close", headers=HEADERS, json=closing)
+        assert response.status_code == 201 and response.json()["state"] == "completed"
+        assert (
+            http.post(root + "/close", headers=HEADERS, json=closing).json()
+            == response.json()
+        )
+        assert response.json()["financial"]["operational_debt"] == "200.00"
+        incident = next(
+            row for row in response.json()["incidents"] if row["kind"] == "damaged"
+        )
+        agreement = command(
+            custody,
+            FinancialAgreementCommand,
+            kind="repair",
+            quantity=1,
+            amount="20.00",
+            agreed=True,
+        ).model_dump(mode="json")
+        url = root + f"/incidents/{incident['id']}/financial-agreements"
+        response = http.post(url, headers=HEADERS, json=agreement)
+        assert response.status_code == 201
+        assert http.post(url, headers=HEADERS, json=agreement).json() == response.json()
+        assert response.json()["financial"]["operational_debt"] == "220.00"
+        assert response.json()["financial"]["received"] == "200.00"
+        released = command(
+            custody,
+            ResolutionCommand,
+            disposition="repaired",
+            quantity=incident["quantity"],
+            agreed=True,
+        ).model_dump(mode="json")
+        url = root + f"/incidents/{incident['id']}/resolutions"
+        response = http.post(url, headers=HEADERS, json=released)
+        assert response.status_code == 201 and response.json()["state"] == "completed"
+        assert http.post(url, headers=HEADERS, json=released).json() == response.json()
+        history = http.get(root + "/history").json()
+        assert (
+            history["items"][-1]["after"]["financial"]["operational_debt"] == "220.00"
+        )
+    finally:
+        http.close()
+        app.dependency_overrides.clear()

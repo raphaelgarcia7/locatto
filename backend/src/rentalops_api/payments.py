@@ -180,6 +180,17 @@ class PaymentService:
             and not account.requires_reconciliation
             and applied_deposit == deposit_due
         )
+        from rentalops_api.handover_models import FinancialAgreement
+        from rentalops_api.rental_models import Rental
+
+        extra = sum(
+            session.scalars(
+                select(FinancialAgreement.amount)
+                .join(Rental, Rental.id == FinancialAgreement.rental_id)
+                .where(Rental.quotation_id == header.id)
+            ),
+            ZERO,
+        )
         return PaymentView.model_validate(
             {
                 "quotation_id": str(header.id),
@@ -200,6 +211,10 @@ class PaymentService:
                 "balance_remaining": money(max(ZERO, balance_due - applied_balance)),
                 "remaining": money(
                     max(ZERO, offer.total - applied_deposit - applied_balance)
+                ),
+                "extra_agreed": money(extra),
+                "operational_debt": money(
+                    max(ZERO, offer.total - applied_deposit - applied_balance) + extra
                 ),
                 "pending": money(pending),
                 "excess": money(max(ZERO, received - returned - offer.total)),

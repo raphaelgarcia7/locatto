@@ -106,6 +106,9 @@ def test_customer_migration_head_incremental_repeat_and_rollback_preserves_catal
                                     "rental",
                                     "company",
                                     "contract",
+                                    "handover",
+                                    "return_",
+                                    "incident_",
                                 )
                             )
                             if args[2] == "table"

@@ -6,6 +6,7 @@ from rentalops_api import (
     catalog_models,  # noqa: F401 - register catalog metadata
     contract_models,  # noqa: F401 - register contract metadata
     customer_models,  # noqa: F401 - register customer metadata
+    handover_models,  # noqa: F401 - register physical custody metadata
     payment_models,  # noqa: F401 - register financial metadata
     quotation_models,  # noqa: F401 - register quotation metadata
     rental_models,  # noqa: F401 - register rental metadata

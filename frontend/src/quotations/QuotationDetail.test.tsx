@@ -10,6 +10,9 @@ import type { Payments } from '../payments/api';
 vi.mock('../contracts/ContractsSection', () => ({
   ContractsSection: () => null,
 }));
+// Custody has its own command/unknown-state tests; keep this financial contract
+// test's existing responses scoped to the sections it exercises.
+vi.mock('../rentals/CustodySection', () => ({ CustodySection: () => null }));
 
 const record: Quotation = {
   id: '11111111-1111-4111-8111-111111111111',

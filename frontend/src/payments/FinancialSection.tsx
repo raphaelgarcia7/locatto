@@ -353,9 +353,18 @@ export function FinancialSection({
               </div>
             ))}
           </dl>
+          {data.extra_agreed && data.extra_agreed !== '0.00' && (
+            <p>
+              Obrigações extras acordadas {priceLabel(data.extra_agreed)} ·
+              dívida total preservada{' '}
+              {priceLabel(data.operational_debt ?? data.remaining)}. O acordo
+              não registra recebimento.
+            </p>
+          )}
           <p>
             <strong>
-              {data.fully_paid
+              {data.fully_paid &&
+              (!data.extra_agreed || data.extra_agreed === '0.00')
                 ? 'Financeiro integralmente quitado'
                 : data.deposit_validated
                   ? 'Sinal validado em um único recebimento'

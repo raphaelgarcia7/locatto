@@ -12,11 +12,12 @@ from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from rentalops_api.auth import Identity
-from rentalops_api.capacity import capacity_view
+from rentalops_api.capacity import capacity_view, outstanding_demand
 from rentalops_api.catalog_contracts import MAX_QUANTITY, aggregate_items
 from rentalops_api.catalog_models import Kit, KitItem, Product
 from rentalops_api.customer_models import Customer
 from rentalops_api.database import session_scope
+from rentalops_api.payments import PaymentService
 from rentalops_api.quotation_contracts import (
     SAO_PAULO,
     QuotationDraft,
@@ -296,10 +297,11 @@ class QuotationService:
                 ).isoformat(),
             }
         )
+        physical_demand = outstanding_demand(session, rental_id) if rental_id else None
         capacity = self._capacity(
             session,
             products,
-            demand,
+            demand if physical_demand is None else physical_demand,
             payload.pickup_date,
             payload.return_date,
             exclude_rental=rental_id,
@@ -323,7 +325,13 @@ class QuotationService:
         exclude_rental: UUID | None = None,
     ) -> list[dict[str, object]]:
         return capacity_view(
-            session, products, demand, start, end, exclude_rental=exclude_rental
+            session,
+            products,
+            demand,
+            start,
+            end,
+            exclude_rental=exclude_rental,
+            today=self.clock().astimezone(SAO_PAULO).date(),
         )
 
     def preview(self, payload: QuotationDraft) -> dict[str, object]:
@@ -534,14 +542,34 @@ class QuotationService:
             for p in session.scalars(select(Product).where(Product.id.in_(demand)))
         }
         rental = rental_summary(session, header.id)
+        physical_demand = (
+            outstanding_demand(session, UUID(str(rental["id"]))) if rental else None
+        )
         capacity = self._capacity(
             session,
             products,
-            demand,
+            demand if physical_demand is None else physical_demand,
             version.pickup_date,
             version.return_date,
             UUID(str(rental["id"])) if rental else None,
         )
+        if rental:
+            rental["inventory_pending"] = bool(rental["inventory_pending"]) or any(
+                int(str(row["shortage"])) > 0 for row in capacity
+            )
+            if rental["state"] in {"out", "completed"}:
+                current_offer = session.get(
+                    QuotationVersion, (header.id, header.current_version)
+                )
+                assert current_offer is not None
+                money = PaymentService(
+                    self.factory, clock=self.clock
+                ).confirmation_summary(session, header, current_offer)
+                rental["operational_debt"] = money["operational_debt"]
+                rental["financial_pending"] = (
+                    bool(rental["financial_pending"])
+                    or Decimal(str(money["operational_debt"])) > 0
+                )
         return {
             **version.snapshot,
             "id": str(header.id),

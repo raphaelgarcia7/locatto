@@ -14,6 +14,8 @@ import { FinancialSection } from '../payments/FinancialSection';
 import { ConfirmationSection } from '../rentals/ConfirmationSection';
 import { RentalChanges } from '../rentals/RentalChanges';
 import { ContractsSection } from '../contracts/ContractsSection';
+import { CustodySection } from '../rentals/CustodySection';
+import '../rentals/custody.css';
 
 export function QuotationDetail({
   record,
@@ -197,6 +199,15 @@ export function QuotationDetail({
           O estoque cadastral mudou desde a última consulta. Os valores e a
           composição acordados foram preservados.
         </p>
+      )}
+      {selected.version === selected.current_version && (
+        <CustodySection
+          quotation={selected}
+          onChanged={() => {
+            void consult();
+            setFinancialRead((version) => version + 1);
+          }}
+        />
       )}
       <section className="catalog-section" aria-labelledby="quotation-versions">
         <h3 id="quotation-versions">Histórico de revisões</h3>
