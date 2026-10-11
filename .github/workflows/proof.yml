@@ -1,0 +1,13 @@
+name: ROP006 controlled negative proofs - never merge
+on: pull_request
+permissions:
+  contents: read
+jobs:
+  proof:
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario: [backend, frontend, browser, secrets, skipped, synthetic-secret]
+    uses: ./.github/workflows/quality.yml
+    with:
+      scenario: ${{ matrix.scenario }}
