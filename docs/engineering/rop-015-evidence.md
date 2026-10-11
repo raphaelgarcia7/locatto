@@ -179,6 +179,11 @@ imagens foram inspecionados, sem clipping observado. Não é certificação jur�
 assinatura criptográfica ou prova com fotos/dados reais. Retenção/backups/restore
 de documentos e validação operacional da equipe permanecem gates de produção.
 
+Limitação identificada pela revisão independente: `filled-final` e
+`many-items-final` acima usam snapshot de unidade com CPF/endereços vazios.
+Provam sua composição/paginação/fotos, não a renderização desses campos
+preenchidos. A evidência adicional completa da correção1 está abaixo.
+
 ## Inspeção UI real e correção visual (run07)
 
 Capturas são do Chromium real sobre produção, com campos privados mascarados;
@@ -270,3 +275,206 @@ Done/release continuam pendentes do coordenador, não alegados PASS.
 
 Revisão independente do SHA final, publicação/PR/checks remotos/merge/Project
 Done/release não foram executados nem declarados aprovados por este executor.
+
+## Correção1 — revisão independente do HEAD5f9427d
+
+Mesmo owner/modelo/esforço, rodada1 de no máximo2. O revisor parou seus recursos
+e registrou FAIL no HEAD `5f9427dbfea77f9361abb5d30cf4e0ab11451a29`, base
+inalterada. Sem publicação/PR/merge/Done/release ou tarefa paralela.
+
+### CTR-05/07: overflow no multipart da logo
+
+`expected_version=2147483648` atravessava `Form(ge=0)` e falhava no limite
+superior do `LogoCommand`, produzindo503 em vez de422. Regressão RED na app,
+rota e middleware reais, substituindo somente serviços auth/storage sem DB/PII:
+2FAIL/3PASS (overflow imediato e inteiro muito maior). Original `logo-red.log`
+preservado. Fix produtivo: mesmo teto2_147_483_647 no Form da logo.
+
+GREEN22PASS em `test_contract_multipart.py`: versões logo0/MAX aceitas;
+negativas/overflow/não inteiras recusadas antes do serviço; assinatura1/MAX
+chega ao serviço e versões inválidas retornam422; duplicate/extra/query/missing
+recusados em ambas rotas. Não substitui provas PG de validação de arquivo.
+Sem enfraquecer assertions, timeout, retries, limites ou orçamento de autenticação.
+
+### CTR-06: PDF completo, campos longos e rodapé
+
+Novo espécime privado com empresa/cliente completos, CPF gerado somente em
+runtime/checksum válido, telefone normalizado, três endereços longos distintos,
+RG opcional preenchido, agenda e4fotos. Campos manuais de local/data, forma de
+pagamento e assinaturas continuam em branco por desenho, não são pendências
+de identificação. É espécime de layout final (`draft=False`), não contrato real
+emitido ou assinado. Nenhum dado real foi usado.
+
+O primeiro candidato8p revelou colisão do nome empresarial extenso no rodapé
+com a página. Regressão RED1FAIL/1PASS; fix limita somente essa repetição à
+largura disponível com reticências, reservando24pt para paginação. Nome principal
+e metadado completos, snapshots anteriores não são reescritos. GREEN29PASS
+combinados PDF/multipart, incluindo nome200 caracteres e nome curto inalterado.
+O pipeline519/84 inicial e browser run01 interrompido após9PASS não são gates
+finais do renderer corrigido. Todos permanecem preservados.
+
+Final privado `correction1/pdf-final/complete-long-fields-final.pdf`:8p,
+13691bytes, SHA-256
+`51f13d966b76584f63b6a088ca091783b03b235d6969c70f0f963391362f2170`.
+Skill PDF: marcação imediatamente antes de cada novo espécime; Poppler renderizou
+as8p e todas foram abertas/inspecionadas. Valores de identidade/contato/endereço
+mascarados por glifo, mantendo geometria de linhas/campos; presença exata dos
+valores completos e limites de caracteres verificados sem imprimir valores.
+Nome completo refluindo no topo, três endereços completos, fotos verticais e
+horizontais preservadas, cláusulas1–9/termo e espaços de assinatura presentes,
+rodapé final sem colisão. Página8 contém o último campo de assinatura devido
+à paginação dos campos longos; não há omissão. Sem marca de rascunho/revisão
+interna. Os três PDFs antigos continuam byte-idênticos com o renderer final;
+template no índice/wheel e PDF aprovado conservam os SHA completos acima.
+
+Limitação de privacidade do candidato inicial: máscara não abrangia campos
+repetidos no termo, e uma captura exclusivamente sintética foi exibida com
+valores gerados. Sem PII real, arquivo público ou payload em logs; originais
+privados preservados e falha registrada, sem repetir valores. Conjunto final
+mascara todas essas ocorrências. PDFs/snapshots/capturas não são versionados.
+
+### Pipeline do renderer antes do ajuste temporal da fixture
+
+Logs privados novos em `.rentalops/rop015-evidence/correction1`; fontes Linux
+novas `source-correction1-final` na mesma fixture própria; browser clone exclusivo
+`frontend/test-results/executor-rop015/correction1/run02/source/frontend`.
+Reports/capturas anteriores preservados e copiados antes dos reruns, inclusive
+run13 e run01 da correção. Este último foi interrompido antes de produzir HTML;
+Copy-Item registrou ausência desse diretório, não perda de relatório existente.
+Export Linux inicial falhou por falta de `--project backend`; log preservado,
+segundo export locked/hash com parâmetro explícito e audit passaram.
+
+Resultados finais, fingerprints, inspeção4larguras e cleanup registrados na
+continuação desta seção e no handoff/checkpoint do SHA final.
+
+| Gate / comando | Resultado antes do ajuste temporal |
+| --- | --- |
+| `quality-final pytest backend/tests infra/tests -q`, helper correction1 |521 passed (511backend+10infra),2 warnings,356.02s, exit0, nenhum skip |
+| Ruff check / format check backend+inputs infra |exit0;98 arquivos formatados |
+| `mypy --config-file backend/pyproject.toml` |46 fontes, exit0, estrito |
+| Windows `pytest C:/Projects/praxis/rmg-chatbot/infra/tests -q` |10 passed,3.32s, exit0 |
+| ESLint / Prettier |exit0 no frontend final |
+| Vitest final |84 passed,10 arquivos,36.55s, exit0 |
+| Build produção checkout/clone run02 |exit0,132 módulos, mesmos JS/CSS registrados acima |
+| pip-audit Windows/Linux final e npm audit final |exit0,0 vulnerabilidades, exports locked/all-groups/hashes; locks byte-idênticos |
+| `uv build --project backend --wheel` |exit0, template byte-exato no pacote |
+| PDFs antigos, comparação completa com renderer final |3 byte-idênticos, exit0, não prova campos vazios preenchidos |
+| Fingerprints fontes/build/inputs realmente testados |100backend/82frontend/4artefatos/2infra, nenhuma divergência |
+
+Manifesto privado de hashes por arquivo `source-digests.json`, SHA-256
+`903dd1e783f5516889c496676396fd016f66d031e41f05620fbb174e77ea8bce`.
+Não contém dados de negócio. Fontes/testes/build foram congelados antes da matriz
+final. Nos comandos do pipeline acima, helper novo é
+`C:/Users/Raphael/.codex/tmp/rop015-correction1-environment.py`, operação
+`quality-final`; Playwright usa `browser-final` com o mesmo helper e
+`npm run test:e2e` no clone run02. Scripts/parametrizações completos privados
+preservados; não houve alteração nos asserts/timeouts/retries do E2E.
+
+### Fixture temporal de browser — reconciliação explícita
+
+Run02:320 terminou29PASS/5FAIL e390 foi interrompido após9PASS. Três traces
+de confirmação retornaram409 `code=expired`; as duas reservas exibiam orçamento
+vencido. Seeds anteriores tinham `valid_until=2026-10-10`, mas a data real em
+São Paulo já era2026-10-11. Isso demonstra a causa destas cinco falhas, não a
+do503 histórico, que continua desconhecida. Traces/reports/capturas e backup
+`browser-before-final2` preservados, sem rerun no mesmo conjunto.
+
+Coordenador reconciliou explicitamente o ajuste técnico dentro da correção1:
+somente `backend/tests/browser_server.py`, wrapper loopback já existente,
+injeta o clock suportado2026-10-10T12:00:00Z em QuotationService e
+RentalChangeService. Preserva cenários fixos valid10/11 e expired09, sem mudar
+asserts, intervalos, status esperados, timeout, retry ou orçamento. Datas
+relativas em vários specs seriam alternativa, mas alterariam diversos cenários
+e poderiam oscilar à meia-noite. Nenhum relógio global, endpoint de produção,
+serviço/default/config produtivo ou regra comercial foi alterado.
+
+Como o clock existente também alimenta created_at/checked_at, os timestamps
+SINTÉTICOS de orçamento/locação (e pagamentos internos do serviço de locação)
+ficam determinísticos; não são alegados medidos em relógio real. AuthService,
+ContractService e PaymentService standalone do wrapper continuam reais, UTC,
+assim como todos os defaults produtivos. Não houve separação de clocks ou nova
+camada. `test_browser_clock.py` exercita lifespan/overrides reais do wrapper
+com DB substituído, prova as injeções, defaults reais externos, limpeza dos
+overrides e validade antes/no dia/depois. Primeiro teste tinha premissa errada
+de que AuthService não possuía atributo clock (1FAIL/3PASS); corrigido para
+verificar o relógio real UTC existente, GREEN4PASS. Logs originais preservados.
+
+Regressões produtivas continuam na suíte integral: guards expiry/backdate de
+`test_rentals`, revisão de vencido `test_rental_changes`, futura/limite de data
+`test_payment_contracts`, data PDF São Paulo/auditoria UTC
+`test_contract_contracts`, sessões/auth e vínculos/atores de rotas privadas.
+Não foram congeladas por esse wrapper nem tiveram asserts enfraquecidos.
+
+Novo candidate final: Linux `source-correction1-final2`, clone browser run03,
+operações `quality-final2` / `browser-final2` do mesmo helper privado. Renderer
+e PDFs completos finais permanecem byte-exatos; pipeline integral refeito no
+harness final. A tabela521 anterior é evidência intermediária, não o gate final
+da alteração do harness. Nenhuma promoção/reexecução de tarefa anterior.
+
+| Gate do candidate final2 | Resultado |
+| --- | --- |
+| PG real Linux, backend+infra |525 passed (515backend+10infra),2 warnings,193.13s, exit0, nenhum skip |
+| Ruff check / format |exit0;99 arquivos formatados |
+| mypy estrito |46 fontes, exit0 |
+| Infra Windows |10 passed,3.45s, exit0 |
+| ESLint / Prettier |exit0 |
+| Vitest |84 passed,10 arquivos,15.99s, exit0 |
+| Build checkout/clone run03 e wheel |exit0; mesmos4artefatos frontend e template no wheel byte-exato |
+| Auditorias finais Windows/Linux/npm |exit0,0 vulnerabilidades, mesmos locks/export hashes |
+| Fingerprints finais |101backend/82frontend/4artefatos/2infra,0 divergências; manifesto SHA `0ebd646a9c6ed67b2032881a5a070212e5eeb72faa18eb9689cdc3651f287c6f` |
+| PDF completo no código final2 |comparação integral byte-idêntica, SHA51f13d completo acima, exit0 |
+
+Comando exato PG: `wsl -d Ubuntu-24.04 -u rop004-rehearsal -- python3
+/mnt/c/Users/Raphael/.codex/tmp/rop015-correction1-environment.py quality-final2
+pytest backend/tests infra/tests -q`. Browser usa o mesmo prefixo com
+`browser-final2`, variável RENTALOPS_BROWSER_SERVER_COMMAND, e
+`npm run test:e2e` no clone run03. Logs finais2 separados dos anteriores.
+
+Inspeção efetiva das capturas Chromium mascaradas do run03, recortes sem
+alterar originais em `correction1/ui-inspection-final`:
+
+| Largura | Capturas abertas / observações |
+| --- | --- |
+|320 | parameters-unknown: replay explícito/campos bloqueados/logo opcional; contract-awaiting-review: entrega/anexo ainda aguardando conferência, datas São Paulo e ações legíveis em coluna, sem corte horizontal; rolagem vertical longa |
+|390 | parameters-error: erro/retry distintos de vazio; contract-zoom200: controles/histórico ampliados refluem, versão antiga/anexo preservados; rolagem ampliada, sem corte horizontal |
+|768 | parameters-loading/empty: estados separados, formulário progressivo em duas colunas e logo opcional; contract-signed: aviso e assinatura vigente conferida coerentes, entrega/upload/conferência separados e datas consistentes |
+|1440 | contract-signed: assinatura vigente, aviso, datas e ações separados/coerentes; parameters-logo: marca opcional, remoção só para próximos contratos e campos/ações legíveis sem corte horizontal |
+
+Matriz final run03:136PASS,34 por largura320/390/768/1440,
+3.6/3.7/3.9/4.2min, exit0, zero retries. Inclui axe, teclado/foco, fonte200%,
+reduced motion e estados empty/loading/error/success/unknown; capturas reais
+mascaradas inspecionadas conforme tabela, não certificação universal de UX.
+Todos os cinco cenários que falharam por validade na execução anterior passaram
+sem relaxar suas expectativas no harness reconciliado.
+
+### Encerramento local da correção1
+
+Código final commit `9e471eeface716d0146427c676cc94616d491205`; depois dele
+somente este relatório é atualizado. Base completa acff9c377cd8ff9caa9708ff2e7194281ae43cfd
+inalterada. Staged código final sem segredos; histórico/diff completo e staged
+do relatório recebem scans próprios, com logs finais do HEAD no journal/handoff.
+
+Reverificação após a matriz/cleanup:189 arquivos/artefatos efetivamente testados
+(101backend/82frontend/4build/2infra), nenhum byte divergente do manifesto final2.
+Sessão64049 e todas as anteriores encerradas. Harness gerenciado parou seus
+frontend/backend; portas4173/8000/15445 fechadas, postmaster.pid próprio ausente.
+Somente PG15 foi parado; fixture/config/source-correction1-final2 e todos os
+outros sources/reports/PDFs/capturas/backups retidos. Fixtures11/12/13 presentes.
+MinIO segue running, ID/StartedAt completos idênticos ao registro acima;
+nenhum container/imagem/dado do usuário removido ou reiniciado.
+
+CTR01–07 continuam mapeados na matriz inicial; correção fecha o achado
+CTR05/07 multipart e amplia CTR06 com campos completos/longos e todas8p,
+sem trocar requisitos históricos ou versão aprovada. Nenhum gate local final
+com falha aberta. Originais RED e falhas intermediárias preservados; warnings
+de biblioteca/Poppler/NO_COLOR mantidos. Causa503 histórica não demonstrada.
+Não há PII real nos testes/evidências; insuficiência da máscara sintética inicial
+e clocks/timestamps sintéticos do harness explicitados, sem afirmar relógio
+real onde a fixture é determinística. Dados/fotos reais da empresa continuam
+gates de emissão final futura, não prova desta execução. Limitações de produção,
+retenção/restore, validação humana e não certificação jurídica/UX mantidas.
+
+Executor encerra COMPLETED/PARADO para nova revisão independente do HEAD final
+exato informado pelo journal/handoff. Não executou re-review, push, PR, check
+remoto, merge, Project Done ou release; não alegou CI remoto PASS nem iniciou
+6/14/16/017+. Owner permanece para a coordenação, sem liberar lock unilateral.
