@@ -12,6 +12,7 @@ from rentalops_api.catalog_middleware import PhotoBodyLimit
 from rentalops_api.catalog_routes import router as catalog_router
 from rentalops_api.catalog_storage import CatalogError
 from rentalops_api.config import DatabaseConfigurationError, DatabaseSettings
+from rentalops_api.contract_routes import router as contract_router
 from rentalops_api.customer_contracts import Address, CustomerCreate, CustomerSearch
 from rentalops_api.customer_routes import router as customer_router
 from rentalops_api.customers import CustomerError
@@ -36,6 +37,7 @@ app.include_router(customer_router)
 app.include_router(quotation_router)
 app.include_router(payment_router)
 app.include_router(rental_router)
+app.include_router(contract_router)
 app.add_middleware(PhotoBodyLimit)
 app.add_middleware(OperationalBoundary)
 

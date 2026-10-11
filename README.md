@@ -53,17 +53,55 @@ O backend usa o layout `src/` para separar o pacote Python do restante da config
 
 O backend expõe `GET /health` para verificar o processo e `GET /health/ready` para verificar a conexão PostgreSQL. As migrações criam identidades individuais e autenticação por senha: Argon2id, sessões opacas, links administrativos de uso único, limites persistentes e auditoria por IDs. Nenhuma conta é criada automaticamente. O acesso é fechado e todos os usuários autorizados têm as mesmas permissões.
 
-O frontend oferece uma visão geral e navegação responsiva para Catálogo (`/catalogo`), Clientes (`/clientes`) e Locações (`/locacoes`), com links ativos, acesso direto, histórico do navegador e recuperação de endereços inexistentes. Componentes e tokens visuais são compartilhados entre as telas.
+O frontend oferece uma visão geral e navegação responsiva para Catálogo (`/catalogo`), Clientes (`/clientes`), Locações (`/locacoes`) e Parâmetros (`/parametros`), com links ativos, acesso direto, histórico do navegador e recuperação de endereços inexistentes. Componentes e tokens visuais são compartilhados entre as telas.
 
-O Catálogo permite cadastrar, buscar, editar e inativar produtos e kits, consultar histórico, ajustar estoque com motivo, registrar manutenção/liberação e adicionar fotos privadas. Produtos completos têm estoque próprio; kits têm preço comercial próprio e composição somente de produtos, sem estoque independente. Clientes permite cadastrar, buscar, consultar e editar pessoas físicas com nome/telefone e detalhes opcionais posteriores. Locações continua **Em construção**. Não há reservas, alocações, disponibilidade por período nem assistente funcional. Google permanece adiado para a ROP-022; não há cadastro público, SMTP, senha padrão, roles nem tela de gestão de usuários.
+O Catálogo permite cadastrar, buscar, editar e inativar produtos e kits, consultar histórico, ajustar estoque com motivo, registrar manutenção/liberação e adicionar fotos privadas. Produtos completos têm estoque próprio; kits têm preço comercial próprio e composição somente de produtos, sem estoque independente. Clientes permite cadastrar, buscar, consultar e editar pessoas físicas com nome/telefone e detalhes opcionais posteriores. Locações integra propostas, financeiro manual, confirmação com estoque fresco e alterações/cancelamento/retomada com histórico. Contratos privados versionados Pegue e Monte agora podem ser preparados nesse registro. Não há assistente funcional, cadastro público, SMTP, senha padrão, roles nem tela de gestão de usuários; Google e integrações posteriores permanecem adiados.
 
 ## Requisitos
+
+Restrição humana vigente da rotina (2026-10-10): executar somente ROP até 016 e
+pendências anteriores, sem promover, implementar ou integrar 017+. Done não é
+reexecutado. A próxima tarefa elegível só começa após revisão independente, gates,
+merge em develop, Project Done, evidências, agentes parados e liberação do owner;
+a continuação então é imediata, sem aguardar o próximo heartbeat.
 
 - Python 3.14.
 - [uv](https://docs.astral.sh/uv/).
 - Node.js 24 ou superior.
 - PostgreSQL 17 local e bancos separados para desenvolvimento e testes.
 - Uma chave da OpenAI quando a integração do assistente for implementada.
+
+## Contratos e parâmetros da locadora
+
+Em **Parâmetros**, salve progressivamente nome, identificação, endereço e contato;
+a logo é opcional. Dados reais e fotos são cadastrados depois do desenvolvimento:
+somente a emissão final exige todos os obrigatórios do cliente/locadora/evento,
+CPF do cliente e foto legível/condição de cada produto efetivamente locado,
+incluindo componentes de kits personalizados e avulsos. RG e logo são opcionais;
+valores de reposição não são exibidos nem exigidos, sem apagar o catálogo.
+
+No orçamento vigente, **Contratos** prepara prévia claramente em rascunho, mostra
+pendências e diferenças e solicita confirmação para emitir o PDF final. A fonte
+v0.4 foi aprovada juridicamente segundo informação humana; o sistema/agente não
+certifica validade jurídica. O final usa a marca da locadora, nove cláusulas e o
+termo aprovado, sem rodapé de revisão interna. Alterações de empresa/logo/fotos
+não reescrevem documentos históricos.
+
+Emissão, entrega manual, upload e conferência da assinatura são registros
+distintos. Upload sozinho fica aguardando conferência; cada nova versão exige
+nova assinatura. Não há assinatura criptográfica integrada, envio automático,
+cobrança, remarcação ou estorno automáticos. Esses registros não confirmam reserva
+nem movimentam estoque/dinheiro. A consulta de assinatura vigente compara as
+versões comercial e da locação para a futura saída da ROP-014.
+
+Execute `uv run --project backend alembic -c backend/alembic.ini upgrade head`
+para aplicar a migração `0010_contracts`. Os documentos/logos reutilizam
+`STORAGE_ROOT`, absoluto, privado e fora do checkout/webroot, com as mesmas
+verificações de fotos/comprovantes. PDFs e anexos não devem entrar no Git/logs.
+Não há expurgo automático; retenção e recuperação de arquivos/backups precisam
+de validação operacional antes de produção. Detalhes em
+[contracts-v2](docs/product/contracts-v2.md) e
+[evidência ROP-015](docs/engineering/rop-015-evidence.md).
 
 ## Executar localmente
 

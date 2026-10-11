@@ -150,7 +150,7 @@ def test_migration_head_constraints_metadata_repeat_rollback(isolated_engine):
         command.upgrade(config, "head")
         assert (
             connection.scalar(text("SELECT version_num FROM alembic_version"))
-            == "0009_rental_changes"
+            == "0010_contracts"
         )
         assert set(inspect(connection).get_table_names()) == previous | {
             "quotations",
@@ -172,6 +172,12 @@ def test_migration_head_constraints_metadata_repeat_rollback(isolated_engine):
             "rental_history",
             "rental_pending",
             "rental_requests",
+            "company_settings",
+            "company_revisions",
+            "contract_series",
+            "contract_versions",
+            "contract_events",
+            "contract_requests",
         }
         assert (
             compare_metadata(MigrationContext.configure(connection), Base.metadata)

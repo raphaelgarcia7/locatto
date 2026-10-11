@@ -26,6 +26,15 @@ export const modules = [
       'Prepare orçamentos e registre pagamentos manuais com histórico. A confirmação de reservas será implementada em uma próxima etapa.',
     icon: 'calendar',
   },
+  {
+    path: '/parametros',
+    number: '04',
+    title: 'Parâmetros',
+    description: 'Dados da locadora e identidade dos contratos.',
+    plannedDescription:
+      'Configure os dados da empresa e a logo opcional para os contratos.',
+    icon: 'box',
+  },
 ] as const;
 
 export type WorkspaceModule = (typeof modules)[number];
