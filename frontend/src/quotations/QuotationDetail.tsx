@@ -13,6 +13,7 @@ import { OfferSummary } from './OfferSummary';
 import { FinancialSection } from '../payments/FinancialSection';
 import { ConfirmationSection } from '../rentals/ConfirmationSection';
 import { RentalChanges } from '../rentals/RentalChanges';
+import { ContractsSection } from '../contracts/ContractsSection';
 
 export function QuotationDetail({
   record,
@@ -185,6 +186,12 @@ export function QuotationDetail({
       >
         Reconsultar estoque cadastral
       </button>
+      {selected.version === selected.current_version && (
+        <ContractsSection
+          key={`contracts:${record.id}:${selected.current_version}:${selected.rental?.version ?? 0}`}
+          quotation={selected}
+        />
+      )}
       {changed && (
         <p role="status">
           O estoque cadastral mudou desde a última consulta. Os valores e a

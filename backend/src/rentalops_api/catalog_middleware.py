@@ -15,12 +15,14 @@ class PhotoBodyLimit:
         if (
             scope["type"] != "http"
             or scope["method"] != "POST"
-            or not scope["path"].endswith(("/photos", "/proofs"))
+            or not scope["path"].endswith(
+                ("/photos", "/proofs", "/signatures", "/logo")
+            )
         ):
             await self.app(scope, receive, send)
             return
         # Small bounded allowance for the multipart envelope and version field.
-        is_proof = scope["path"].endswith("/proofs")
+        is_proof = scope["path"].endswith(("/proofs", "/signatures"))
         limit = (MAX_PROOF_BYTES if is_proof else MAX_UPLOAD_BYTES) + 64 * 1024
         headers = dict(scope["headers"])
         try:

@@ -99,7 +99,15 @@ def test_customer_migration_head_incremental_repeat_and_rollback_preserves_catal
                     session,
                     opts={
                         "include_object": lambda *args: (
-                            not args[1].startswith(("quotation", "payment", "rental"))
+                            not args[1].startswith(
+                                (
+                                    "quotation",
+                                    "payment",
+                                    "rental",
+                                    "company",
+                                    "contract",
+                                )
+                            )
                             if args[2] == "table"
                             else True
                         )

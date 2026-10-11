@@ -10,6 +10,7 @@ import { AuthContext } from './authContext';
 import { CatalogPage } from './catalog/CatalogPage';
 import { CustomersPage } from './customers/CustomersPage';
 import { QuotationsPage } from './quotations/QuotationsPage';
+import { ParametersPage } from './contracts/ParametersPage';
 
 export default function App() {
   return (
@@ -46,6 +47,8 @@ export function Workspace({
                 <CustomersPage />
               ) : module.path === '/locacoes' ? (
                 <QuotationsPage />
+              ) : module.path === '/parametros' ? (
+                <ParametersPage />
               ) : (
                 <ModulePage module={module} />
               )
