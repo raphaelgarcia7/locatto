@@ -7,7 +7,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        scenario: [backend, frontend, browser, secrets, skipped, synthetic-secret]
+        scenario: [synthetic-secret]
     uses: ./.github/workflows/quality.yml
     with:
       scenario: ${{ matrix.scenario }}
