@@ -16,33 +16,24 @@ jobs:
   backend:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_USER: rentalops_test
-          POSTGRES_DB: rentalops_ci_test
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports: [5432:5432]
-        options: >-
-          --health-cmd "pg_isready -U rentalops_test -d rentalops_ci_test"
-          --health-interval 5s --health-timeout 5s --health-retries 12
     env:
-      TEST_DATABASE_URL: postgresql+psycopg://rentalops_test@127.0.0.1:5432/rentalops_ci_test
+      TEST_DATABASE_URL: postgresql+psycopg://rentalops_test@127.0.0.1:15446/rentalops_ci_test
+      DOCKER_CONFIG: ${{ runner.temp }}/rentalops-ci-docker
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: ./.github/actions/test-postgres
       - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff # v6
         with:
           version: '0.12.12'
           enable-cache: true
       - name: Install official recovery test tools
         run: |
-          sudo install -d /usr/share/postgresql-common/pgdg
-          sudo curl --fail --silent --show-error --location -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
-          echo 'deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main' | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
-          sudo apt-get update
-          sudo apt-get install --yes age nginx postgresql-client-17
-          echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
+          sudo apt-get install --yes age nginx
+          install -d -m 700 "$DOCKER_CONFIG/cli-plugins"
+          curl --fail --location --silent --show-error -o "$DOCKER_CONFIG/cli-plugins/docker-compose" https://github.com/docker/compose/releases/download/v5.3.0/docker-compose-linux-x86_64
+          echo "fffb010206c952ee5e45d0cd05dc88d3ca063c4634d40eaad6b72677c4c7bbf0  $DOCKER_CONFIG/cli-plugins/docker-compose" | sha256sum --check --strict
+          chmod 700 "$DOCKER_CONFIG/cli-plugins/docker-compose"
+          docker compose version
       - run: uv sync --project backend --locked
       - run: uv run --project backend ruff check backend infra
       - run: uv run --project backend ruff format --check backend infra
@@ -51,6 +42,12 @@ jobs:
       - name: Export locked third-party dependencies
         run: uv export --project backend --locked --all-groups --no-emit-project --no-hashes --output-file "${{ runner.temp }}/audit-requirements.txt" --quiet
       - run: uv run --project backend pip-audit --requirement "${{ runner.temp }}/audit-requirements.txt" --no-deps --disable-pip --strict
+      - name: Stop own disposable database
+        if: always()
+        run: |
+          if test -f "$RUNNER_TEMP/rentalops-ci-postgres/data/postmaster.pid"; then
+            /usr/lib/postgresql/17/bin/pg_ctl -D "$RUNNER_TEMP/rentalops-ci-postgres/data" -m fast -w stop
+          fi
 
   frontend:
     runs-on: ubuntu-24.04
@@ -75,21 +72,11 @@ jobs:
   browser:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_USER: rentalops_test
-          POSTGRES_DB: rentalops_browser_ci_test
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports: [5432:5432]
-        options: >-
-          --health-cmd "pg_isready -U rentalops_test -d rentalops_browser_ci_test"
-          --health-interval 5s --health-timeout 5s --health-retries 12
     env:
-      TEST_DATABASE_URL: postgresql+psycopg://rentalops_test@127.0.0.1:5432/rentalops_browser_ci_test
+      TEST_DATABASE_URL: postgresql+psycopg://rentalops_test@127.0.0.1:15446/rentalops_ci_test
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: ./.github/actions/test-postgres
       - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff # v6
         with:
           version: '0.12.12'
@@ -116,6 +103,12 @@ jobs:
             frontend/playwright-report
             frontend/test-results
           retention-days: 7
+      - name: Stop own disposable database
+        if: always()
+        run: |
+          if test -f "$RUNNER_TEMP/rentalops-ci-postgres/data/postmaster.pid"; then
+            /usr/lib/postgresql/17/bin/pg_ctl -D "$RUNNER_TEMP/rentalops-ci-postgres/data" -m fast -w stop
+          fi
 
   secrets:
     runs-on: ubuntu-24.04
@@ -124,10 +117,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
-      - uses: gitleaks/gitleaks-action@dcedce43c6f43de0b836d1fe38946645c9c638dc # v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_ENABLE_COMMENTS: 'false'
+      - name: Scan complete Git history with checksum-verified Gitleaks
+        run: |
+          curl --fail --location --silent --show-error -o "$RUNNER_TEMP/gitleaks.tar.gz" https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" git --log-opts='--all' --redact --no-banner
 
   quality-gate:
     if: always()

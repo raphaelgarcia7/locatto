@@ -68,6 +68,13 @@ def test_interruptions_before_after_pr_merge_and_project_never_redispatch():
         checks_passed=True,
         base_current=True,
         protection_confirmed=True,
+        project_status="Validating",
+        pr_base_develop=True,
+        pr_same_repository=True,
+        pr_expected_branch=True,
+        pr_open_ready=True,
+        criteria_met=True,
+        evidence_current=True,
     )
     assert next_action(state) == "merge"
     state = replace(
@@ -86,7 +93,18 @@ def test_interruptions_before_after_pr_merge_and_project_never_redispatch():
 
 
 @pytest.mark.parametrize(
-    "field", ["checks_passed", "base_current", "protection_confirmed"]
+    "field",
+    [
+        "checks_passed",
+        "base_current",
+        "protection_confirmed",
+        "pr_base_develop",
+        "pr_same_repository",
+        "pr_expected_branch",
+        "pr_open_ready",
+        "criteria_met",
+        "evidence_current",
+    ],
 )
 def test_merge_gate_missing_does_not_merge(field):
     state = replace(
@@ -98,6 +116,13 @@ def test_merge_gate_missing_does_not_merge(field):
         checks_passed=True,
         base_current=True,
         protection_confirmed=True,
+        project_status="Validating",
+        pr_base_develop=True,
+        pr_same_repository=True,
+        pr_expected_branch=True,
+        pr_open_ready=True,
+        criteria_met=True,
+        evidence_current=True,
     )
     assert next_action(replace(state, **{field: False})) == "resume"
 

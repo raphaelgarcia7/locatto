@@ -32,6 +32,12 @@ class DeliveryState:
     reviewed_head_matches: bool = False
     base_current: bool = False
     protection_confirmed: bool = False
+    pr_base_develop: bool = False
+    pr_same_repository: bool = False
+    pr_expected_branch: bool = False
+    pr_open_ready: bool = False
+    criteria_met: bool = False
+    evidence_current: bool = False
 
 
 def next_action(state: DeliveryState) -> Action:
@@ -40,7 +46,14 @@ def next_action(state: DeliveryState) -> Action:
     if state.pr_merged_into_develop:
         return (
             "done"
-            if state.project_status == "Done" and state.agents_stopped
+            if all(
+                [
+                    state.project_status == "Done",
+                    state.agents_stopped,
+                    state.owner_confirmed,
+                    state.existing_execution_known,
+                ]
+            )
             else "reconcile"
         )
     if state.project_status == "Done" or not state.issue_open:
@@ -67,7 +80,20 @@ def next_action(state: DeliveryState) -> Action:
             return "resume"
         if not state.reviewed_head_matches:
             return "review"
-        if all([state.checks_passed, state.base_current, state.protection_confirmed]):
+        if all(
+            [
+                state.project_status == "Validating",
+                state.checks_passed,
+                state.base_current,
+                state.protection_confirmed,
+                state.pr_base_develop,
+                state.pr_same_repository,
+                state.pr_expected_branch,
+                state.pr_open_ready,
+                state.criteria_met,
+                state.evidence_current,
+            ]
+        ):
             return "merge"
         return "resume"
     return "dispatch" if state.project_status == "Ready" else "blocked"

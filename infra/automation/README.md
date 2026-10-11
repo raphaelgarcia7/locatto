@@ -50,8 +50,11 @@ e liberação. O journal sozinho não comprova que um agente parou.
 O workflow executa backend com PostgreSQL17 real e ferramentas age/nginx/PG17,
 auditorias dos lockfiles, frontend e build, navegador contra produção nas quatro
 larguras, e Gitleaks do histórico. Jobs usam token read-only, actions por SHA e
-nenhum segredo de produção. O banco do serviço é descartável, em runner isolado;
-`trust` vale somente para esse serviço de CI, sem credenciais reais.
+nenhum segredo de produção. Cada runner Linux inicia um cluster nativo privado
+PG17 em loopback:15446; assim o teste de proteção libpq verifica o endereço real,
+sem NAT Docker. `trust` vale somente para esse cluster descartável de CI. O job
+para apenas seu próprio cluster ao terminar. Compose 5.3.0 e Gitleaks 8.30.1 são
+obtidos dos releases oficiais e verificados por SHA-256 antes de executar.
 
 `quality-gate` executa o mesmo `quality_gate.py` testado localmente e exige success
 explícito de backend/frontend/browser/secrets. Failure, skipped, cancelled, ausente

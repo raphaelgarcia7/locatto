@@ -1,0 +1,21 @@
+name: Native disposable PostgreSQL 17
+description: Start a private loopback-only test cluster on an isolated Linux runner
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        test "$CI" = true
+        test "$RUNNER_OS" = Linux
+        sudo install -d /usr/share/postgresql-common/pgdg
+        sudo curl --fail --silent --show-error --location -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+        echo 'deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main' | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+        sudo apt-get update
+        sudo apt-get install --yes postgresql-17 postgresql-client-17
+        echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
+        cluster="$RUNNER_TEMP/rentalops-ci-postgres"
+        test ! -e "$cluster"
+        install -d -m 700 "$cluster" "$cluster/socket"
+        /usr/lib/postgresql/17/bin/initdb -D "$cluster/data" --username=rentalops_test --auth=trust --no-locale --encoding=UTF8
+        /usr/lib/postgresql/17/bin/pg_ctl -D "$cluster/data" -l "$cluster/postgres.log" -o "-h127.0.0.1 -p15446 -k$cluster/socket -c log_min_error_statement=panic -c log_error_verbosity=terse" -w start
+        /usr/lib/postgresql/17/bin/createdb -h127.0.0.1 -p15446 -Urentalops_test rentalops_ci_test

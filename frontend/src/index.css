@@ -600,6 +600,7 @@ svg {
   margin: 8px 0 32px;
 }
 .page-heading h1 {
+  overflow-wrap: anywhere;
   margin: 12px 0;
   font-size: clamp(32px, 4vw, 42px);
   letter-spacing: -1px;
