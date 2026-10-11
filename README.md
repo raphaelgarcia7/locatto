@@ -433,6 +433,8 @@ executa PostgreSQL real, qualidade/auditorias, Playwright/axe no build de produ�
 em 320/390/768/1440px e Gitleaks; o check final exige todos os jobs aprovados.
 O Status do GitHub Project é autoridade, e o journal compartilhado coordena um
 owner por vez. Main e deploy permanecem sob controle humano.
+Consulte a [matriz ROP-006 de evidências e limitações](docs/engineering/rop-006-evidence.md)
+para API/UI, provas negativas e proteção real de develop.
 
 O pipeline inclui [autonomia autorizada para resolver bloqueios locais de ambiente](docs/engineering/local-environment-autonomy.md), inclusive WSL/Ubuntu, preservando dados existentes e todos os gates de qualidade e entrega.
 
