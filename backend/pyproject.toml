@@ -27,7 +27,7 @@ target-version = "py314"
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.mypy]
-files = ["backend/src", "infra/operations"]
+files = ["backend/src", "infra/operations", "infra/automation"]
 strict = true
 
 [tool.pytest.ini_options]

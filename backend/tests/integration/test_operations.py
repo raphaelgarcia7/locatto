@@ -502,6 +502,13 @@ def test_actual_nginx_backend_logs_redact_private_data(recovery, tmp_path):
     backend_log = tmp_path / "backend.jsonl"
     proxy_log = tmp_path / "proxy.jsonl"
     nginx_root = Path(executable).parent
+    mime_types = nginx_root / "conf/mime.types"
+    if not mime_types.is_file():
+        mime_types = Path("/etc/nginx/mime.types")
+    if not mime_types.is_file():
+        pytest.fail(
+            "nginx distribution mime.types required for actual proxy verification"
+        )
     config = (operations / "nginx.conf").read_text()
     # Distribution builds can compile unused gateway temp directories outside
     # the prefix. Keep all test runtime files inside this fixture as well.
@@ -514,7 +521,7 @@ def test_actual_nginx_backend_logs_redact_private_data(recovery, tmp_path):
         ),
     )
     replacements = {
-        "/etc/nginx/mime.types": f'"{(nginx_root / "conf/mime.types").as_posix()}"',
+        "/etc/nginx/mime.types": f'"{mime_types.as_posix()}"',
         "/tmp/nginx.pid": f'"{(tmp_path / "nginx.pid").as_posix()}"',
         "/dev/null": "nul" if os.name == "nt" else "/dev/null",
         "/dev/stdout": f'"{proxy_log.as_posix()}"',

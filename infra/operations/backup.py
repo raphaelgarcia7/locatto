@@ -104,7 +104,8 @@ def database_manifest(db: Connection) -> dict[str, Any]:
         dict(row)
         for row in db.execute(
             text(
-                "SELECT storage_key, size, sha256 FROM product_photos ORDER BY storage_key"
+                "SELECT storage_key, size, sha256 FROM product_photos "
+                "ORDER BY storage_key"
             )
         ).mappings()
     ]
@@ -112,7 +113,8 @@ def database_manifest(db: Connection) -> dict[str, Any]:
         dict(row)
         for row in db.execute(
             text(
-                "SELECT storage_key, size, sha256 FROM payment_proofs ORDER BY storage_key"
+                "SELECT storage_key, size, sha256 FROM payment_proofs "
+                "ORDER BY storage_key"
             )
         ).mappings()
     ]
@@ -358,7 +360,8 @@ def restore(
                 text(
                     "SELECT count(*) FROM pg_class c JOIN pg_namespace n "
                     "ON n.oid=c.relnamespace WHERE n.nspname NOT IN "
-                    "('pg_catalog','information_schema') AND n.nspname NOT LIKE 'pg_toast%'"
+                    "('pg_catalog','information_schema') "
+                    "AND n.nspname NOT LIKE 'pg_toast%'"
                 )
             ):
                 raise OperationsError("Empty recovery database required.")

@@ -1,0 +1,141 @@
+name: Quality
+
+on:
+  pull_request:
+  push:
+    branches: [develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://rentalops_test@127.0.0.1:15446/rentalops_ci_test
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: ./.github/actions/test-postgres
+      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff # v6
+        with:
+          version: '0.12.12'
+          enable-cache: true
+      - name: Install official recovery test tools
+        run: |
+          sudo apt-get install --yes age nginx
+          export DOCKER_CONFIG="$RUNNER_TEMP/rentalops-ci-docker"
+          echo "DOCKER_CONFIG=$DOCKER_CONFIG" >> "$GITHUB_ENV"
+          install -d -m 700 "$DOCKER_CONFIG/cli-plugins"
+          curl --fail --location --silent --show-error -o "$DOCKER_CONFIG/cli-plugins/docker-compose" https://github.com/docker/compose/releases/download/v5.3.0/docker-compose-linux-x86_64
+          echo "fffb010206c952ee5e45d0cd05dc88d3ca063c4634d40eaad6b72677c4c7bbf0  $DOCKER_CONFIG/cli-plugins/docker-compose" | sha256sum --check --strict
+          chmod 700 "$DOCKER_CONFIG/cli-plugins/docker-compose"
+          docker compose version
+      - run: uv sync --project backend --locked
+      - run: uv run --project backend ruff check backend infra
+      - run: uv run --project backend ruff format --check backend infra
+      - run: uv run --project backend mypy --config-file backend/pyproject.toml
+      - run: uv run --project backend python -m pytest -c backend/pyproject.toml backend/tests infra/tests -q
+      - name: Export locked third-party dependencies
+        run: uv export --project backend --locked --all-groups --no-emit-project --no-hashes --output-file "${{ runner.temp }}/audit-requirements.txt" --quiet
+      - run: uv run --project backend pip-audit --requirement "${{ runner.temp }}/audit-requirements.txt" --no-deps --disable-pip --strict
+      - name: Stop own disposable database
+        if: always()
+        run: |
+          if test -f "$RUNNER_TEMP/rentalops-ci-postgres/data/postmaster.pid"; then
+            /usr/lib/postgresql/17/bin/pg_ctl -D "$RUNNER_TEMP/rentalops-ci-postgres/data" -m fast -w stop
+          fi
+
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm audit --audit-level=high
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm test
+      - run: npm run build
+
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://rentalops_test@127.0.0.1:15446/rentalops_ci_test
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: ./.github/actions/test-postgres
+      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff # v6
+        with:
+          version: '0.12.12'
+          enable-cache: true
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: uv sync --project backend --locked
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - run: npm run test:e2e
+        working-directory: frontend
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: ui-evidence
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+          retention-days: 7
+      - name: Stop own disposable database
+        if: always()
+        run: |
+          if test -f "$RUNNER_TEMP/rentalops-ci-postgres/data/postmaster.pid"; then
+            /usr/lib/postgresql/17/bin/pg_ctl -D "$RUNNER_TEMP/rentalops-ci-postgres/data" -m fast -w stop
+          fi
+
+  secrets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Scan complete Git history with checksum-verified Gitleaks
+        run: |
+          curl --fail --location --silent --show-error -o "$RUNNER_TEMP/gitleaks.tar.gz" https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" git --log-opts='--all' --redact --no-banner
+
+  quality-gate:
+    if: always()
+    needs: [backend, frontend, browser, secrets]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    env:
+      BACKEND_RESULT: ${{ needs.backend.result }}
+      FRONTEND_RESULT: ${{ needs.frontend.result }}
+      BROWSER_RESULT: ${{ needs.browser.result }}
+      SECRETS_RESULT: ${{ needs.secrets.result }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Require every quality job to pass
+        run: python3 infra/automation/quality_gate.py
