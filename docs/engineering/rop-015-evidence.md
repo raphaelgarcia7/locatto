@@ -1,0 +1,272 @@
+# ROP-015 — contracts-v2
+
+## Revisão e escopo
+
+Plano humano issue15, `updated_at=2026-10-10T22:13:33Z`, body UTF-8 SHA-256
+`9a1104344f2ffc028b80c00b8834f478a961b9458b10c3956bf21474da199262`.
+Base `acff9c377cd8ff9caa9708ff2e7194281ae43cfd`, branch `codex/15-contracts`;
+SHA final no journal/handoff e revisão independente, sem hash autorreferencial.
+Owner `rop015-contracts-20261010-9a110434-run1`, executor único gpt-6.1-sol/high,
+sem planner/auxiliares. Dependências diretas10/12 e transitivas8/9/3/7/21
+Done/merged ancestrais foram reconciliadas pelo coordenador antes do despacho.
+
+Aplicadas as políticas humanas compartilhadas sem publicar mudanças alheias.
+Escopo limitado a15; nenhuma retirada/devolução14, IA, vitrine ou integração17+.
+ROP006 revalidada pelo humano não executa em paralelo. #21 é dependência histórica.
+Regras impactadas: [contracts-v2](../product/contracts-v2.md), README e APIs.
+Fonte v0.4 byte-exata SHA-256
+`c036ecf76d780e5a2068867710d3d089aa62d5e7c1d42e2dab0fb059145731f0`;
+PDF de referência privado
+`1afe14fd31c363e16e092053f62265a8a8257ad7996f7ce49b0aca23021cb7ad`.
+Aprovação jurídica é informada pelo responsável, não certificada pelo agente.
+Referências originais não foram modificadas. A skill PDF orientou a marcação da
+operação e renderização/inspeção de todas as páginas dos três espécimes sintéticos.
+
+## Matriz de aceite e substituições explícitas
+
+| Critério vigente | Implementação / prova |
+| --- | --- |
+| CTR-01: progressivo, PF/CPF/endereço, RG opcional, empresa, condição/foto/template | Parâmetros autenticados e versionados; `test_ctr01_progressive_optional_fields_before_signal_no_allocation` e API/logo; preview lista pendências por campo/produto; final revalida. Contato/identidade sintéticos runtime, RG/logo ausentes permitidos; dados reais não são pré-requisito do desenvolvimento |
+| Antes do sinal, sem reserva/estoque/dinheiro automáticos | CTR01 verifica pagamento/alocação inalterados. Serviço contratos não escreve recibos, financeiro, locação ou estoque; UI não oferece transferência/cobrança |
+| CTR-02: todos itens, kits personalizados/avulsos, quantidades e preços individuais | `test_ctr02_negotiated_custom_kit_and_loose_items_are_frozen` cobre composição personalizada com agregação2/5, total230.02 e catálogo intacto; PDF inclui composição negociada e relação fotográfica consolidada |
+| Nove cláusulas/termo exatos, sem marca sistema/reposição/teto/proibições antigas | Template empacotado byte-exato, pin e revisão fixos; unidade verifica títulos1–9, trechos restaurados/termo e ausência de notas internas/marca/cola quente/perfuração/coluna de reposição. Cadastro preserva valores de catálogo; não exige reposição nem logo |
+| Muitos itens, fotos vertical/horizontal, falta/corrupção/renderer | Unidade renderiza30 itens, conta31 ocorrências desenhadas incluindo logo, razões0.5/2.0, dois nomes por item nos anexos; integração recusa foto ausente/corrompida e erro do renderer/template. Sem teto de páginas/omissão; três espécimes6/7/21 páginas inspecionados |
+| CTR-03: determinismo/snapshots/novas versões/diff | Mesmos snapshot/clock/versão produzem bytes idênticos. `test_ctr03_*` altera catálogo e empresa/logo, verifica bytes antigos e assinatura nova pendente. Snapshots/version/event/request/revisão de empresa imutáveis, triggers PostgreSQL |
+| Valores atuais autoritativos e assinatura após alteração13 | Regressão locação400/sinal200→500 mantém entrada200/saldo300, recebido200/pendente300; não usa50% novo. Contrato anterior fica incompatível com versões comercial/locação atuais; novo documento não herda assinatura |
+| CTR-04: emissão/entrega/upload/conferência diferentes | Serviço/eventos e Chromium exercem entrega sem assinatura, upload awaiting_review, conferência manual explícita; substituir anexo exige nova conferência e preserva anterior. Datas ISO/São Paulo, auditoria UTC, ator/session do servidor |
+| Assinatura vigente para14 | `signature_state` compara última versão assinada com quotation/rental atuais, não somente flag signed. #14 consumirá contrato técnico; retirada em si não é implementada nem alegada testada |
+| Acesso/vínculo/privacidade/filelimits | API cobre401/403/404/strict422, no-store/nosniff/attachment, ausência de paths/pixels em metadados, logo validado/normalizado e remoção futura. Assinaturas PDF/JPEG/PNG até10.000.000; magic/mime, ativo/criptografado/truncado/excessivo recusados. Sem filenames pessoais persistidos, paths arbitrários ou expurgo |
+| CTR-05: concorrência/replay/rollback/compensação | PostgreSQL real: mesma chave simultânea/efeito único, chaves distintas/409, payload diferente, versão stale, atualização durante renderer; rollback e ACK perdido em emissão/logo; arquivo novo compensado apenas após confirmação de não referência, commit desconhecido preservado/reconciliado. Histórico anterior nunca apagado |
+| Locks/transações/armazenamento | request→quotation→rental→financial→series, configuração independente; captura/render fora da transação, versões rechecadas antes de commit. Armazenamento privado existente, somente imagens normalizadas e provas validadas, sem rede/LLM |
+| CTR-06: UI/UX produção4 larguras e PDFs | Chromium/axe320/390/768/1440, teclado/foco visível e sucesso focado, fonte200%, reduced motion, empty/loading/error/success/unknown; logo opcional/upload/remoção, foto pendente, emissão/replay/entrega/conferência/nova versão. Capturas mascaradas privadas, não certificam todos dispositivos/usabilidade |
+| CTR-07: ACs históricos e gates | Matriz preserva requisitos históricos não superados. Substituições v2: aprovação jurídica humana v0.4; dados/fotos reais somente na emissão; logo/reposição opcionais/omitidos; cláusulas somente aprovadas; final sem minuta/notas internas. Pipeline abaixo; revisão independente/remote checks/merge/Done ainda são do coordenador |
+
+Redação restaurada sobre não reembolso, seis meses/30 dias, cartão, adesão pelo
+pagamento e R$100/dia não cria cálculo por calendário, multa/cobrança/estorno,
+remarcação ou dispensa de assinatura. Devolução parcial e aplicação comercial
+continuam humanas. Exigências históricas divergentes de reposição, cola quente,
+perfuração, teto novo e bloqueio do desenvolvimento foram explicitamente
+substituídas, não silenciosamente omitidas.
+
+## Ambiente e comandos
+
+Fixture NOVA privada Ubuntu24.04/ext4 UID1000,
+`/home/rop004-rehearsal/rop015-k26pdXqy`, PostgreSQL17.11 loopback15445, somente
+dados sintéticos. Credenciais aleatórias config0600 não publicadas. Helper privado
+`C:/Users/Raphael/.codex/tmp/rop015-environment.py`; `sync-final` copia o checkout
+e somente inputs infraautomation/tests compartilhados para validar coordenação,
+sem adicioná-los ao commit. Ferramentas nginx/age anteriores usadas só leitura.
+MinIO do usuário e fixtures11/12/13 preservados; nenhum serviço anterior reiniciado.
+
+Logs/capturas/PDFs brutos privados: raiz compartilhada
+`.rentalops/rop015-evidence/run01`; browser novo exclusivo em
+`frontend/test-results/executor-rop015/run13/source/frontend`. Antes de reruns,
+todos os reports/capturas anteriores foram copiados para diretórios de backup
+novos; não sobrescritos. Traces de contratos explicitamente desativados para
+evitar payloads de CPF/endereço/documento, mantendo assertions e capturas
+mascaradas. Não há dados reais nem PDFs/assinaturas versionados.
+
+| Gate / comando | Resultado |
+| --- | --- |
+| `quality-final pytest backend/tests infra/tests -q` Linux/PG real |497 passed,2 warnings,121.18s, exit0; backend487 + infra10, nenhum skip, incluindo regressão de fuso |
+| Ruff `check backend ...infra/automation ...infra/tests` / `format --check` | exit0,97 arquivos formatados; unidade final revalidada após assert de privacidade |
+| `mypy --config-file backend/pyproject.toml` | exit0,46 fontes sem problemas, modo estrito |
+| Windows `pytest infra/tests` com inputs compartilhados |10 passed,4.43s, exit0 |
+| `npm run lint` / `npm run format:check` | exit0, sem desabilitar regras |
+| `npm test` |84 passed,10 files,15.56s, exit0, incluindo fronteiras da data automática de upload; ajustes posteriores apenas no locator E2E, não no código/unit tests |
+| `npm run build` produção |exit0,132 módulos, JS `index-DnxO0yF8.js`, CSS `index-CO2VOkxz.css`; clone browser mesmos artefatos |
+| `npm audit --audit-level=high` |exit0,0 vulnerabilidades de todas severidades |
+| pip-audit Linux e Windows, export `uv --locked --all-groups` |exit0,0 vulnerabilidades conhecidas; hashes obrigatórios, projeto local omitido |
+| Playwright/axe produção `npm run test:e2e` |136 passed,34 por largura320/390/768/1440;2.8/2.8/2.8/3.0m, exit0, run13 final; zero retries |
+| Gitleaks histórico e diff completo base→código |exit0,51 commits e1 commit do diff completo,0 leaks; staged código0. Relatório recebe scan staged próprio e histórico/diff completos do HEAD final registrados no journal/handoff |
+| `uv build --project backend --wheel` |exit0; template incluído no wheel com SHA c036ecf7 byte-exato |
+
+Auditorias de dependência correspondem ao lock deste checkout, que não mudou
+desde as duas auditorias. Warnings mantidos: Starlette/TestClient depreca httpx;
+anyio depreca alias BlockingPortal; pip-audit avisa genericamente sobre no-deps
+com hashes. Não foram silenciados. Nenhum skip, mudança de timeout, retry,
+limite de autenticação ou orçamento foi aplicado para obter verde.
+
+Comandos exatos adicionais (na raiz do checkout, salvo frontend):
+
+```powershell
+wsl -d Ubuntu-24.04 -u rop004-rehearsal -- python3 /mnt/c/Users/Raphael/.codex/tmp/rop015-environment.py quality-final pytest backend/tests infra/tests -q
+uv run --project backend ruff check backend C:/Projects/praxis/rmg-chatbot/infra/automation C:/Projects/praxis/rmg-chatbot/infra/tests
+uv run --project backend ruff format --check backend C:/Projects/praxis/rmg-chatbot/infra/automation C:/Projects/praxis/rmg-chatbot/infra/tests
+uv run --project backend mypy --config-file backend/pyproject.toml
+uv run --project backend pytest C:/Projects/praxis/rmg-chatbot/infra/tests -q
+uv export --locked --project backend --all-groups --format requirements-txt --no-emit-project --output-file C:/Users/Raphael/.codex/tmp/rop015-audit-windows.txt
+uv run --project backend pip-audit --requirement C:/Users/Raphael/.codex/tmp/rop015-audit-windows.txt --require-hashes --disable-pip --no-deps
+```
+
+Linux usa export equivalente no diretório config privado da fixture e
+`quality pip-audit --requirement /home/rop004-rehearsal/rop015-k26pdXqy/config/audit-linux.txt --require-hashes --disable-pip --no-deps`.
+Frontend: `npm run lint`, `npm run format:check`, `npm test`, `npm run build`,
+`npm audit --audit-level=high`. No clone run13, comando browser configurado para
+`wsl -d Ubuntu-24.04 -u rop004-rehearsal -- python3 /mnt/c/Users/Raphael/.codex/tmp/rop015-environment.py browser-final`,
+seguido de `npm run test:e2e`; runner existente usa1 worker/retries0 e harness novo
+por largura, sem zerar budgets da aplicação.
+
+Logs finais privados por gate: full-pytest-timezone-final, infra-windows-first,
+ruff-timezone-final, ruff-format-timezone-final, mypy-timezone-final,
+eslint-summary-final, prettier-summary-final, vitest-locator-final,
+build-event-date-final, browser-build-summary-final, browser-matrix-summary-final,
+pip-audit-linux-first, pip-audit-windows-first, npm-audit-first e source-fingerprints-summary-final
+(`.log`). Todos os resultados
+PASS acima têm exit0; resultados anteriores permanecem em seus arquivos originais.
+
+Scans: Gitleaks8.30.1 `git --pre-commit --staged`, `git --log-opts='--all'`
+e `git --log-opts='acff9c377cd8ff9caa9708ff2e7194281ae43cfd..HEAD'`, todos com
+`--redact --no-banner --no-color --report-format json --report-path` privado.
+Logs gitleaks-code-staged-final/code-history-final/code-diff-final; para o HEAD
+com relatório, gitleaks-evidence-staged-final/history-completed/diff-completed.
+
+## Falhas originais preservadas
+
+- Primeiro PG focado:9 FAIL/2 PASS, erro de configuração minRowHeights do
+  ReportLab corrigido. Teste de imagem passou a contar ocorrências desenhadas,
+  não recursos PDF deduplicados, mantendo todas31 imagens e suas proporções.
+- Full-first:490 PASS/2 FAIL; nova fixture de armazenamento privado não criada e
+  comparação histórica0005 incluindo tabelas futuras0010. Fixture corrigida;
+  filtro da etapa histórica exclui somente company/contract, mantendo comparação
+  das tabelas pertinentes e assertions de rollback/preservação. Full-second492 PASS.
+- JSDOM FileList não participa da validade nativa como Chromium: unit testa
+  handler/payload via submit explícito; Chromium mantém checkValidity required.
+  Corrida de autenticação no novo módulo corrigida com guard authenticated,
+  regressão unitária e browser real. Primeira rodada browser2 FAIL, seguinte2 PASS.
+- Full-third494 PASS/1 FAIL: comparava PNG bruto com normalizado RGBA. Assert agora
+  compara normalize_image, mantendo rollback, replay e preservação de anteriores.
+- Full-final485 PASS/1 FAIL: substring content confundia content_type com chave de
+  pixels. Assert usa chaves exatas/sentinel privado e exige digest alterado no diff;
+  não remove metadados seguros nem enfraquece privacidade.
+- Matriz inicial135 PASS/1 FAIL: desktop rental-changes recebeu503 ao consultar
+  locação; trace e PostgreSQL registraram timeout no lock de users durante
+  autenticação. Causa raiz não comprovada. Evidência preservada; matriz final
+  será serializada após pytest, sem relaxar assertions, budgets ou retries0.
+- Matriz run04 interrompida após33 PASS/1 FAIL em320 e13 PASS em390: captura
+  loading nova revelou corrida no harness ao retirar a interceptação antes do
+  handler gated terminar (`route already handled`). Sincronização aguarda estado
+  carregado antes de unroute, sem remover assertions de loading/empty. Regressão
+  focada2 PASS/23.5s; matriz integral nova run06. Essa corrida não explica nem é
+  apresentada como causa da falha503 anterior.
+
+Auto-revisão corrigiu a data de emissão exibida no cabeçalho para São Paulo;
+timestamp de auditoria continua UTC. Regressão exige UTC00:30 ser o dia anterior
+na apresentação. Run06 foi interrompido sem falha adicional (320:34 PASS,
+390:18 PASS), para não alegar matriz final sobre código anterior. Nova matrizrun07
+foi executada após pytest final. Os três espécimes já inspecionados permanecem
+byte-idênticos com o renderer final (comparação completa, não só texto).
+
+Fingerprints:99 arquivos backend coincidem com source-final;
+82 frontend e4 artefatos de produção coincidem com clone final. Nenhuma
+divergência; template no índice Git e no wheel conserva SHA aprovado completo.
+
+## PDFs e inspeção
+
+Referência7 páginas renderizadas/abertas, bytes preservados. Três espécimes
+sintéticos privados, todas34 páginas renderizadas com Poppler e inspecionadas:
+
+| Espécime | Páginas / SHA-256 |
+| --- | --- |
+| blank-draft |6 / `9dc8383d4425553ddb7fd9369b45b04bee8e2c9e50f8d7be1d434178ab2508aa` |
+| filled-final |7 / `4cf47cedc4698b3e433081b5f75f2b373a6217951121c9d886b9fd3a0bdcb34c` |
+| many-items-final |21 / `bd38693129458a75caaad388de9e49588435d70e49a2db03a508b5243dbd67b6` |
+
+Campos/assinaturas amplos, cláusulas e termo completos, paginação e fotos sem
+distorção/omissão; draft em todas páginas, finais sem marca/minuta/notas internas.
+Poppler avisou fontes fallback Symbol/ArialUnicode; texto Helvetica/acentos e
+imagens foram inspecionados, sem clipping observado. Não é certificação jurídica,
+assinatura criptográfica ou prova com fotos/dados reais. Retenção/backups/restore
+de documentos e validação operacional da equipe permanecem gates de produção.
+
+## Inspeção UI real e correção visual (run07)
+
+Capturas são do Chromium real sobre produção, com campos privados mascarados;
+recortes somente para leitura, sem modificar originais, em ui-inspection-run07.
+
+| Largura | Capturas abertas / observações |
+| --- | --- |
+|320 | contracts-photo-pending e contract-history (recortes legíveis): condição/foto pendente desabilita final, cards v2/v1 separados e anexo anterior consultável; parameters-loading e parameters-unknown: loading distinto de empty, mensagem unknown e replay explícito com campos bloqueados. Quebra de linhas sem corte horizontal, rolagem vertical longa necessária |
+|390 | parameters-logo: imagem opcional e remoção somente futura com controles legíveis; contract-awaiting-review: entrega e anexo não são assinatura conferida; contract-zoom200 e viewport: controles/textos novos refluem em coluna, sem corte horizontal, com rolagem vertical ampliada |
+|768 | parameters-empty/error: campos em duas colunas, logo explicitamente opcional, erro distinto de vazio; contract-history: v2 pendente e v1 conferida, anexos preservados. contract-signed revelou aviso antigo de emissão dizendo que entrega/assinatura ainda faltavam, embora estado vigente estivesse conferido |
+
+O achado visual acima foi corrigido: aviso da emissão agora remete à entrega e
+assinatura atuais, sem afirmar pendência após transições. Chromium exige a
+mensagem correta após assinatura e ausência da frase antiga. Run07 interrompido
+sem nova falha automática (102 PASS em três larguras e15 PASS desktop), preservado;
+ESLint/Prettier/Vitest/build revalidados e matriz integral run08 no build corrigido.
+Backend497 não mudou; fingerprints confirmam reutilização exata dessa evidência.
+
+## Inspeção final run08
+
+| Largura | Capturas efetivamente abertas / observações |
+| --- | --- |
+|320 | contract-signed: aviso corrigido coerente com assinatura vigente conferida; contract-history: v2 pendente/v1 conferida e download de anexo antigo, sem corte horizontal; parameters-unknown: campos bloqueados e replay destacado |
+|390 | contract-signed: aviso e estado concordam; parameters-error: retry e erro distintos de empty; contract-zoom200: texto/controles novos ampliados refluem sem corte horizontal e conservam ações, exigindo rolagem vertical |
+|768 | contract-signed: mensagem da emissão sem contradição com assinatura vigente; parameters-empty/loading: formulário progressivo em duas colunas, logo opcional e loading explícito separado de vazio; rótulos e controles legíveis |
+|1440 | contract-signed/history: aviso e estado conferido coerentes, versão nova pendente e antiga/anexo preservados; parameters-logo/zoom200: marca opcional, remoção futura, campos/ações amplos sem corte horizontal |
+
+Run08 concluiu136 PASS (34 por largura;2.6/2.9/3.9/4.2m), exit0. A inspeção
+desktop encontrou a data automática do upload mostrando dia UTC em vez de São
+Paulo após21h. Somente esse resumo foi corrigido; timestamps UTC de auditoria e
+datas ISO declaradas de entrega/conferência não foram alterados. Revisão focada
+de todas as conversões/avisos novos confirmou emissão PDF/defaults/validação
+futura já em São Paulo, datas de retirada/evento/devolução preservadas da oferta.
+Regressão unitária cobre00:30Z/03:00Z, datas declaradas e timestamp original;
+Chromium exige resumo do upload correspondente ao instante retornado pelo
+servidor. Run08 e backups permanecem íntegros; nova matriz integral run09.
+
+Run09 interrompido com33 PASS/1 FAIL em320 e15 PASS em390: novo locator exact
+incluía texto dos details/link; error-context mostra data correta presente. Duas
+regressões focadas seguintes falharam por selecionar também o li ancestral e
+por incluir o separador posterior do link, respectivamente. Todas preservadas
+em browser-date-locator-regression/browser-date-nested-locator-regression e
+backups próprios. Locator final seleciona o evento de upload pelo prefixo/link
+e compara com igualdade exata somente o resumo anterior a details. Nenhuma
+alteração extra da aplicação, filtro de data, timeout ou retry para esse ajuste.
+Regressão focada final run12:1 PASS/18.8s, exit0, antes da matriz integral run13.
+
+Preparação dos recortes desktop pelo Python do projeto compartilhado não tinha
+PIL e retornou ModuleNotFoundError, sem gerar/sobrescrever arquivos. Executada
+com o Python bundled da skill PDF, que já contém Pillow, exit0. Nenhum pacote
+adicionado ao projeto compartilhado por causa da inspeção.
+
+## Inspeção do candidate final run13
+
+Capturas originais mascaradas e recortes legíveis privados ui-inspection-run13,
+sem substituir qualquer conjunto anterior.
+
+| Largura | Capturas efetivamente abertas / observações |
+| --- | --- |
+|320 | contract-awaiting-review: data automática do anexo coerente com São Paulo, entrega não dispensa conferência; parameters-unknown: campos bloqueados, replay explícito e logo opcional. Cards/ações refluem sem corte horizontal, com rolagem vertical longa |
+|390 | contract-awaiting-review: data automática correta e estado aguardando conferência distinto da entrega; contract-zoom200: ações/texto ampliados refluem em coluna, acessíveis por rolagem vertical sem corte horizontal |
+|768 | contract-signed: entrega/upload/conferência com datas coerentes e estado conferido, ações separadas; parameters-error: falha de leitura/retry explícitos, não apresenta erro como formulário vazio |
+|1440 | contract-signed: aviso corrigido, assinatura vigente conferida e datas consistentes, entrega/upload/conferência distintos; parameters-logo: imagem opcional e remoção somente futura, campos e ações legíveis |
+
+## Encerramento do executor
+
+Matriz final run13 concluída136 PASS, exit0. Fingerprints finais em
+source-fingerprints-completed.log:99 backend/82 frontend/4 artefatos de produção/
+2 inputs infra privados byte-idênticos aos arquivos testados. Commit de código
+`c891b4c91b963cf11f362c04861cf1e4e2f04445`; depois dele somente este relatório
+é adicionado, sem alterar fontes/tests/build. Base permanece acff9c3 completo
+registrado acima; SHA final do relatório no journal/handoff.
+
+Cleanup: sessão10621 e todas as anteriores encerradas; harness gerenciado parou
+frontend/backend. Verificação Windows/Linux confirma portas4173/8000/15445
+fechadas; postmaster.pid próprio ausente. Somente PG de ROP015 parado, fixture
+/home/rop004-rehearsal/rop015-k26pdXqy e config privada retidas, sem expurgo de
+imagens/PDFs/reports/backups. MinIO do usuário permanece running, mesmo ID
+f419de217de93134b0933add2efcf516f22a5fbf2565e23ac669b75eb45b50c6 e StartedAt
+2026-10-09T02:04:38.643313867Z; fixtures11/12/13 preservadas.
+
+Nenhuma falha aberta no pipeline final local. A causa-raiz do503 histórico
+continua não demonstrada; não foi ocultado nem associado indevidamente às
+corridas de locator. Warnings de bibliotecas e NO_COLOR/FORCE_COLOR preservados.
+Sem certificação jurídica/usabilidade universal/produção. Dados/fotos reais
+continuam gates de emissão final; retenção/backups/restore e validação da equipe
+antes de produção. Revisão independente, CI/proteções remotas, PR/merge/Project
+Done/release continuam pendentes do coordenador, não alegados PASS.
+
+Revisão independente do SHA final, publicação/PR/checks remotos/merge/Project
+Done/release não foram executados nem declarados aprovados por este executor.
