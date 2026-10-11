@@ -7,7 +7,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        scenario: [synthetic-secret]
+        scenario: [cancelled]
     uses: ./.github/workflows/quality.yml
     with:
       scenario: ${{ matrix.scenario }}

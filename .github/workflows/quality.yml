@@ -13,6 +13,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 3
     steps:
+      - name: Controlled cancellation window
+        if: inputs.scenario == 'cancelled'
+        run: sleep 120
       - name: Controlled backend result
         run: test '${{ inputs.scenario }}' != backend
   frontend:
