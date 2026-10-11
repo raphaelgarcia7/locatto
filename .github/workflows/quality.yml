@@ -18,7 +18,6 @@ jobs:
     timeout-minutes: 20
     env:
       TEST_DATABASE_URL: postgresql+psycopg://rentalops_test@127.0.0.1:15446/rentalops_ci_test
-      DOCKER_CONFIG: ${{ runner.temp }}/rentalops-ci-docker
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: ./.github/actions/test-postgres
@@ -29,6 +28,8 @@ jobs:
       - name: Install official recovery test tools
         run: |
           sudo apt-get install --yes age nginx
+          export DOCKER_CONFIG="$RUNNER_TEMP/rentalops-ci-docker"
+          echo "DOCKER_CONFIG=$DOCKER_CONFIG" >> "$GITHUB_ENV"
           install -d -m 700 "$DOCKER_CONFIG/cli-plugins"
           curl --fail --location --silent --show-error -o "$DOCKER_CONFIG/cli-plugins/docker-compose" https://github.com/docker/compose/releases/download/v5.3.0/docker-compose-linux-x86_64
           echo "fffb010206c952ee5e45d0cd05dc88d3ca063c4634d40eaad6b72677c4c7bbf0  $DOCKER_CONFIG/cli-plugins/docker-compose" | sha256sum --check --strict
