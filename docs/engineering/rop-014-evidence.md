@@ -137,3 +137,61 @@ normalization; manifest SHA-256
 `2bde42b3709abec2975248ef5b5eb5b2cc482c33ffad78b989df19d794bb650e`.
 Full four-width browser matrix and remote exact-head CI are not inferred from the
 focused GREEN; their final results are recorded separately in the delivery journal.
+
+## Independent review correction 2 (final allowed round)
+
+Round1 review failed RET-03/RET-06/RN-049 and RET-07 on
+`b1035d21165f27bfeb264ec39d89809fde19725d`. Its method-level terms reproduction
+was not a complete PostgreSQL financial flow. This correction adds that real flow:
+confirmed historical deposit200 on total400, integral handover, permitted out-state
+price increase to500, actual receipt/reconciliation500, settled summary, real
+cleaning return, explicit maintenance routing and close. RED source-run19 changed
+terms200/300 to250/250 and invalidated deposit/fully-paid on close. The production
+fix includes completed among historical-confirmation states; no new receipt,
+refund, reconciliation, obligation or commercial rule is created by close.
+GREEN asserts complete unchanged financial DTO, terms, debt, receipts, versions,
+immutable payment history and replay snapshots, while maintenance remains blocked.
+
+The two existing custody browser cases reproduce the seed race with **two workers**:
+RED390 one passed/one failed409 at contract issuance. The production company-version
+guard is correct and unchanged. Contract/custody tests now request independent
+UUID PostgreSQL schemas through the existing loopback-only synthetic harness.
+Request-local service selection uses a context-local synthetic cookie, not a
+production tenant or auth bypass. Only Alembic schema initialization is locked
+because Alembic's migration context is process-global; tests and business requests
+remain concurrent. A real PG/API regression runs two contexts concurrently,
+preserves stale409/Origin403/cross-context-session401, rejects unknown fixture400,
+checks independent company versions and verifies all three schemas are removed.
+The matrix runner no longer forces workers1: it inherits Playwright configuration
+(CI2/local4). Local full correction matrix uses CI=true and therefore two workers,
+zero retries and unchanged assertions/timeouts. GREEN390 passes both custody flows
+with two workers, not a sequential rerun.
+
+Private correction2 backups precede reruns; prior correction1/reviewer/CI/failure
+artifacts remain intact. Exclusive logs retain initial source18 pagination0 setup
+failure separately from valid business RED19. Intermediate source20 passed the
+close financial invariants but exposed an invalid latest-history-by-clock test
+assumption; the test now selects the exact financial revision and still requires
+complete snapshot equality. A Ruff long-comment failure was mechanically fixed.
+An audit wrapper invocation attempted `uv run export` instead of `uv export`;
+the failed export/missing-input audit are retained, followed by a separate correct
+locked export and strict audit. None of these failures is represented as PASS.
+
+Focused source21: six passed,21 deselected,two upstream warnings,8.26s. Browser
+GREEN390: two passed/two workers/zero retries,40.5s. Full source22 PG/infra:
+**628 passed**,two upstream deprecation warnings,264.22s; Ruff check/format121 and
+mypy55 PASS. Frontend lint/format,94Vitest,production build134 and npm audit0 PASS;
+strict locked Linux/Windows dependency audits report no known vulnerabilities.
+Concurrent local matrix01 initially exposed two30s timeouts in320 (long existing
+rental-change flow and a reservation-flow final screenshot),34 passed/two failed.
+Its original logs/traces/captures remain preserved; concurrent backend load is
+not asserted as the cause. No timeout, retry, assertion or worker count is relaxed.
+The four-width result and any separately namespaced diagnostic/resumption are
+recorded exactly in the journal, not represented as a wholly passing first run.
+All144
+production browser cases across320/390/768/1440, source/capture fingerprints,
+exact-head remote CI and cleanup results are recorded separately in the shared
+delivery journal/PR. Earlier626/144/CI38187266335 apply only to b103, not this round.
+Computer-use unavailability and physical-device/screen-reader/native-zoom limits
+from correction1 remain explicit; no new native interactive inspection is inferred
+from Playwright or rendered screenshot inspection.

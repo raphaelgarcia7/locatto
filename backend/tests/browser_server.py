@@ -4,15 +4,19 @@ Requires TEST_DATABASE_URL and uses the same fail-closed UUID schema fixture as
 integration. Test control endpoints exist only in this wrapper, never main.app.
 """
 
-from contextlib import asynccontextmanager
+from contextlib import ExitStack, asynccontextmanager, contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from threading import Lock
 from uuid import uuid4
 
 import uvicorn
 from alembic import command
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
 from rentalops_api.auth import AuthError, AuthService, AuthSettings
@@ -46,13 +50,34 @@ def business_fixture_clock() -> datetime:
     return datetime(2026, 10, 10, 12, tzinfo=UTC)
 
 
-@asynccontextmanager
-async def lifespan(app):
+@dataclass
+class BrowserFixture:
+    auth: AuthService
+    catalog: CatalogService
+    customers: CustomerService
+    quotations: QuotationService
+    payments: PaymentService
+    rentals: RentalChangeService
+    contracts: ContractService
+    custody: HandoverService
+
+
+# Only schema initialization uses this lock: Alembic's migration context is
+# process-global. Requests, business transactions and parallel tests do not.
+migration_lock = Lock()
+fixture_context: ContextVar[BrowserFixture | None] = ContextVar(
+    "browser_fixture", default=None
+)
+FIXTURE_COOKIE = "rentalops_test_fixture"
+
+
+@contextmanager
+def browser_fixture():
     namespace = isolated_engine.__wrapped__()
     engine = next(namespace)
     storage = TemporaryDirectory(prefix="rentalops-catalog-browser-")
     try:
-        with engine.begin() as connection:
+        with migration_lock, engine.begin() as connection:
             command.upgrade(migration_config(connection), "head")
         service = AuthService(
             build_session_factory(engine),
@@ -60,43 +85,89 @@ async def lifespan(app):
                 "http://127.0.0.1:4173", False, "synthetic-browser-test-key" * 3
             ),
         )
-        app.state.service = service
-        app.state.targets = set()
-        app.state.namespace = namespace
-        app.state.storage = storage
-        production_app.dependency_overrides[auth_service] = lambda: service
         catalog = CatalogService(
             build_session_factory(engine), PhotoStorage(Path(storage.name))
         )
-        production_app.dependency_overrides[catalog_service] = lambda: catalog
         customers = CustomerService(build_session_factory(engine))
-        production_app.dependency_overrides[customer_service] = lambda: customers
         quotations = QuotationService(
             build_session_factory(engine), clock=business_fixture_clock
         )
-        production_app.dependency_overrides[quotation_service] = lambda: quotations
         payments = PaymentService(
             build_session_factory(engine), ProofStorage(Path(storage.name))
         )
-        production_app.dependency_overrides[payment_service] = lambda: payments
         rentals = RentalChangeService(
             build_session_factory(engine), clock=business_fixture_clock
         )
-        production_app.dependency_overrides[rental_service] = lambda: rentals
         contracts = ContractService(
             build_session_factory(engine), PhotoStorage(Path(storage.name))
         )
-        production_app.dependency_overrides[contract_service] = lambda: contracts
         custody = HandoverService(build_session_factory(engine))
-        production_app.dependency_overrides[handover_service] = lambda: custody
-        yield
+        yield BrowserFixture(
+            service,
+            catalog,
+            customers,
+            quotations,
+            payments,
+            rentals,
+            contracts,
+            custody,
+        )
     finally:
-        production_app.dependency_overrides.clear()
         namespace.close()
         storage.cleanup()
 
 
+def current_fixture() -> BrowserFixture:
+    return fixture_context.get() or app.state.fixture
+
+
+def fixture_dependency(attribute):
+    def resolve():
+        return getattr(current_fixture(), attribute)
+
+    return resolve
+
+
+@asynccontextmanager
+async def lifespan(app):
+    with ExitStack() as resources:
+        app.state.resources = resources
+        app.state.fixture = resources.enter_context(browser_fixture())
+        app.state.fixtures = {}
+        app.state.targets = set()
+        for dependency, attribute in (
+            (auth_service, "auth"),
+            (catalog_service, "catalog"),
+            (customer_service, "customers"),
+            (quotation_service, "quotations"),
+            (payment_service, "payments"),
+            (rental_service, "rentals"),
+            (contract_service, "contracts"),
+            (handover_service, "custody"),
+        ):
+            production_app.dependency_overrides[dependency] = fixture_dependency(
+                attribute
+            )
+        try:
+            yield
+        finally:
+            production_app.dependency_overrides.clear()
+
+
 app = FastAPI(lifespan=lifespan)
+
+
+@app.middleware("http")
+async def scoped_fixture(request, call_next):
+    key = request.cookies.get(FIXTURE_COOKIE)
+    if key is not None and key not in app.state.fixtures:
+        return JSONResponse({"detail": "Unknown synthetic fixture."}, status_code=400)
+    fixture = app.state.fixtures[key] if key else app.state.fixture
+    token = fixture_context.set(fixture)
+    try:
+        return await call_next(request)
+    finally:
+        fixture_context.reset(token)
 
 
 @app.get("/__test/health")
@@ -107,15 +178,22 @@ def health():
 @app.post("/__test/cleanup")
 def cleanup(request: Request):
     production_app.dependency_overrides.clear()
-    request.app.state.namespace.close()
-    request.app.state.storage.cleanup()
+    request.app.state.resources.close()
     return {"status": "cleaned"}
 
 
 @app.post("/__test/setup")
-def setup(request: Request):
+def setup(request: Request, response: Response, isolated: bool = False):
+    fixture = current_fixture()
+    if isolated:
+        # Company parameters are intentionally global in the product. Give each
+        # contract/custody test its own real schema, not competing global seeds.
+        fixture = request.app.state.resources.enter_context(browser_fixture())
+        key = uuid4().hex
+        request.app.state.fixtures[key] = fixture
+        response.set_cookie(FIXTURE_COOKIE, key, httponly=True, samesite="lax")
     email = f"browser-{uuid4().hex}@example.invalid"
-    service = request.app.state.service
+    service = fixture.auth
     service.create_user(email)
     request.app.state.targets.add(email)
     token = service.issue_link(email, "access")
@@ -132,7 +210,7 @@ class Control(BaseModel):
 def control(payload: Control, request: Request):
     if payload.email not in request.app.state.targets:
         raise AuthError(400, "Synthetic test target required.")
-    service = request.app.state.service
+    service = current_fixture().auth
     if payload.operation == "reset":
         return {"token": service.issue_link(payload.email, "reset")}
     if payload.operation == "deactivate":

@@ -451,6 +451,13 @@ downgrade recusa descartar custódia existente.
 Ver [regras e contratos v2](docs/product/handover-return-v2.md) e
 [matriz de evidência #14](docs/engineering/rop-014-evidence.md).
 
+O encerramento operacional também preserva o sinal histórico da confirmação:
+um total aumentado de R$ 400 para R$ 500 mantém sinal de R$ 200 e saldo de R$ 300,
+sem recalcular o sinal só porque o estado passou de saída para concluída.
+O harness de navegador isola os parâmetros globais de cada cenário sintético de
+contrato/retirada em um schema PostgreSQL próprio. A matriz herda os workers do
+Playwright (dois na CI), sem forçar execução sequencial nem repetir conflitos.
+
 ## Configuração local
 
 Preparação operacional #4: [runbook](infra/operations/README.md), Compose Linux com

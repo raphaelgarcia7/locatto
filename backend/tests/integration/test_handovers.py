@@ -2,6 +2,7 @@
 
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, date, datetime
+from decimal import Decimal
 from threading import Barrier
 from unittest.mock import patch
 from uuid import UUID, uuid4
@@ -516,6 +517,84 @@ def test_ret06_unknown_commit_ack_replay_and_v2_maintenance_close_rollback(custo
     assert repeated and replay["state"] == "completed"
     for row in replay["lines"]:
         assert available(custody, row["product_id"], date(2026, 10, 14)) == 0
+
+
+def test_ret03_ret06_completed_preserves_confirmed_deposit_after_out_increase(custody):
+    from .test_payments import allocation, reconcile
+    from .test_payments import receive as money_receive
+    from .test_rental_changes import change_command
+
+    service, actor, identifier, _, changes = custody
+    payments = changes[1]
+    initial = service.payments.get(payments[2])
+    assert initial["total"] == "400.00"
+    assert initial["estimated_deposit"] == initial["applied_deposit"] == "200.00"
+    assert initial["deposit_validated"] and not initial["fully_paid"]
+    sent = handover(custody)[0][0]
+    changed, _ = changes[0].command(
+        identifier,
+        "change",
+        change_command(changes, service.get(identifier), total=Decimal("500.00")),
+        actor,
+    )
+    assert changed["state"] == "out"
+    assert changed["current_financial"]["estimated_deposit"] == "200.00"
+    assert changed["current_financial"]["estimated_balance"] == "300.00"
+    money = money_receive(payments, "300.00")
+    # Identify actual origins, never rely on random UUID receipt ordering.
+    distribution = [
+        allocation(
+            money,
+            index=index,
+            deposit="200.00" if row["amount"] == "200.00" else "0.00",
+            balance="300.00" if row["amount"] == "300.00" else "0.00",
+        )
+        for index, row in enumerate(money["receipts"])
+    ]
+    settled = reconcile(payments, distribution)
+    assert settled["deposit_validated"] and settled["fully_paid"]
+    assert settled["net_received"] == "500.00"
+    assert settled["remaining"] == settled["operational_debt"] == "0.00"
+    received, return_command = receive(
+        custody,
+        [
+            {
+                "product_id": row["product_id"],
+                "quantity": row["quantity"],
+                "condition": "cleaning",
+            }
+            for row in sent["lines"]
+        ],
+    )
+    for incident in received[0]["incidents"]:
+        if incident["kind"] == "cleaning":
+            resolve(custody, incident, "maintenance", incident["quantity"])
+    before_close = service.get_operations(identifier)
+    history_before = service.payments.history(payments[2], 1, 100)
+    payload = command(custody)
+    closed, replay = service.execute(identifier, "close", payload, actor)
+    assert not replay and closed["state"] == "completed"
+    assert closed["financial"] == before_close["financial"] == settled
+    assert service.payments.get(payments[2]) == settled
+    assert closed["quotation_version"] == before_close["quotation_version"] == 2
+    assert closed["financial_version"] == before_close["financial_version"]
+    assert closed["rental_version"] == before_close["rental_version"] + 1
+    assert service.payments.history(payments[2], 1, 100) == history_before
+    settled_history = next(
+        row
+        for row in history_before["items"]
+        if row["after"]["financial_version"] == settled["financial_version"]
+    )
+    assert settled_history["operation"] == "reconciliation"
+    assert settled_history["after"] == settled
+    assert service.execute(identifier, "close", payload, actor) == (closed, True)
+    assert service.execute(identifier, "return", return_command, actor) == (
+        received[0],
+        True,
+    )
+    assert service.get_operations(identifier) == closed
+    for row in closed["lines"]:
+        assert available(custody, row["product_id"], date(2026, 10, 9)) == 0
 
 
 def another_rental(custody, **draft):

@@ -47,7 +47,9 @@ async function post(page: Page, path: string, data: object, status = 200) {
   return response.json();
 }
 async function seed(page: Page) {
-  const setup = await page.request.post('http://127.0.0.1:8000/__test/setup');
+  const setup = await page.request.post(
+    'http://127.0.0.1:8000/__test/setup?isolated=true',
+  );
   expect(setup.status()).toBe(200);
   const account = await setup.json();
   const access = await page.request.post(

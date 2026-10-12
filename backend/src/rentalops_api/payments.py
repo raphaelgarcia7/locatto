@@ -257,7 +257,7 @@ class PaymentService:
             min(rental.confirmation_deposit, offer.total)
             if not new_agreement
             and rental
-            and rental.state in {"confirmed", "cancelled", "out"}
+            and rental.state in {"confirmed", "cancelled", "out", "completed"}
             else offer.estimated_deposit
         )
         return deposit, offer.total - deposit

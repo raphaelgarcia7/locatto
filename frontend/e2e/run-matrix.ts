@@ -18,7 +18,6 @@ for (const name of projects) {
       require.resolve('@playwright/test/cli'),
       'test',
       `--project=${name}`,
-      '--workers=1',
       `--output=test-results/runs/${name}`,
     ],
     {

@@ -104,5 +104,10 @@ campos. Resultado desconhecido congela chave/corpo e permite repetir a mesma
 tentativa. Histórico privado mostra condição/quantidade, autorização, exceção,
 relato, motivo/ator/data. Consulta do cliente mantém dívida mesmo após close.
 
+RN-049 continua válida após o encerramento: o sinal confirmado é histórico,
+inclusive quando o total foi aumentado durante a saída. `completed` não recalcula
+50% do total atual nem invalida uma conciliação existente; termos, recibos, dívida,
+quitação, versões e histórico financeiro permanecem inalterados pelo close.
+
 Não há papéis novos, produção/deploy, contrato real, cobrança automática, transporte
 ou canal externo, reparo fictício, quitação automática, event sourcing ou filas.
