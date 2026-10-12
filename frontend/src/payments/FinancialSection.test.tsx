@@ -55,6 +55,55 @@ function setup(onPost: (body: string) => Promise<Response>, current = state) {
   return fetcher;
 }
 
+it('renders complete incident agreement financial history without inventing receipts', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(
+      async (url: string) =>
+        new Response(
+          JSON.stringify(
+            url.endsWith('/history')
+              ? {
+                  items: [
+                    {
+                      id: 'synthetic-agreement',
+                      operation: 'incident_agreement',
+                      financial_version: 1,
+                      quotation_version: 1,
+                      actor_id: 'synthetic-actor',
+                      session_id: 'synthetic-session',
+                      reason: 'Acordo sintético explícito',
+                      created_at: '2026-10-08T12:00:00Z',
+                      before: state,
+                      after: {
+                        ...state,
+                        financial_version: 1,
+                        extra_agreed: '19.75',
+                        operational_debt: '419.75',
+                      },
+                    },
+                  ],
+                  total: 1,
+                  page: 1,
+                  page_size: 50,
+                }
+              : state,
+          ),
+        ),
+    ),
+  );
+  render(<FinancialSection quotationId={state.quotation_id} />);
+  expect(
+    await screen.findByText(
+      'Acordo financeiro de ocorrência · financeiro 1 · comercial 1',
+    ),
+  ).toBeVisible();
+  expect(screen.getByText('Motivo: Acordo sintético explícito')).toBeVisible();
+  expect(
+    screen.getByText('Nenhum recebimento registrado. Comprovante é opcional.'),
+  ).toBeVisible();
+});
+
 it('requires preview and explicit confirmation, with server versions and exact money strings', async () => {
   const sent: string[] = [];
   setup(async (body) => {

@@ -9,6 +9,7 @@ import pytest
 
 from rentalops_api.auth_routes import auth_service
 from rentalops_api.contract_routes import contract_service
+from rentalops_api.handover_routes import handover_service
 from rentalops_api.payment_routes import payment_service
 from rentalops_api.quotation_contracts import validity_state
 from rentalops_api.quotation_routes import quotation_service
@@ -48,7 +49,12 @@ def test_browser_clock_is_only_injected_into_quotation_and_rental_fixtures(monke
                 overrides[rental_service]().payments.clock
                 is browser_server.business_fixture_clock
             )
-            for service in [auth_service, contract_service, payment_service]:
+            for service in [
+                auth_service,
+                contract_service,
+                payment_service,
+                handover_service,
+            ]:
                 current = overrides[service]().clock()
                 assert before <= current <= datetime.now(UTC)
                 assert current.tzinfo is UTC

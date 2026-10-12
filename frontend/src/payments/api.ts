@@ -40,6 +40,8 @@ export type Payments = {
   deposit_remaining: string;
   balance_remaining: string;
   remaining: string;
+  extra_agreed?: string;
+  operational_debt?: string;
   pending: string;
   excess: string;
   deposit_validated: boolean;
@@ -134,6 +136,7 @@ export const operations: Record<string, string> = {
   correction: 'Recebimento corrigido',
   refund: 'Devolução realizada registrada',
   proof: 'Comprovante anexado',
+  incident_agreement: 'Acordo financeiro de ocorrência',
 };
 export const businessToday = () =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(

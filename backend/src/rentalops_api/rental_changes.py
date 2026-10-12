@@ -11,6 +11,7 @@ from sqlalchemy import delete, select, text
 from sqlalchemy.orm import Session
 
 from rentalops_api.auth import Identity
+from rentalops_api.capacity import outstanding_demand
 from rentalops_api.catalog_models import Product
 from rentalops_api.database import session_scope
 from rentalops_api.payment_contracts import ReconciliationCommand
@@ -425,6 +426,7 @@ class RentalChangeService(RentalService):
                     rental.commercial_snapshot = new_offer.snapshot
                     rental.financial_snapshot = revised
                     if operation == "change" and rental.state in {"confirmed", "out"}:
+                        physical_demand = outstanding_demand(session, rental.id)
                         session.execute(
                             delete(RentalAllocation).where(
                                 RentalAllocation.rental_id == rental.id
@@ -439,8 +441,10 @@ class RentalChangeService(RentalService):
                                     pickup_date=new_offer.pickup_date,
                                     return_date=new_offer.return_date,
                                 )
-                                for pid, qty in snapshot_demand(
-                                    new_offer.snapshot
+                                for pid, qty in (
+                                    snapshot_demand(new_offer.snapshot)
+                                    if physical_demand is None
+                                    else physical_demand
                                 ).items()
                             ]
                         )

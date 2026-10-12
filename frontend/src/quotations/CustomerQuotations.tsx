@@ -77,6 +77,13 @@ export function CustomerQuotations({ customerId }: { customerId: string }) {
                 ) : (
                   <p>Sem reserva confirmada</p>
                 )}
+                {item.rental?.operational_debt !== undefined && (
+                  <p>
+                    Dívida preservada:{' '}
+                    {priceLabel(item.rental.operational_debt)}. Encerramento
+                    operacional não significa quitação.
+                  </p>
+                )}
               </li>
             ))}
           </ul>

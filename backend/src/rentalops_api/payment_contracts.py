@@ -127,6 +127,8 @@ class PaymentView(BaseModel):
     deposit_remaining: str
     balance_remaining: str
     remaining: str
+    extra_agreed: str = "0.00"
+    operational_debt: str = "0.00"
     pending: str
     excess: str
     deposit_validated: bool

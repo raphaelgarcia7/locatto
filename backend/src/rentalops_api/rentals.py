@@ -167,6 +167,7 @@ class RentalService:
             offer.pickup_date,
             offer.return_date,
             exclude_rental=rental.id if rental else None,
+            today=self.clock().astimezone(SAO_PAULO).date(),
         )
         return header, offer, financial, capacity, rental
 

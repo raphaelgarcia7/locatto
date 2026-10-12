@@ -230,7 +230,7 @@ export function ConfirmationSection({
           </p>
           <p>
             Alterações comerciais ficam na seção de alterações desta locação.
-            Retirada e devolução ainda não estão disponíveis.
+            Confira retirada e devolução na seção de conferência desta locação.
           </p>
           {rental.inventory_pending && (
             <p role="status">

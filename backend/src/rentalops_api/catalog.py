@@ -77,6 +77,73 @@ def photo_snapshot(photo: ProductPhoto) -> dict[str, object]:
     }
 
 
+def custody_stock_movement(
+    session: Session,
+    product: Product,
+    actor: Identity,
+    operation: str,
+    quantity: int,
+    reason: str,
+    now: datetime,
+    entry: MaintenanceEntry | None = None,
+) -> MaintenanceEntry | None:
+    """Caller owns the product lock; custody and catalog commit together."""
+    if operation == "maintenance":
+        if quantity > product.total_quantity - product.maintenance_quantity:
+            raise CatalogError(409, "Estoque físico insuficiente para manutenção.")
+        product.maintenance_quantity += quantity
+        entry = MaintenanceEntry(
+            product_id=product.id,
+            quantity=quantity,
+            released_quantity=0,
+            reason=reason,
+            created_at=now,
+        )
+        session.add(entry)
+    elif operation in {"release", "withdrawal"}:
+        if entry is not None:
+            if quantity > entry.quantity - entry.released_quantity:
+                raise CatalogError(409, "Quantidade supera o saldo de manutenção.")
+            entry.released_quantity += quantity
+            product.maintenance_quantity -= quantity
+        if operation == "withdrawal":
+            if product.total_quantity - quantity < product.maintenance_quantity:
+                raise CatalogError(
+                    409, "Baixa física compromete unidades em manutenção."
+                )
+            product.total_quantity -= quantity
+    else:
+        raise ValueError("Unsupported physical custody movement.")
+    product.version += 1
+    product.updated_by, product.updated_at = actor.user_id, now
+    session.add(
+        StockMovement(
+            product_id=product.id,
+            actor_id=actor.user_id,
+            session_id=actor.session_id,
+            operation=operation,
+            reason=reason,
+            quantity=quantity,
+            total_after=product.total_quantity,
+            maintenance_after=product.maintenance_quantity,
+            created_at=now,
+        )
+    )
+    session.add(
+        CatalogHistory(
+            product_id=product.id,
+            actor_id=actor.user_id,
+            session_id=actor.session_id,
+            operation=operation,
+            reason=reason,
+            snapshot=product_snapshot(product),
+            created_at=now,
+        )
+    )
+    session.flush()
+    return entry
+
+
 class CatalogService:
     def __init__(self, factory: sessionmaker[Session], storage: PhotoStorage) -> None:
         self.factory = factory
@@ -319,6 +386,16 @@ class CatalogService:
             entry = session.get(MaintenanceEntry, entry_id)
             if entry is None or entry.product_id != identifier:
                 raise CatalogError(404, "Manutenção não encontrada neste produto.")
+            from rentalops_api.handover_models import Incident
+
+            if session.scalar(
+                select(Incident.id).where(Incident.maintenance_id == entry_id)
+            ):
+                raise CatalogError(
+                    409,
+                    "Libere esta manutenção pela ocorrência da locação, "
+                    "respeitando o recebimento real.",
+                )
             if payload.quantity > entry.quantity - entry.released_quantity:
                 raise CatalogError(422, "Quantidade supera o saldo desta manutenção.")
             entry.released_quantity += payload.quantity

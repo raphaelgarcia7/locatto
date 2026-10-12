@@ -51,7 +51,7 @@ async function post(page: Page, path: string, body: object, status = 200) {
 }
 async function login(page: Page) {
   const response = await page.request.post(
-    'http://127.0.0.1:8000/__test/setup',
+    'http://127.0.0.1:8000/__test/setup?isolated=true',
   );
   expect(response.status()).toBe(200);
   const account = await response.json();

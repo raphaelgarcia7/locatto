@@ -8,6 +8,7 @@ export type RentalSummary = {
   state: 'confirmed' | 'cancelled' | 'review' | 'out' | 'completed';
   inventory_pending: boolean;
   financial_pending: boolean;
+  operational_debt?: string;
 };
 export type Rental = RentalSummary & {
   allocations: {

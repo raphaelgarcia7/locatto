@@ -78,7 +78,7 @@ def test_migration_metadata_roundtrip_and_database_constraints(isolated_engine):
         command.upgrade(config, "head")
         assert (
             connection.scalar(text("SELECT version_num FROM alembic_version"))
-            == "0010_contracts"
+            == "0011_handovers"
         )
         assert (
             compare_metadata(MigrationContext.configure(connection), Base.metadata)
