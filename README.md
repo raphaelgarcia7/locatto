@@ -407,6 +407,11 @@ produtos efetivos e quantidades da composição salva, sem omitir linhas. A saí
 integral exige sinal validado e contrato vigente assinado/conferido. Saldo zero
 é o fluxo normal; exceção explícita registra justificativa e autoria, mantendo
 a dívida. Terceiro exige nome e autorização privada do cliente, sem CPF adicional.
+A confirmação final repete os dados da tentativa preparada: nome/autorização do
+terceiro, justificativa da exceção, produtos/quantidades/condições, motivo e versões.
+O acordo manual mostra também seu tipo (reparo, reposição ou atraso), quantidade,
+valor e ocorrência antes da autorização. O histórico financeiro conserva snapshots
+completos de antes/depois, sem criar recebimento ao registrar uma obrigação.
 
 Registre recebimentos reais por produto e condição: apto, higienização ou avaria.
 Aptos liberam somente a quantidade recebida no próximo dia de calendário em

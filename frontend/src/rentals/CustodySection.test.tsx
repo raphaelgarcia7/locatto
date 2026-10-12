@@ -143,3 +143,216 @@ it('shows read failures without inventing an empty or successful operational sta
     screen.queryByText('Nenhuma saída registrada.'),
   ).not.toBeInTheDocument();
 });
+
+it('reviews the exact third-party authorization and financial exception before integral handover', async () => {
+  const user = userEvent.setup();
+  const value = state();
+  value.state = 'confirmed';
+  value.handover = null;
+  value.contract.ready_for_pickup = true;
+  value.financial.deposit_validated = true;
+  const commands: object[] = [];
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, options: RequestInit) => {
+      if (options.method === 'POST' && !url.endsWith('handover-preview'))
+        commands.push(JSON.parse(String(options.body)));
+      return new Response(JSON.stringify(value));
+    }),
+  );
+  render(<CustodySection quotation={quotation} onChanged={() => {}} />);
+  const form = await screen.findByRole('group', {
+    name: 'Checklist de saída integral',
+  });
+  await user.type(
+    within(form).getByLabelText(/condição conferida/),
+    'Condição sintética',
+  );
+  await user.click(
+    within(form).getByLabelText('Retirada por terceiro autorizado'),
+  );
+  await user.type(
+    within(form).getByLabelText('Nome de quem retira'),
+    'Pessoa Sintética',
+  );
+  await user.type(
+    within(form).getByLabelText('Autorização do cliente'),
+    'Autorização sintética exata',
+  );
+  await user.click(
+    within(form).getByLabelText('Autorizar exceção de saldo pendente'),
+  );
+  await user.type(
+    within(form).getByLabelText('Justificativa da exceção financeira'),
+    'Exceção sintética com dívida preservada',
+  );
+  await user.type(
+    within(form).getByLabelText('Motivo / acordo documentado'),
+    'Saída integral conferida',
+  );
+  await user.click(
+    within(form).getByRole('button', { name: 'Preparar prévia da saída' }),
+  );
+  const review = await screen.findByRole('region', {
+    name: 'Registrar saída integral',
+  });
+  expect(review).toHaveTextContent('Nome de quem retira: Pessoa Sintética');
+  expect(review).toHaveTextContent(
+    'Autorização do cliente: Autorização sintética exata',
+  );
+  expect(review).toHaveTextContent(
+    'Justificativa da exceção financeira: Exceção sintética com dívida preservada',
+  );
+  expect(commands).toHaveLength(0);
+  expect(within(form).getByLabelText('Nome de quem retira')).toBeDisabled();
+  await user.click(
+    within(review).getByLabelText('Conferi os dados e autorizo esta operação'),
+  );
+  await user.click(
+    within(review).getByRole('button', { name: 'Confirmar conferência' }),
+  );
+  await waitFor(() => expect(commands).toHaveLength(1));
+  expect(commands[0]).toMatchObject({
+    third_party: {
+      name: 'Pessoa Sintética',
+      authorization: 'Autorização sintética exata',
+    },
+    balance_exception: 'Exceção sintética com dívida preservada',
+  });
+});
+
+it.each([
+  ['repair', 'Reparo comprovado'],
+  ['replacement', 'Reposição acordada'],
+  ['delay', 'Atraso acordado'],
+])(
+  'reviews exact %s agreement type and amount before creating an obligation',
+  async (kind, label) => {
+    const user = userEvent.setup();
+    const value = state();
+    value.incidents = [
+      {
+        id: 'incident',
+        product_id: 'vase',
+        kind: 'damaged',
+        quantity: 2,
+        remaining: 2,
+        maintenance_decided: 0,
+        reason: 'Conferência sintética',
+        actor_id: 'synthetic-actor',
+      },
+    ];
+    const commands: object[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, options: RequestInit) => {
+        if (options.method === 'POST')
+          commands.push(JSON.parse(String(options.body)));
+        return new Response(JSON.stringify(value));
+      }),
+    );
+    render(<CustodySection quotation={quotation} onChanged={() => {}} />);
+    const form = await screen.findByRole('group', {
+      name: 'Acordo financeiro explícito',
+    });
+    await user.selectOptions(
+      within(form).getByRole('combobox', { name: 'Tipo do acordo' }),
+      kind,
+    );
+    await user.type(within(form).getByLabelText('Quantidade do acordo'), '1');
+    await user.type(
+      within(form).getByLabelText('Valor extra acordado'),
+      '19.75',
+    );
+    await user.type(
+      within(form).getByLabelText('Motivo / acordo documentado'),
+      'Acordo sintético documentado',
+    );
+    await user.click(
+      within(form).getByRole('button', { name: 'Preparar acordo financeiro' }),
+    );
+    const review = await screen.findByRole('region', {
+      name: 'Registrar obrigação financeira manual',
+    });
+    expect(review).toHaveTextContent(`Tipo do acordo: ${label}`);
+    expect(review).toHaveTextContent(/Valor acordado: R\$\s*19,75/);
+    expect(review).toHaveTextContent('Quantidade: 1');
+    expect(commands).toHaveLength(0);
+    await user.click(
+      within(review).getByLabelText(
+        'Conferi os dados e autorizo esta operação',
+      ),
+    );
+    await user.click(
+      within(review).getByRole('button', { name: 'Confirmar conferência' }),
+    );
+    await waitFor(() => expect(commands).toHaveLength(1));
+    expect(commands[0]).toMatchObject({ kind, amount: '19.75', quantity: 1 });
+  },
+);
+
+it('does not offer maintenance routing twice but keeps explicit release and repair available', async () => {
+  const value = state();
+  value.incidents = [
+    {
+      id: 'incident',
+      product_id: 'vase',
+      kind: 'damaged',
+      quantity: 2,
+      remaining: 2,
+      maintenance_decided: 2,
+      reason: 'Conferência sintética',
+      actor_id: 'synthetic-actor',
+    },
+  ];
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => new Response(JSON.stringify(value))),
+  );
+  render(<CustodySection quotation={quotation} onChanged={() => {}} />);
+  const decision = await screen.findByRole('combobox', {
+    name: 'Decisão',
+  });
+  expect(
+    within(decision).queryByRole('option', { name: 'Encaminhar à manutenção' }),
+  ).not.toBeInTheDocument();
+  expect(
+    within(decision).getByRole('option', { name: 'Liberar manutenção' }),
+  ).toBeInTheDocument();
+  expect(
+    within(decision).getByRole('option', { name: 'Reparo concluído' }),
+  ).toBeInTheDocument();
+});
+
+it('limits a partial maintenance routing to its remaining eligible quantity', async () => {
+  const user = userEvent.setup();
+  const value = state();
+  value.incidents = [
+    {
+      id: 'incident',
+      product_id: 'vase',
+      kind: 'damaged',
+      quantity: 2,
+      remaining: 2,
+      maintenance_decided: 1,
+      reason: 'Conferência sintética',
+      actor_id: 'synthetic-actor',
+    },
+  ];
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => new Response(JSON.stringify(value))),
+  );
+  render(<CustodySection quotation={quotation} onChanged={() => {}} />);
+  const decision = await screen.findByRole('combobox', { name: 'Decisão' });
+  expect(decision).toHaveValue('maintenance');
+  expect(screen.getByLabelText('Quantidade da decisão')).toHaveAttribute(
+    'max',
+    '1',
+  );
+  await user.selectOptions(decision, 'released');
+  expect(screen.getByLabelText('Quantidade da decisão')).toHaveAttribute(
+    'max',
+    '2',
+  );
+});

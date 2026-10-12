@@ -136,6 +136,7 @@ export const operations: Record<string, string> = {
   correction: 'Recebimento corrigido',
   refund: 'Devolução realizada registrada',
   proof: 'Comprovante anexado',
+  incident_agreement: 'Acordo financeiro de ocorrência',
 };
 export const businessToday = () =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(

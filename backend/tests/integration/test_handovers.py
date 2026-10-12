@@ -309,6 +309,15 @@ def test_ret05_loss_atomic_no_fake_return_financial_manual_and_no_duplicate_dama
         state["financial"]["received"] == "200.00"
         and state["financial"]["refunded"] == "0.00"
     )
+    history = service.payments.history(UUID(state["financial"]["quotation_id"]))
+    agreement_event = next(
+        event
+        for event in history["items"]
+        if event["operation"] == "incident_agreement"
+    )
+    assert agreement_event["before"]["operational_debt"] == "200.00"
+    assert agreement_event["after"] == state["financial"]
+    assert agreement_event["after"]["receipts"] == agreement_event["before"]["receipts"]
 
 
 def test_ret06_two_attendants_same_key_rollback_and_stale_version(custody):

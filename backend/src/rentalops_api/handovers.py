@@ -40,7 +40,7 @@ from rentalops_api.payment_models import (
     PaymentHistory,
 )
 from rentalops_api.quotation_contracts import SAO_PAULO
-from rentalops_api.quotation_models import Quotation
+from rentalops_api.quotation_models import Quotation, QuotationVersion
 from rentalops_api.rental_changes import RentalChangeService
 from rentalops_api.rental_effects import record_inventory_impact
 from rentalops_api.rental_models import (
@@ -924,6 +924,13 @@ class HandoverService(RentalChangeService):
                 contract_version=contract["version"],
             )
         )
+        session.flush()
+        header = session.get(Quotation, rental.quotation_id)
+        assert header is not None
+        offer = session.get(QuotationVersion, (header.id, header.current_version))
+        assert offer is not None
+        # Financial history keeps the same complete before/after contract as
+        # receipts and reconciliations; incident details remain in the agreement.
         session.add(
             PaymentHistory(
                 quotation_id=rental.quotation_id,
@@ -934,15 +941,13 @@ class HandoverService(RentalChangeService):
                 session_id=actor.session_id,
                 reason=payload.reason,
                 before=financial,
-                after={
-                    "incident_id": str(incident.id),
-                    "kind": payload.kind,
-                    "amount": format(payload.amount, ".2f"),
-                    "quantity": payload.quantity,
-                },
+                after=self.payments._summary(
+                    session, header, offer, account, applications
+                ),
                 created_at=self.clock(),
             )
         )
+        # Allocations reference the immutable financial history revision.
         session.flush()
         session.add_all(
             [

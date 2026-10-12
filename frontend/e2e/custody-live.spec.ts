@@ -301,6 +301,28 @@ test('RET01–07 real custody, partial return replay, maintenance close with deb
   await expect(
     region.getByRole('heading', { name: 'Registrar saída integral' }),
   ).toBeFocused();
+  const handoverReview = region.getByRole('region', {
+    name: 'Registrar saída integral',
+    exact: true,
+  });
+  await expect(
+    handoverReview.getByText('Nome de quem retira: Pessoa Sintética', {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    handoverReview.getByText(
+      'Autorização do cliente: Autorização sintética documentada',
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(
+    handoverReview.getByText(
+      'Justificativa da exceção financeira: Equipe autoriza saldo preservado',
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await visual(page, info, 'handover-review-complete');
   await approve(page);
   await expect(
     region.getByText(/Materiais em uso · conferência/),
@@ -399,6 +421,11 @@ test('RET01–07 real custody, partial return replay, maintenance close with deb
     .getByRole('button', { name: 'Preparar decisão da ocorrência' })
     .click();
   await approve(page);
+  await expect(
+    decision
+      .getByRole('combobox', { name: 'Decisão', exact: true })
+      .getByRole('option', { name: 'Encaminhar à manutenção' }),
+  ).toHaveCount(0);
   const closing = region.getByRole('group', {
     name: 'Encerramento operacional',
     exact: true,
@@ -484,5 +511,195 @@ test('RET01–07 real custody, partial return replay, maintenance close with deb
   release!();
   await expect(
     section(page).getByText(/Locação concluída · conferência/),
+  ).toBeVisible();
+});
+
+test('RET05 reviews exact repair, replacement and delay agreement types before recording each manual obligation', async ({
+  page,
+}, info) => {
+  const pageErrors: string[] = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  const { rental, quotation, product, contract } = await seed(page);
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+  }).format(new Date());
+  const signed = await page.request.post(
+    `/api/contracts/${contract.contract_id}/versions/1/signatures`,
+    {
+      headers: { Origin: origin },
+      multipart: {
+        request_id: randomUUID(),
+        expected_contract_version: '1',
+        reviewed: 'true',
+        signed_date: today,
+        declaration: 'Conferência sintética explícita',
+        file: { name: 'synthetic.png', mimeType: 'image/png', buffer: png },
+      },
+    },
+  );
+  expect(signed.status()).toBe(200);
+  async function prepareFixture(path: string, payload: object) {
+    const current = await (
+      await page.request.get(`/api/rentals/${rental.id}/operations`)
+    ).json();
+    return post(
+      page,
+      `rentals/${rental.id}/${path}`,
+      {
+        ...payload,
+        request_id: randomUUID(),
+        reason: 'Conferência sintética do cenário',
+        expected_rental_version: current.rental_version,
+        expected_quotation_version: current.quotation_version,
+        expected_financial_version: current.financial_version,
+        expected_contract_version: current.contract.version,
+      },
+      201,
+    );
+  }
+  await prepareFixture('handover', {
+    lines: [
+      {
+        product_id: product.id,
+        quantity: 10,
+        condition: 'Bom estado sintético',
+      },
+    ],
+    balance_exception: 'Saldo preservado para análise humana',
+  });
+  await prepareFixture('returns', {
+    business_date: today,
+    lines: [
+      { product_id: product.id, quantity: 8, condition: 'fit' },
+      { product_id: product.id, quantity: 2, condition: 'damaged' },
+    ],
+  });
+  await page.goto(`/locacoes?orcamento=${quotation.id}`);
+  const region = section(page);
+  const incident = region.locator('.custody-incident').filter({
+    has: page.getByRole('heading', {
+      name: `${product.name} · Avaria`,
+      exact: true,
+    }),
+  });
+  const decision = incident.getByRole('group', {
+    name: 'Decidir ocorrência',
+    exact: true,
+  });
+  await decision
+    .getByRole('combobox', { name: 'Decisão', exact: true })
+    .selectOption('lost');
+  await decision.getByLabel('Quantidade da decisão', { exact: true }).fill('1');
+  await decision
+    .getByLabel('Motivo / acordo documentado', { exact: true })
+    .fill('Perda formalizada sintética de uma unidade');
+  await decision
+    .getByRole('button', { name: 'Preparar decisão da ocorrência' })
+    .click();
+  await approve(page);
+  const form = incident.getByRole('group', {
+    name: 'Acordo financeiro explícito',
+    exact: true,
+  });
+  const agreements = [
+    {
+      kind: 'repair',
+      label: 'Reparo comprovado',
+      amount: '19.75',
+      display: /Valor acordado: R\$\s*19,75/,
+    },
+    {
+      kind: 'replacement',
+      label: 'Reposição acordada',
+      amount: '27.50',
+      display: /Valor acordado: R\$\s*27,50/,
+    },
+    {
+      kind: 'delay',
+      label: 'Atraso acordado',
+      amount: '9.00',
+      display: /Valor acordado: R\$\s*9,00/,
+    },
+  ];
+  for (const agreement of agreements) {
+    await form
+      .getByRole('combobox', { name: 'Tipo do acordo', exact: true })
+      .selectOption(agreement.kind);
+    await form.getByLabel('Quantidade do acordo', { exact: true }).fill('1');
+    await form
+      .getByLabel('Valor extra acordado', { exact: true })
+      .fill(agreement.amount);
+    const reason = `Acordo sintético documentado: ${agreement.label}`;
+    await form
+      .getByLabel('Motivo / acordo documentado', { exact: true })
+      .fill(reason);
+    await form
+      .getByRole('button', { name: 'Preparar acordo financeiro' })
+      .click();
+    const review = region.getByRole('region', {
+      name: 'Registrar obrigação financeira manual',
+      exact: true,
+    });
+    await expect(
+      review.getByText(`Tipo do acordo: ${agreement.label}`, { exact: true }),
+    ).toBeVisible();
+    await expect(review.getByText(agreement.display)).toBeVisible();
+    await expect(
+      review.getByText('Quantidade: 1', { exact: true }),
+    ).toBeVisible();
+    await expect(
+      review.getByText(`Motivo: ${reason}`, { exact: true }),
+    ).toBeVisible();
+    await expect(
+      review.getByText(`Ocorrência: ${product.name} · Avaria`, { exact: true }),
+    ).toBeVisible();
+    await expect(
+      review.getByRole('button', { name: 'Confirmar conferência' }),
+    ).toBeDisabled();
+    await visual(page, info, `agreement-review-${agreement.kind}`);
+    const request = page.waitForRequest(
+      (candidate) =>
+        candidate.url().endsWith('/financial-agreements') &&
+        candidate.method() === 'POST',
+    );
+    const response = page.waitForResponse(
+      (candidate) =>
+        candidate.url().endsWith('/financial-agreements') &&
+        candidate.request().method() === 'POST',
+    );
+    await review
+      .getByRole('checkbox', {
+        name: 'Conferi os dados e autorizo esta operação',
+      })
+      .check();
+    await review.getByRole('button', { name: 'Confirmar conferência' }).click();
+    expect((await response).status()).toBe(201);
+    await expect(
+      region.getByText(
+        'Conferência registrada pelo servidor. Estoque e dívida atualizados conforme a decisão.',
+      ),
+    ).toBeVisible();
+    expect((await request).postDataJSON()).toMatchObject({
+      kind: agreement.kind,
+      amount: agreement.amount,
+      quantity: 1,
+      reason,
+    });
+  }
+  const saved = await (
+    await page.request.get(`/api/rentals/${rental.id}/operations`)
+  ).json();
+  expect(
+    saved.agreements.map((agreement: { kind: string }) => agreement.kind),
+  ).toEqual(['repair', 'replacement', 'delay']);
+  expect(saved.financial.extra_agreed).toBe('56.25');
+  expect(saved.financial.operational_debt).toBe('256.25');
+  expect(saved.financial.received).toBe('200.00');
+  expect(saved.financial.refunded).toBe('0.00');
+  expect(pageErrors).toEqual([]);
+  await expect(
+    page.getByText(
+      'Acordo financeiro de ocorrência · financeiro 5 · comercial 1',
+    ),
   ).toBeVisible();
 });

@@ -82,3 +82,58 @@ Remote Quality must pass for the exact published head; absent/queued checks are
 not PASS. Exact head, PR, run/check URLs, fingerprints, cleanup and independent
 review remain in the shared delivery journal/checkpoint. This document does not
 authorize merge, Project Done, lock release, production operations or later tasks.
+
+## Independent review correction 1
+
+Round0 review failed RET-01/RET-05 on head `3bdfab46c5868c88759dabfbb2aec03a2a0c7d8a`:
+the final approval omitted third-party name/authorization, balance exception reason
+and agreement type even though the immutable request included them. The correction
+renders these exact values with understandable labels, plus versions, observation
+and linked incident. It also removes repeated maintenance routing once all received
+quantities are already routed, preserving physical release and backend guards.
+
+Regression evidence (exclusive private `rop014-correction1-*` outputs):
+
+- Component RED: five failures for the omitted fields and maintenance eligibility;
+  GREEN: nine custody cases, including all three agreement types and partial routing.
+- Real production browser RED390: old bundle omitted third-party name and repair
+  type in two separate runs. GREEN390: both complete custody and repair/replacement/
+  delay scenarios pass, asserting review text before confirmation and exact POST
+  bodies, stored obligations, preserved receipt/refund and absence of page errors.
+- That new flow also exposed an existing ROP-014 defect: POST201 agreement followed
+  by a blank page because `PaymentHistory.after` was only incident metadata, not the
+  complete financial snapshot expected by the financial UI. PostgreSQL regression
+  RED asserts the full snapshot; corrected PG/API GREEN2 asserts before/after,
+  preserved receipts and debt. The existing deterministic summary is used within
+  the same transaction and allocation revision ordering, not a new business rule.
+- An intermediate source-run16 correction flushed allocations before their required
+  immutable history revision and failed the foreign key. Original logs are retained;
+  source-run17 restores history-before-allocation order and supplies the unchanged
+  distribution to the shared summary. No constraints or assertions were relaxed.
+- Initial setup attempts found a new-test TypeScript overload and Prettier style;
+  their original failures remain preserved, and only typing/formatting were fixed.
+
+The complete prior outputs were copied before correction (2741 files; manifest
+`8b41e0fcce6119a70b83e3a8a38da30cdb718974cf2591efcfec8b8b2c6a6330`), and
+correction outputs copied again before the full matrix (48 files; manifest
+`d7ec652fc3f3c5057cfc012cc79856f61970cb7e14535b1c0bc716adce75d7b8`).
+Original source snapshots and CI/reviewer evidence remain in place.
+
+Full final-candidate local/remote results, exact source fingerprints and cleanup
+are recorded in the delivery journal. Round0 Quality run38171966802 validates only
+3bdf, never the corrected head. This correction requires a new exact-head CI run
+and independent re-review. Current computer-use inventory exposes no browser
+(`listBrowsers=[]`, `iab` unavailable); no current interactive/native inspection is
+claimed. Production Playwright keyboard/focus/axe/four-width captures and direct
+visual inspection are recorded separately, without claiming physical-device or
+screen-reader coverage or native browser zoom from 200% text enlargement.
+
+Correction candidate `source-run17`: full PostgreSQL17/backend/infra **626 passed**,
+two upstream deprecation warnings, 241.80s; Ruff check/format120 and mypy55 PASS.
+Frontend ESLint/Prettier, **94 Vitest**, production build134 modules and npm audit0
+PASS. Strict locked Linux/Windows dependency audits found no known vulnerabilities.
+All 36 changed backend/frontend files match that source snapshot after CRLF
+normalization; manifest SHA-256
+`2bde42b3709abec2975248ef5b5eb5b2cc482c33ffad78b989df19d794bb650e`.
+Full four-width browser matrix and remote exact-head CI are not inferred from the
+focused GREEN; their final results are recorded separately in the delivery journal.

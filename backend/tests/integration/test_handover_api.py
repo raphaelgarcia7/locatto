@@ -14,6 +14,7 @@ from rentalops_api.handover_contracts import (
 )
 from rentalops_api.handover_routes import handover_service
 from rentalops_api.main import app
+from rentalops_api.payment_routes import payment_service
 from rentalops_api.rental_routes import rental_service
 
 from .test_contract_api import HEADERS, ORIGIN, login
@@ -43,6 +44,7 @@ def test_ret07_private_routes_session_origin_csrf_strict_input_history(custody, 
     app.dependency_overrides[auth_service] = lambda: auth
     app.dependency_overrides[handover_service] = lambda: service
     app.dependency_overrides[rental_service] = lambda: service
+    app.dependency_overrides[payment_service] = lambda: service.payments
     root = f"/rentals/{identifier}"
     mutations = [
         "handover-preview",
@@ -180,6 +182,17 @@ def test_ret07_private_routes_session_origin_csrf_strict_input_history(custody, 
         assert http.post(url, headers=HEADERS, json=agreement).json() == response.json()
         assert response.json()["financial"]["operational_debt"] == "220.00"
         assert response.json()["financial"]["received"] == "200.00"
+        financial_history = http.get(
+            f"/quotations/{response.json()['financial']['quotation_id']}/payments/history"
+        )
+        assert financial_history.status_code == 200
+        event = next(
+            row
+            for row in financial_history.json()["items"]
+            if row["operation"] == "incident_agreement"
+        )
+        assert event["after"] == response.json()["financial"]
+        assert event["before"]["receipts"] == event["after"]["receipts"]
         released = command(
             custody,
             ResolutionCommand,

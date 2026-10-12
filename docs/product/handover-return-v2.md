@@ -91,7 +91,14 @@ recebidas. O snapshot comercial e preços históricos continuam imutáveis.
 
 Checklist integral sem limite artificial de linhas, assinatura/saldo, terceiro e
 exceção; retorno por condição/saldo; decisões por ocorrência, acordo manual e close
-separados. Confirmação mostra motivo, quantidades e decisão antes de gravar. Após
+separados. Confirmação usa o corpo imutável preparado e mostra motivo, versões,
+produtos/quantidades/condições, terceiro/nome/autorização e justificativa da exceção
+de saldo; acordo mostra tipo exato (reparo/reposição/atraso), valor, quantidade e
+ocorrência vinculada antes de gravar. Quantidades recebidas já encaminhadas não
+oferecem novo encaminhamento à manutenção, mas mantêm reparo/liberação elegível.
+Histórico financeiro do acordo preserva o contrato completo de snapshots antes e
+depois, incluindo recibos e dívida, na mesma transação; não cria dinheiro recebido.
+Após
 ACK de retorno, campos zeram para a próxima conferência; falha de versão preserva
 campos. Resultado desconhecido congela chave/corpo e permite repetir a mesma
 tentativa. Histórico privado mostra condição/quantidade, autorização, exceção,

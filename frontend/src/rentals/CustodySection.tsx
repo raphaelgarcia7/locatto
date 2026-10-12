@@ -70,6 +70,24 @@ const decisionLabel: Record<string, string> = {
   released: 'Liberar manutenção',
   lost: 'Formalizar perda',
 };
+const agreementLabel: Record<string, string> = {
+  delay: 'Atraso acordado',
+  repair: 'Reparo comprovado',
+  replacement: 'Reposição acordada',
+};
+function decisionChoices(incident: Incident) {
+  return Object.entries(decisionLabel).filter(([key]) =>
+    incident.kind === 'outstanding'
+      ? key === 'lost'
+      : (key !== 'repaired' || incident.kind === 'damaged') &&
+        (key !== 'maintenance' ||
+          incident.remaining > incident.maintenance_decided),
+  );
+}
+function selectedDecision(incident: Incident, selected: string | undefined) {
+  const choices = decisionChoices(incident);
+  return choices.find(([key]) => key === selected)?.[0] ?? choices[0]?.[0];
+}
 function versions(data: Custody) {
   return {
     expected_rental_version: data.rental_version,
@@ -106,6 +124,7 @@ export function CustodySection({
   const [thirdParty, setThirdParty] = useState(false);
   const [exception, setException] = useState(false);
   const [returnRevision, setReturnRevision] = useState(0);
+  const [decisions, setDecisions] = useState<Record<string, string>>({});
   const flight = useRef(false);
   const feedback = useRef<HTMLDivElement>(null);
   const approval = useRef<HTMLHeadingElement>(null);
@@ -532,19 +551,24 @@ export function CustodySection({
                         <legend>Decidir ocorrência</legend>
                         <label>
                           Decisão
-                          <select name="disposition">
-                            {Object.entries(decisionLabel)
-                              .filter(([key]) =>
-                                incident.kind === 'outstanding'
-                                  ? key === 'lost'
-                                  : key !== 'repaired' ||
-                                    incident.kind === 'damaged',
-                              )
-                              .map(([key, label]) => (
-                                <option key={key} value={key}>
-                                  {label}
-                                </option>
-                              ))}
+                          <select
+                            name="disposition"
+                            value={selectedDecision(
+                              incident,
+                              decisions[incident.id],
+                            )}
+                            onChange={(event) =>
+                              setDecisions((previous) => ({
+                                ...previous,
+                                [incident.id]: event.target.value,
+                              }))
+                            }
+                          >
+                            {decisionChoices(incident).map(([key, label]) => (
+                              <option key={key} value={key}>
+                                {label}
+                              </option>
+                            ))}
                           </select>
                         </label>
                         <label>
@@ -553,7 +577,15 @@ export function CustodySection({
                             name="quantity"
                             type="number"
                             min={1}
-                            max={incident.remaining}
+                            max={
+                              selectedDecision(
+                                incident,
+                                decisions[incident.id],
+                              ) === 'maintenance'
+                                ? incident.remaining -
+                                  incident.maintenance_decided
+                                : incident.remaining
+                            }
                             step={1}
                             required
                           />
@@ -590,11 +622,13 @@ export function CustodySection({
                       <label>
                         Tipo do acordo
                         <select name="kind">
-                          <option value="delay">Atraso acordado</option>
-                          <option value="repair">Reparo comprovado</option>
-                          <option value="replacement">
-                            Reposição acordada
-                          </option>
+                          {Object.entries(agreementLabel).map(
+                            ([key, label]) => (
+                              <option key={key} value={key}>
+                                {label}
+                              </option>
+                            ),
+                          )}
                         </select>
                       </label>
                       <label>
@@ -737,7 +771,7 @@ export function CustodySection({
             Confira esta decisão. Ela registra autoria e histórico; encaminhar à
             manutenção ou encerrar não libera estoque nem perdoa dívida.
           </p>
-          <Review body={pending.body} data={data} />
+          <Review body={pending.body} data={data} path={pending.path} />
           <label>
             <input
               type="checkbox"
@@ -775,13 +809,65 @@ export function CustodySection({
   );
 }
 
-function Review({ body, data }: { body: object; data: Custody | null }) {
+function Review({
+  body,
+  data,
+  path,
+}: {
+  body: object;
+  data: Custody | null;
+  path: string;
+}) {
   const value = body as Record<string, unknown>;
   const lines = value.lines as
     { product_id: string; quantity: number; condition: string }[] | undefined;
+  const thirdParty = value.third_party as Event['third_party'];
+  const incident = data?.incidents.find(
+    (item) => item.id === path.split('/')[1],
+  );
   return (
     <div>
       <p>Motivo: {String(value.reason)}</p>
+      <p>
+        Versões desta decisão: locação {String(value.expected_rental_version)} ·
+        proposta {String(value.expected_quotation_version)} · financeiro{' '}
+        {String(value.expected_financial_version)} · contrato{' '}
+        {String(value.expected_contract_version)}
+      </p>
+      {incident && (
+        <p>
+          Ocorrência:{' '}
+          {
+            data?.lines.find((line) => line.product_id === incident.product_id)
+              ?.name
+          }{' '}
+          ·{' '}
+          {incident.kind === 'outstanding'
+            ? 'Conferência de faltantes'
+            : conditionLabel[incident.kind]}
+        </p>
+      )}
+      {'third_party' in value &&
+        (thirdParty ? (
+          <>
+            <p>Nome de quem retira: {thirdParty.name}</p>
+            <p>Autorização do cliente: {thirdParty.authorization}</p>
+          </>
+        ) : (
+          <p>Retirada pelo cliente, sem terceiro autorizado.</p>
+        ))}
+      {'balance_exception' in value &&
+        (value.balance_exception ? (
+          <p>
+            Justificativa da exceção financeira:{' '}
+            {String(value.balance_exception)}
+          </p>
+        ) : (
+          <p>Sem exceção financeira de saldo.</p>
+        ))}
+      {value.observation ? (
+        <p>Relato privado: {String(value.observation)}</p>
+      ) : null}
       {value.business_date ? <p>Data: {String(value.business_date)}</p> : null}
       {value.quantity ? <p>Quantidade: {String(value.quantity)}</p> : null}
       {value.disposition ? (
@@ -789,6 +875,9 @@ function Review({ body, data }: { body: object; data: Custody | null }) {
       ) : null}
       {value.amount ? (
         <p>Valor acordado: {priceLabel(String(value.amount))}</p>
+      ) : null}
+      {value.kind ? (
+        <p>Tipo do acordo: {agreementLabel[String(value.kind)]}</p>
       ) : null}
       {lines ? (
         <ul>
