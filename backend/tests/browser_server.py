@@ -4,6 +4,8 @@ Requires TEST_DATABASE_URL and uses the same fail-closed UUID schema fixture as
 integration. Test control endpoints exist only in this wrapper, never main.app.
 """
 
+import logging
+import os
 from contextlib import ExitStack, asynccontextmanager, contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -18,6 +20,7 @@ from alembic import command
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy import event
 
 from rentalops_api.auth import AuthError, AuthService, AuthSettings
 from rentalops_api.auth_routes import auth_service
@@ -65,6 +68,10 @@ class BrowserFixture:
 # Only schema initialization uses this lock: Alembic's migration context is
 # process-global. Requests, business transactions and parallel tests do not.
 migration_lock = Lock()
+if os.environ.get("RENTALOPS_TEST_DIAGNOSTICS") == "safe":
+    logging.getLogger("rentalops.operations").setLevel(logging.INFO)
+    handler = logging.StreamHandler()
+    logging.getLogger("rentalops.operations").addHandler(handler)
 fixture_context: ContextVar[BrowserFixture | None] = ContextVar(
     "browser_fixture", default=None
 )
@@ -75,6 +82,20 @@ FIXTURE_COOKIE = "rentalops_test_fixture"
 def browser_fixture():
     namespace = isolated_engine.__wrapped__()
     engine = next(namespace)
+    if os.environ.get("RENTALOPS_TEST_DIAGNOSTICS") == "safe":
+
+        @event.listens_for(engine, "handle_error")
+        def safe_database_error(context):
+            # Never emit statement, exception text, parameters or user data.
+            original = context.original_exception
+            print(
+                {
+                    "test_database_error": type(original).__name__,
+                    "sqlstate": getattr(original, "sqlstate", None),
+                },
+                flush=True,
+            )
+
     storage = TemporaryDirectory(prefix="rentalops-catalog-browser-")
     try:
         with migration_lock, engine.begin() as connection:

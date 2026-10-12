@@ -195,3 +195,45 @@ delivery journal/PR. Earlier626/144/CI38187266335 apply only to b103, not this r
 Computer-use unavailability and physical-device/screen-reader/native-zoom limits
 from correction1 remain explicit; no new native interactive inspection is inferred
 from Playwright or rendered screenshot inspection.
+
+## Human-authorized additional correction3
+
+The human explicitly authorized continuing with the same executor/reviewer and
+all gates after correction2 exhausted the original two-correction allowance.
+Prior negative results remain negative: Windows correction2 matrix137/144 passed;
+native Linux01 **142/144**, Linux02 **138/144**. Linux02 produced40/44 selected
+custody PNGs, not44; Linux01 images never substitute for missing Linux02 captures.
+CI38207085230 passed on f5ab but did not override those local failures.
+
+Readonly trace inspection distinguished intentional503 responses from observed
+dependency503s. Custody traces remain disabled for privacy; the original failed
+operations GET status and loss-decision response cannot be recovered or inferred.
+Safe synthetic diagnostics now retain method, parameterized path, HTTP status,
+timing and allowlisted backend request correlations, never payloads/cookies/tokens.
+Operations reads assert HTTP200 before accessing their DTO, and confirmation
+asserts HTTP200/201 alongside the existing visible-success assertion within the
+same five-second feedback bound. No timeout/retry/worker/assertion was relaxed.
+
+Diagnostic source24 custody desktop:2 passed29.5s, two workers. Source25 full
+desktop:34 passed/two failed2.8m; the existing rental-change/reservation30s
+timeouts remain preserved. Safe PostgreSQL wait sampling observed a queue of
+exclusive users locks behind a commit waiting for WALWrite (~1.69s). This proves
+contention, not that authentication alone explains every historical failure.
+
+Deterministic source26 real PG/API RED holds an uncommitted custody idempotency
+record's actor FK KEY SHARE; the authenticated operations read returns503 instead
+of200. Only readonly identity now uses FOR SHARE, compatible with concurrent
+reads/audit FK while still excluding account UPDATE/DELETE and exclusive writers.
+Activity/logout/reset/deactivation keep their existing exclusive locks; session
+refresh remains after acquiring the user lock. No permission, expiry, clock,
+idle-activity rule or production timeout changes. Source27 GREEN:9 passed,
+31 deselected,two upstream warnings8.64s. Eight combinations observe actual
+pg_blocking_pids in both reader/writer orders for logout/deactivation/reset/activity;
+they prove post-commit401 revocation, refreshed activity, unchanged12h absolute
+expiry and no readonly idle extension. Audit overlap now returns200 with the
+complete financial DTO, and the uncommitted synthetic record rolls back.
+
+Private backups precede diagnostic/final runs; source24–29 and original logs are
+retained in the task14 fixture. Final full gates, fingerprints, production browser
+matrix/captures and exact-head CI are recorded separately in the delivery journal.
+No result from source22/23 or old CI is claimed to validate correction3.

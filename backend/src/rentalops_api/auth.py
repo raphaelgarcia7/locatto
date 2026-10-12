@@ -379,7 +379,9 @@ class AuthService:
             raise AuthError(401, "E-mail ou senha inválidos.")
         return outcome
 
-    def authenticated(self, db: Session, token: str | None) -> tuple[User, AuthSession]:
+    def authenticated(
+        self, db: Session, token: str | None, *, read_only: bool = False
+    ) -> tuple[User, AuthSession]:
         denied = AuthError(401, "Sessão encerrada. Entre novamente.")
         if not token:
             raise denied
@@ -389,7 +391,9 @@ class AuthService:
         if session is None:
             raise denied
         user = db.scalar(
-            select(User).where(User.id == session.user_id).with_for_update()
+            select(User)
+            .where(User.id == session.user_id)
+            .with_for_update(read=read_only)
         )
         db.refresh(session)
         now = self.clock()
@@ -405,7 +409,10 @@ class AuthService:
 
     def identity(self, token: str | None, *, activity: bool = False) -> Identity:
         with self.factory.begin() as db:
-            user, session = self.authenticated(db, token)
+            # SHARE still excludes account mutation, but permits simultaneous
+            # private reads and the KEY SHARE held by business audit actor FKs.
+            # Activity/logout retain UPDATE to serialize session mutations.
+            user, session = self.authenticated(db, token, read_only=not activity)
             now = self.clock()
             if activity and now - session.last_activity >= timedelta(seconds=30):
                 session.last_activity = now

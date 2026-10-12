@@ -1,13 +1,14 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from threading import Barrier, Event
+from time import monotonic
 from unittest.mock import patch
 
 import pytest
 from alembic import command
 from argon2.exceptions import HashingError
 from fastapi.testclient import TestClient
-from sqlalchemy import Engine, func, inspect, select, text
+from sqlalchemy import Engine, event, func, inspect, select, text
 from sqlalchemy.exc import IntegrityError, OperationalError
 
 from rentalops_api.auth import (
@@ -70,6 +71,94 @@ def expect_error(status, callback):
     with pytest.raises(AuthError) as failure:
         callback()
     assert failure.value.status == status
+
+
+@pytest.mark.parametrize("writer_first", [False, True])
+@pytest.mark.parametrize("operation", ["logout", "deactivate", "reset", "activity"])
+def test_read_identity_lock_orders_preserve_revocation_and_activity(
+    service, migrated_engine, writer_first, operation
+):
+    initialize(service)
+    token, before = service.login(EMAIL, PASSWORD, "loopback")
+    service.clock.advance(seconds=31)
+    held, release, attempted = Event(), Event(), Event()
+    waiting = []
+    holder_sql = "FOR UPDATE" if writer_first else "FOR SHARE"
+    waiter_sql = "FOR SHARE" if writer_first else "FOR UPDATE"
+
+    def before_query(conn, cursor, statement, parameters, context, many):
+        if "FROM users" in statement and waiter_sql in statement and held.is_set():
+            waiting.append(conn.connection.driver_connection.info.backend_pid)
+            attempted.set()
+
+    def after_query(conn, cursor, statement, parameters, context, many):
+        if "FROM users" in statement and holder_sql in statement and not held.is_set():
+            held.set()
+            assert release.wait(timeout=10)
+
+    def read():
+        try:
+            return service.identity(token)
+        except AuthError as error:
+            return error.status
+
+    def write():
+        if operation == "logout":
+            return service.logout(token)
+        if operation == "deactivate":
+            return service.deactivate(EMAIL)
+        if operation == "reset":
+            return service.issue_link(EMAIL, "reset")
+        return service.identity(token, activity=True)
+
+    event.listen(migrated_engine, "before_cursor_execute", before_query)
+    event.listen(migrated_engine, "after_cursor_execute", after_query)
+    try:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            holder = executor.submit(write if writer_first else read)
+            assert held.wait(timeout=5)
+            waiter = executor.submit(read if writer_first else write)
+            try:
+                assert attempted.wait(timeout=5)
+                # Observe the actual PostgreSQL wait graph, not a fixed sleep
+                # or an assumption that an unfinished future has acquired a lock.
+                deadline = monotonic() + 2
+                with migrated_engine.connect() as observer:
+                    while monotonic() < deadline:
+                        blockers = observer.scalar(
+                            text("SELECT pg_blocking_pids(:pid)"), {"pid": waiting[0]}
+                        )
+                        if blockers:
+                            break
+                        Event().wait(0.01)
+                    assert blockers
+            finally:
+                release.set()
+            holder_value, waiter_value = (
+                holder.result(timeout=5),
+                waiter.result(timeout=5),
+            )
+    finally:
+        release.set()
+        event.remove(migrated_engine, "before_cursor_execute", before_query)
+        event.remove(migrated_engine, "after_cursor_execute", after_query)
+    read_value = waiter_value if writer_first else holder_value
+    if operation == "activity":
+        assert read_value.idle_expires_at == (
+            service.clock() + timedelta(hours=1)
+            if writer_first
+            else before.idle_expires_at
+        )
+        assert read_value.expires_at == before.expires_at
+        with service.factory() as db:
+            session = db.scalar(select(AuthSession))
+            assert session.last_activity == service.clock()
+            assert session.expires_at == before.expires_at
+    else:
+        assert (
+            read_value == 401 if writer_first else read_value.user_id == before.user_id
+        )
+        expect_error(401, lambda: service.identity(token))
 
 
 def test_closed_access_argon2id_idempotent_normalization_and_equal_accounts(service):

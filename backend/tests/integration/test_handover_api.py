@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
 
 import pytest
@@ -15,6 +16,7 @@ from rentalops_api.handover_contracts import (
 from rentalops_api.handover_routes import handover_service
 from rentalops_api.main import app
 from rentalops_api.payment_routes import payment_service
+from rentalops_api.rental_models import RentalRequest
 from rentalops_api.rental_routes import rental_service
 
 from .test_contract_api import HEADERS, ORIGIN, login
@@ -27,6 +29,56 @@ pytestmark = pytest.mark.integration
 @pytest.fixture
 def custody(migrated_engine, tmp_path):
     return custody_fixture.__wrapped__(migrated_engine, tmp_path)
+
+
+def test_ret07_operations_read_coexists_with_uncommitted_actor_audit(custody):
+    service, _, identifier, _, _ = custody
+    auth = AuthService(
+        service.factory, AuthSettings(ORIGIN, False, "synthetic-read-audit-key" * 3)
+    )
+    email = "synthetic-read-audit@example.invalid"
+    user, _ = auth.create_user(email)
+    auth.set_password(
+        auth.issue_link(email, "access"), "synthetic contract passphrase", "loopback"
+    )
+    app.dependency_overrides[auth_service] = lambda: auth
+    app.dependency_overrides[handover_service] = lambda: service
+    request_id = uuid4()
+    try:
+        with TestClient(app) as http:
+            login((http, custody, email))
+            with service.factory() as transaction:
+                # The actual custody idempotency FK holds KEY SHARE on its actor
+                # until commit. A private read must not demand an exclusive user
+                # lock and turn that ordinary audit overlap into dependency503.
+                transaction.add(
+                    RentalRequest(
+                        actor_id=user,
+                        operation="synthetic-custody-overlap",
+                        request_id=request_id,
+                        payload_hash="0" * 64,
+                        status=201,
+                        result={},
+                    )
+                )
+                transaction.flush()
+                with ThreadPoolExecutor(max_workers=1) as executor:
+                    response = executor.submit(
+                        http.get, f"/rentals/{identifier}/operations"
+                    ).result(timeout=8)
+                assert response.status_code == 200
+                assert response.json()["financial"]["received"] == "200.00"
+                transaction.rollback()
+            assert http.get(f"/rentals/{identifier}/operations").status_code == 200
+            auth.deactivate(email)
+            assert http.get(f"/rentals/{identifier}/operations").status_code == 401
+        with service.factory() as db:
+            assert (
+                db.get(RentalRequest, (user, "synthetic-custody-overlap", request_id))
+                is None
+            )
+    finally:
+        app.dependency_overrides.clear()
 
 
 def test_ret07_private_routes_session_origin_csrf_strict_input_history(custody, caplog):

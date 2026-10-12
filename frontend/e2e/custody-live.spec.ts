@@ -13,6 +13,37 @@ const hash = (body: string | null) =>
   createHash('sha256')
     .update(body ?? '')
     .digest('hex');
+const network: Record<string, object[]> = {};
+test.beforeEach(async ({ page }, info) => {
+  const rows: object[] = [];
+  network[info.testId] = rows;
+  page.on('response', (response) => {
+    const request = response.request();
+    const path = new URL(response.url()).pathname;
+    if (!path.startsWith('/api/')) return;
+    rows.push({
+      method: request.method(),
+      path: path.replace(/[0-9a-f]{8}-[0-9a-f-]{27,}/g, ':id'),
+      status: response.status(),
+      responseStartMs: request.timing().responseStart,
+    });
+  });
+});
+test.afterEach(async ({ browserName }, info) => {
+  await info.attach('safe-http-metadata', {
+    body: JSON.stringify({
+      browser: browserName,
+      requests: network[info.testId],
+    }),
+    contentType: 'application/json',
+  });
+  delete network[info.testId];
+});
+async function get(page: Page, path: string) {
+  const response = await page.request.get(path);
+  expect(response.status(), path).toBe(200);
+  return response.json();
+}
 function address() {
   const marker = randomUUID().slice(0, 8);
   return {
@@ -225,14 +256,23 @@ async function approve(page: Page) {
       name: 'Conferi os dados e autorizo esta operação',
     })
     .check();
+  const result = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      new URL(response.url()).pathname.startsWith('/api/rentals/'),
+    { timeout: 5000 },
+  );
   await region
     .getByRole('button', { name: 'Confirmar conferência', exact: true })
     .click();
-  await expect(
-    region.getByText(
-      'Conferência registrada pelo servidor. Estoque e dívida atualizados conforme a decisão.',
-    ),
-  ).toBeVisible();
+  await Promise.all([
+    result.then((response) => expect([200, 201]).toContain(response.status())),
+    expect(
+      region.getByText(
+        'Conferência registrada pelo servidor. Estoque e dívida atualizados conforme a decisão.',
+      ),
+    ).toBeVisible(),
+  ]);
 }
 
 test('RET01–07 real custody, partial return replay, maintenance close with debt and later explicit release', async ({
@@ -386,9 +426,7 @@ test('RET01–07 real custody, partial return replay, maintenance close with deb
   await expect(
     region.getByRole('button', { name: 'Preparar encerramento' }),
   ).toBeDisabled();
-  const current = await (
-    await page.request.get(`/api/rentals/${rental.id}/operations`)
-  ).json();
+  const current = await get(page, `/api/rentals/${rental.id}/operations`);
   expect(current.returns).toHaveLength(1);
   expect(current.financial.extra_agreed).toBe('0.00');
   await received
@@ -442,9 +480,7 @@ test('RET01–07 real custody, partial return replay, maintenance close with deb
   ).toBeVisible();
   await expect(region.getByText(/dívida total R\$\s*200,00/)).toBeVisible();
   await visual(page, info, 'completed-maintenance-debt');
-  let state = await (
-    await page.request.get(`/api/rentals/${rental.id}/operations`)
-  ).json();
+  let state = await get(page, `/api/rentals/${rental.id}/operations`);
   expect(state.financial.received).toBe('200.00');
   expect(state.financial.refunded).toBe('0.00');
   expect(state.financial.fully_paid).toBe(false);
@@ -463,9 +499,7 @@ test('RET01–07 real custody, partial return replay, maintenance close with deb
     .getByRole('button', { name: 'Preparar decisão da ocorrência' })
     .click();
   await approve(page);
-  state = await (
-    await page.request.get(`/api/rentals/${rental.id}/operations`)
-  ).json();
+  state = await get(page, `/api/rentals/${rental.id}/operations`);
   expect(state.state).toBe('completed');
   expect(state.resolutions).toHaveLength(2);
   expect(
