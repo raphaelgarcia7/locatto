@@ -7,6 +7,23 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/api/customers/search', (route) =>
     route.fulfill({ json: { items: [], total: 0, page: 1, page_size: 25 } }),
   );
+  // The home screen reads operations too. A simulated identity is not a real
+  // backend cookie: keep this timing-only suite isolated from real 401 replies.
+  await page.route('**/api/operations/day?**', (route) =>
+    route.fulfill({
+      json: {
+        date: '2026-10-10',
+        timezone: 'America/Sao_Paulo',
+        checked_at: '2026-10-10T12:00:00Z',
+        queues: Object.fromEntries(
+          ['pickup', 'return', 'overdue', 'debt', 'occurrence'].map((key) => [
+            key,
+            { items: [], total: 0, page: 1, page_size: 50 },
+          ]),
+        ),
+      },
+    }),
+  );
 });
 
 function identity() {
@@ -256,7 +273,9 @@ test('polling is read-only and cannot keep an idle session alive', async ({
     if (route.request().url().endsWith('/activity')) count += 1;
     await route.fulfill({ json: snapshot });
   });
+  const day = page.waitForResponse('**/api/operations/day?**');
   await page.goto('/');
+  expect((await day).status()).toBe(200);
   await expect(page.getByRole('button', { name: 'Sair' })).toBeVisible();
   await page.clock.fastForward(60 * 60 * 1000 + 1);
   await expect(

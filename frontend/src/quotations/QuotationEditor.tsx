@@ -224,12 +224,15 @@ export function QuotationEditor({
   }
   async function loadConflict() {
     if (!initial) return;
-    const current = await quotationRequest<Quotation>(`/${initial.id}`);
+    const currentRead = quotationRequest<Quotation>(`/${initial.id}`);
     if (revisionState) {
-      const financial = await paymentRequest<Payments>(initial.id);
-      const rental = revisionState.id
-        ? await rentalRequest<Rental>(`/${revisionState.id}`)
-        : null;
+      const [current, financial, rental] = await Promise.all([
+        currentRead,
+        paymentRequest<Payments>(initial.id),
+        revisionState.id
+          ? rentalRequest<Rental>(`/${revisionState.id}`)
+          : Promise.resolve(null),
+      ]);
       setConflictingRevision({
         ...revisionState,
         expected_rental_version: rental?.version ?? 0,
@@ -237,8 +240,8 @@ export function QuotationEditor({
         expected_financial_version: financial.financial_version,
         financial,
       });
-    }
-    setCurrent(current);
+      setCurrent(current);
+    } else setCurrent(await currentRead);
   }
   async function calculate(event: FormEvent) {
     event.preventDefault();

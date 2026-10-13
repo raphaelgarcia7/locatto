@@ -100,8 +100,11 @@ async function save(page: Page, method = 'POST') {
 async function search(page: Page, value: string, kind = 'name') {
   await page.getByLabel('Buscar por', { exact: true }).selectOption(kind);
   await page.getByLabel('Busca', { exact: true }).fill(value);
-  const pending = page.waitForResponse((response) =>
-    response.url().endsWith('/api/customers/search'),
+  const pending = page.waitForResponse(
+    (response) =>
+      response.url().endsWith('/api/customers/search') &&
+      response.request().method() === 'POST' &&
+      response.request().postDataJSON()?.[kind] === value,
   );
   await page.getByRole('button', { name: 'Buscar', exact: true }).click();
   const response = await pending;

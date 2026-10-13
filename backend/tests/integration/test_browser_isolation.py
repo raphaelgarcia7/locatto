@@ -15,6 +15,55 @@ from .test_contracts import synthetic_address
 pytestmark = pytest.mark.integration
 
 
+def test_browser_fixture_release_disposes_pool_and_schema_without_global_teardown(
+    migrated_engine,
+):
+    previous = dict(browser_server.production_app.dependency_overrides)
+    headers = {"Origin": "http://127.0.0.1:4173"}
+    try:
+        with TestClient(browser_server.app) as harness:
+            for _ in range(3):
+                assert harness.post("/__test/setup?isolated=true").status_code == 200
+                key = harness.cookies.get(browser_server.FIXTURE_COOKIE)
+                fixture = browser_server.app.state.fixtures[key]
+                engine = fixture.auth.factory.kw["bind"]
+                with engine.connect() as connection:
+                    namespace = connection.scalar(text("SELECT current_schema()"))
+                assert engine.pool.checkedin() > 0
+                # Untrusted cleanup cannot dispose even synthetic business state.
+                assert harness.post("/__test/release-fixture").status_code == 403
+                assert key in browser_server.app.state.fixtures
+                assert (
+                    harness.post("/__test/release-fixture", headers=headers).status_code
+                    == 204
+                )
+                assert key not in browser_server.app.state.fixtures
+                assert key not in browser_server.app.state.fixture_resources
+                assert engine.pool.checkedin() == engine.pool.checkedout() == 0
+                with migrated_engine.connect() as connection:
+                    assert (
+                        connection.scalar(
+                            text(
+                                "SELECT count(*) FROM pg_namespace "
+                                "WHERE nspname = :name"
+                            ),
+                            {"name": namespace},
+                        )
+                        == 0
+                    )
+                assert harness.get("/__test/health").status_code == 200
+            # Repeated cleanup is harmless and never closes the shared fixture.
+            assert (
+                harness.post("/__test/release-fixture", headers=headers).status_code
+                == 204
+            )
+            with browser_server.app.state.fixture.auth.factory() as session:
+                assert session.scalar(text("SELECT 1")) == 1
+    finally:
+        browser_server.production_app.dependency_overrides.clear()
+        browser_server.production_app.dependency_overrides.update(previous)
+
+
 def test_parallel_browser_parameters_isolated_guards_and_schema_cleanup(
     migrated_engine,
 ):

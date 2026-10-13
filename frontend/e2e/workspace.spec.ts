@@ -11,6 +11,21 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/api/auth/**', async (route) => {
     await route.fulfill({ json: identity });
   });
+  await page.route('**/api/operations/day?**', async (route) => {
+    await route.fulfill({
+      json: {
+        date: '2026-10-10',
+        timezone: 'America/Sao_Paulo',
+        checked_at: '2026-10-10T12:00:00Z',
+        queues: Object.fromEntries(
+          ['pickup', 'return', 'overdue', 'debt', 'occurrence'].map((key) => [
+            key,
+            { items: [], total: 0, page: 1, page_size: 50 },
+          ]),
+        ),
+      },
+    });
+  });
   await page.route('**/api/products?**', async (route) => {
     await route.fulfill({
       json: { items: [], total: 0, page: 1, page_size: 25 },
@@ -31,7 +46,7 @@ test.beforeEach(async ({ page }) => {
 const pages = [
   {
     path: '/',
-    title: 'Organização que abre espaço para criar.',
+    title: 'Painel operacional',
     label: 'home',
   },
   { path: '/catalogo', title: 'Catálogo', label: 'catalogo' },
@@ -142,7 +157,7 @@ test('keyboard skip link, navigation and route focus remain usable', async ({
 }, testInfo) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1 })).toContainText(
-    'Organização',
+    'Painel operacional',
   );
   await page.keyboard.press('Tab');
   const skip = page.getByRole('link', { name: 'Pular para o conteúdo' });
@@ -152,8 +167,9 @@ test('keyboard skip link, navigation and route focus remain usable', async ({
   await expect(page.getByRole('main')).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(
-    page.getByRole('link', { name: 'Abrir Catálogo' }),
+    page.getByRole('button', { name: 'Atualizar painel' }),
   ).toBeFocused();
+  await page.getByRole('link', { name: 'Abrir Catálogo' }).focus();
   await page.keyboard.press('Enter');
   await expect(
     page.getByRole('heading', { level: 1, name: 'Catálogo' }),
@@ -189,15 +205,13 @@ test('reduced motion disables decorative animation and transitions', async ({
 }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto('/');
-  await expect(page.locator('.art-object--one')).toHaveCSS(
-    'animation-name',
-    'object-float',
-  );
+  await expect(
+    page.getByRole('button', { name: 'Atualizar painel' }),
+  ).toBeVisible();
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await expect(page.locator('.art-object--one')).toHaveCSS(
-    'animation-name',
-    'none',
-  );
+  await expect(
+    page.getByRole('button', { name: 'Atualizar painel' }),
+  ).toHaveCSS('animation-name', 'none');
   await expect(page.locator('.module-card').first()).toHaveCSS(
     'transition-duration',
     '0s',

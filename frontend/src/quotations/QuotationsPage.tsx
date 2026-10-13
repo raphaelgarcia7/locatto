@@ -27,7 +27,7 @@ export function QuotationsPage() {
   const newButton = useRef<HTMLButtonElement>(null);
   const loaded = useRef<string | null>(null);
   useEffect(() => {
-    if (!authenticated) return;
+    if (!authenticated || mode !== 'list' || identifier) return;
     const controller = new AbortController();
     queueMicrotask(() => {
       setLoading(true);
@@ -48,10 +48,23 @@ export function QuotationsPage() {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [authenticated, query, page, refresh]);
+  }, [authenticated, query, page, refresh, mode, identifier]);
   useEffect(() => {
-    if (!authenticated || !identifier || loaded.current === identifier) return;
+    if (!authenticated) return;
     const controller = new AbortController();
+    if (!identifier) {
+      if (mode === 'detail' && loaded.current !== null) {
+        queueMicrotask(() => {
+          if (controller.signal.aborted) return;
+          loaded.current = null;
+          setRecord(null);
+          setMode('list');
+        });
+        return () => controller.abort();
+      }
+      return;
+    }
+    if (loaded.current === identifier) return;
     void quotationRequest<Quotation>(
       `/${encodeURIComponent(identifier)}`,
       undefined,
@@ -68,7 +81,7 @@ export function QuotationsPage() {
         if (!controller.signal.aborted) setError(quotationFeedback(problem));
       });
     return () => controller.abort();
-  }, [authenticated, identifier]);
+  }, [authenticated, identifier, mode]);
   function close() {
     setMode('list');
     setParams({});

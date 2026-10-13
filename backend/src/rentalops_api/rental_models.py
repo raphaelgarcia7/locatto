@@ -42,6 +42,7 @@ class Rental(Base):
             name="ck_rental_state",
         ),
         CheckConstraint("confirmation_deposit > 0", name="ck_rental_deposit"),
+        Index("ix_rentals_operational_state", "state", "quotation_id"),
     )
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
     quotation_id: Mapped[UUID] = mapped_column(Uuid)

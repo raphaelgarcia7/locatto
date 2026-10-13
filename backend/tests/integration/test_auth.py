@@ -367,6 +367,71 @@ def test_origin_limit_and_concurrent_failures_cannot_bypass(service):
     assert outcomes.count(401) == 10 and outcomes.count(429) == 2
 
 
+def test_login_password_work_does_not_hold_counter_or_account_locks(service):
+    initialize(service)
+    checked = []
+
+    def verify(encoded, password):
+        # Probe from another real connection while the password worker is active.
+        with service.factory.begin() as db:
+            for namespace, value in (("identifier", EMAIL), ("origin", "probe")):
+                digest = service.pseudonym(namespace, value)
+                key = int.from_bytes(bytes.fromhex(digest)[:8], signed=True)
+                assert db.scalar(
+                    text("SELECT pg_try_advisory_xact_lock(:key)"), {"key": key}
+                )
+            assert (
+                db.scalar(
+                    select(User).where(User.email == EMAIL).with_for_update(nowait=True)
+                )
+                is not None
+            )
+        checked.append(True)
+        return PASSWORD_HASHER.verify(encoded, password)
+
+    with patch("rentalops_api.auth.PASSWORD_HASHER", wraps=PASSWORD_HASHER) as worker:
+        worker.verify.side_effect = verify
+        assert service.login(EMAIL, PASSWORD, "probe")[1].user_id
+    assert checked == [True]
+
+
+@pytest.mark.parametrize("change", ["reset", "deactivate"])
+def test_login_rejects_password_result_if_account_changes_during_verification(
+    service, change
+):
+    initialize(service)
+    recovery = service.issue_link(EMAIL, "reset") if change == "reset" else None
+
+    def verify(encoded, password):
+        valid = PASSWORD_HASHER.verify(encoded, password)
+        if recovery:
+            service.set_password(
+                recovery, "new synthetic password phrase", "reset-worker"
+            )
+        else:
+            service.deactivate(EMAIL)
+        return valid
+
+    with patch("rentalops_api.auth.PASSWORD_HASHER", wraps=PASSWORD_HASHER) as worker:
+        worker.verify.side_effect = verify
+        expect_error(401, lambda: service.login(EMAIL, PASSWORD, "stale-worker"))
+    with service.factory() as db:
+        assert db.scalar(select(func.count()).select_from(AuthSession)) == 0
+        assert db.scalar(select(func.count()).select_from(LoginFailure)) == 1
+    if recovery:
+        assert service.login(EMAIL, "new synthetic password phrase", "fresh-worker")[
+            1
+        ].user_id
+
+
+def test_login_exhausted_budget_does_not_start_password_work(service):
+    for _ in range(10):
+        expect_error(401, lambda: service.login(EMAIL, PASSWORD, "budget-worker"))
+    with patch("rentalops_api.auth.PASSWORD_HASHER", wraps=PASSWORD_HASHER) as worker:
+        expect_error(429, lambda: service.login(EMAIL, PASSWORD, "budget-worker"))
+        worker.verify.assert_not_called()
+
+
 def test_atomic_rollback_does_not_consume_token_or_change_password(service):
     service.create_user(EMAIL)
     token = service.issue_link(EMAIL, "access")

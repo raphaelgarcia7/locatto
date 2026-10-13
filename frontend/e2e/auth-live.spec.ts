@@ -25,7 +25,7 @@ test('real PostgreSQL: private first access, login, logout, recovery and deactiv
     .fill('synthetic browser pass phrase');
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(page.getByRole('heading', { level: 1 })).toContainText(
-    'Organização',
+    'Painel operacional',
   );
   const cookies = await page.context().cookies();
   const cookie = cookies.find((item) => item.name === 'rentalops_session');
