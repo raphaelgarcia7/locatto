@@ -1,0 +1,4 @@
+# Keep the existing Prettier checks reproducible on Windows checkouts.
+frontend/** text eol=lf
+# The human-approved source is byte-pinned, including its original line endings.
+backend/src/rentalops_api/contract_template_v04.md -text
