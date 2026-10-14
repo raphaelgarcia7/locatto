@@ -561,3 +561,71 @@ all3 original config hashes. MinIO identity/StartedAt/healthy/restart0 unchanged
 old fixtures and all evidence/data retained. No post-restore stability or durable
 environment fix is claimed. Independent exact-SHA review/protected remote gates
 and develop merge remain mandatory, not inferred from these local results.
+
+## Post-integration browser date regression — 2026-10-14
+
+Independent review passed for implementation `905bd5e34c9b9a222ffb926a0845926e8d458c74`
+against base `2037aeeba0874495bf1f97301f9acf5cc82ee939`. PR #36 passed all five
+Quality jobs and was protected-squash merged into develop at
+`43bff471a9d455ceb1dcca309dcdba62be3115b0`. The subsequent develop Quality run
+`38564242341` failed: backend, frontend and secrets succeeded, but the same
+overdue dashboard browser case failed at all four widths. Whole matrix:
+**172PASS/4FAIL of176**, 43PASS/1FAIL per width; the final gate correctly failed.
+The original logs, screenshots and artifact `11895016105` remain preserved.
+This delivery is still awaiting completion gates, not Project Done.
+
+The test opened an empty dashboard, privately seeded persisted overdue records,
+then filled `2026-10-14`. On that São Paulo day the input already contained the
+same value: React's unchanged date state does not trigger the intentional
+read effect. The approved product uses explicit refresh/focus, not polling.
+No product, API, business rule or session guard changed for this repair.
+
+The regression now first selects `2026-10-14`, explicitly refreshes and awaits
+the date14 response200, then asserts the selected day and empty `Atrasados 0`
+before seeding. Filling that same day after seeding
+therefore exercises the setup problem regardless of the real current date.
+The original overdue/forecast/actual-receipt/calendar/axe/layout/capture
+assertions are all retained; the existing **Atualizar painel** action requests
+the newly persisted data explicitly.
+
+- RED01: an initial test-only fixed client noon clock ended the real session
+  before seeding because its idle expiry was earlier than the injected time.
+  Its source/log/screenshot remain preserved; this is a fixture failure, not
+  dashboard reproduction evidence. That clock injection was removed completely.
+- RED02: deterministic same-day setup without any clock injection failed at the
+  original `Atrasados 1` assertion (9.8s case, unchanged5000ms assertion limit).
+  Source SHA256 `f2f9b1ac1d3dba9343563b55c3214016cbd0c6dcd47144baf76ef5afeb6db98a`;
+  log `40e2bd04df71b43567e8e63b3ddf534c6c53b3cc21763cc78d0c25da449b1f6f`.
+- GREEN03: the same assertions plus the explicit refresh passed (1test6.6s,
+  total16.2s). Log SHA256
+  `2ff0198dab0ce5b87a8aed39c6ce30b80befd0700a72d684cead145d931ef169`.
+- RED04: the final explicit pre-seed response settlement retained the original
+  `Atrasados 1` failure (9.6s). GREEN05: adding only the post-seed refresh passed
+  all unchanged assertions/axe/captures (1test6.9s, total16.6s). Both raw outputs
+  and RED source are preserved privately; no browser or server clock is mocked.
+
+Repair branch `codex/16-dashboard-ci-repair` starts from integrated develop
+`43bff471a9d455ceb1dcca309dcdba62be3115b0`, in a new isolated checkout.
+Private repair evidence: `C:/Users/Raphael/.codex/tmp/rop016-ci-repair-20261014`;
+failed remote artifact: coordinator's `.rentalops/rop016-ci-repair-20261014`.
+The new disposable PostgreSQL17 cluster uses only loopback15450 and database
+`rentalops_rop016_ci_repair_test`; pre-existing services and fixtures are preserved.
+No OS clock, synchronization service, power setting or native UI policy bypass
+was used. Backend/infra and production frontend sources are unchanged, so their
+prior exact-source gates remain applicable; production build assets remain
+`index-CE62wUak.js` / `index-C9CUtQZq.css`.
+
+Current repair frontend quality passed:111tests/14files58.94s, ESLint/Prettier,
+TypeScript/production build138modules and npm audit0. After final settlement-only
+test refinement, focused ESLint/Prettier passed again; application/unit sources
+are unchanged. The human's 2026-10-14 acceleration explicitly waived new manual
+visual inspection and a redundant local full176 rerun for this test-only repair.
+No new full local matrix or visual certification is claimed.
+
+The full original176-case production matrix with four widths/two workers/zero
+retries/original30s budgets still runs in mandatory remote CI, alongside the
+other Quality jobs. New independent exact-SHA review, secret scan, protected
+merge and successful develop CI remain completion gates. This frozen record
+does not assert a future pass: the final private handoff and PR evidence must
+associate actual results with the exact repair commit. Prior visual/native device
+limitations and every negative result above continue to apply.

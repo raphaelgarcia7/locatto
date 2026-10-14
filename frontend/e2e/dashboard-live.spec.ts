@@ -426,8 +426,23 @@ test('dashboard late outstanding remains visible after a new forecast with actua
   page,
 }, info) => {
   await login(page);
+  // Settle an empty snapshot on the fixture date before seeding, so selecting
+  // that same day below exercises the regression regardless of today's date.
+  await page.getByLabel('Dia consultado').fill('2026-10-14');
+  await expect(page.getByLabel('Dia consultado')).toHaveValue('2026-10-14');
+  const emptySnapshot = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      url.pathname === '/api/operations/day' &&
+      url.searchParams.get('date') === '2026-10-14'
+    );
+  });
+  await page.getByRole('button', { name: 'Atualizar painel' }).click();
+  expect((await emptySnapshot).status()).toBe(200);
+  await expect(page.getByRole('button', { name: 'Atrasados 0' })).toBeVisible();
   await seed(page, 'overdue');
   await page.getByLabel('Dia consultado').fill('2026-10-14');
+  await page.getByRole('button', { name: 'Atualizar painel' }).click();
   await expect(page.getByRole('button', { name: 'Atrasados 1' })).toBeVisible();
   await page.getByRole('button', { name: 'Atrasados 1' }).click();
   const list = page.getByRole('region', { name: 'Atrasados', exact: true });
