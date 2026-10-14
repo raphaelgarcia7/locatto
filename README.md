@@ -458,6 +458,43 @@ O harness de navegador isola os parâmetros globais de cada cenário sintético 
 contrato/retirada em um schema PostgreSQL próprio. A matriz herda os workers do
 Playwright (dois na CI), sem forçar execução sequencial nem repetir conflitos.
 
+## Painel operacional e agenda (ROP-016)
+
+A visão geral abre o painel privado em `America/Sao_Paulo`: retiradas e retornos
+previstos no dia escolhido, atrasados com unidades ainda em uso, pendências
+financeiras e ocorrências abertas. Somente locações persistidas entram nas filas;
+um orçamento sem confirmação não vira retirada. Locação concluída com dívida
+continua nas pendências financeiras. Recebimento real, prazo original e nova
+previsão têm rótulos próprios; uma nova previsão não libera estoque.
+
+O calendário mensal mostra contagens completas e abre o dia. A lista alternativa
+das próximas retiradas/devoluções começa com 30 dias e permite período explícito
+de até 90 dias. Listas começam com 50 registros por página (API no máximo 100),
+ordenados por data, horário informado antes dos ausentes, criação e ID. Filtros
+por estado operacional, pendência financeira e cliente pesquisado privadamente
+permanecem na navegação. Links internos abrem a locação e o histórico do cliente
+por UUID, sem nome/documento na URL.
+
+API: `GET /operations/day?date=YYYY-MM-DD`,
+`GET /operations/calendar?month=YYYY-MM` e
+`GET /operations/upcoming?from=YYYY-MM-DD&to=YYYY-MM-DD`, com
+`operational_state`, `financial_pending=true|false`, `customer_id`, `page` e
+`page_size` onde há paginação. As três visões usam a mesma seleção persistida em
+snapshot PostgreSQL `REPEATABLE READ READ ONLY`, sessão e `Cache-Control: no-store`.
+`checked_at` identifica uma consulta informativa, não promessa de estoque. Falha
+de banco responde 503, nunca uma fila ficticiamente vazia. Sem polling: as consultas
+por atualização manual ou ao recuperar foco não renovam a sessão. A atividade
+intencional continua registrada separadamente pela política de autenticação
+existente; nunca estende o limite absoluto de 12h.
+Links privados abrem diretamente o registro selecionado, sem buscar a lista
+oculta de orçamentos. Voltar à lista consulta dados atuais e mantém seus filtros.
+
+Aplicar `alembic upgrade head` instala `0012_dashboard_indexes`, índices de leitura
+sem novos registros de negócio. Não há configuração, serviço ou credencial novos.
+O calendário aceita setas/Início/Fim/Enter, com lista paginada alternativa; estados,
+erros, carregamento e vazio são textuais. Ver
+[evidências e limites ROP-016](docs/engineering/rop-016-evidence.md).
+
 ## Configuração local
 
 Preparação operacional #4: [runbook](infra/operations/README.md), Compose Linux com

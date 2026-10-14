@@ -18,17 +18,31 @@ beforeEach(() => {
     vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
-      json: async () => ({ items: [], total: 0, page: 1, page_size: 25 }),
+      json: async () => ({
+        items: [],
+        total: 0,
+        page: 1,
+        page_size: 25,
+        date: '2026-10-10',
+        timezone: 'America/Sao_Paulo',
+        checked_at: '2026-10-10T12:00:00Z',
+        queues: Object.fromEntries(
+          ['pickup', 'return', 'overdue', 'debt', 'occurrence'].map((kind) => [
+            kind,
+            { items: [], total: 0, page: 1, page_size: 50 },
+          ]),
+        ),
+      }),
     }),
   );
 });
 afterEach(() => vi.unstubAllGlobals());
 
 describe('workspace routing', () => {
-  it('offers functional home links and explicitly planned features', () => {
+  it('offers operational dashboard and functional home links', () => {
     renderRoute();
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-      'Organização que',
+      'Painel operacional',
     );
     expect(
       screen.getByRole('link', { name: 'Abrir Catálogo' }),
@@ -42,9 +56,7 @@ describe('workspace routing', () => {
     expect(screen.getByText('Abrir orçamentos')).toBeVisible();
     expect(screen.getByText('Abrir clientes')).toBeVisible();
     expect(screen.getByText('Abrir acervo')).toBeVisible();
-    expect(
-      screen.getByText(/O assistente conversacional está planejado/),
-    ).toBeVisible();
+    expect(screen.getByText(/Consulta informativa/)).toBeVisible();
   });
 
   it.each([
@@ -118,7 +130,7 @@ describe('workspace routing', () => {
         screen.getByRole('link', { name: 'Voltar à visão geral' }),
       );
       expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-        'Organização que',
+        'Painel operacional',
       );
     },
   );

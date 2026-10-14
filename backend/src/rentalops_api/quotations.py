@@ -3,6 +3,7 @@
 import hashlib
 import json
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import cast
@@ -36,6 +37,15 @@ from rentalops_api.quotation_models import (
     QuotationVersion,
 )
 from rentalops_api.rental_effects import rental_for_quotation, rental_summary
+
+
+@dataclass(frozen=True)
+class _RentalRead:
+    """Current facts local to one read, not a cross-request business cache."""
+
+    summary: dict[str, object] | None
+    physical_demand: dict[UUID, int] | None
+    money: dict[str, object] | None
 
 
 class QuotationError(Exception):
@@ -527,8 +537,27 @@ class QuotationService:
         session.flush()
         return version
 
+    def _rental_read(self, session: Session, header: Quotation) -> _RentalRead:
+        rental = rental_summary(session, header.id)
+        physical = (
+            outstanding_demand(session, UUID(str(rental["id"]))) if rental else None
+        )
+        money = None
+        if rental and rental["state"] in {"out", "completed"}:
+            offer = session.get(QuotationVersion, (header.id, header.current_version))
+            assert offer is not None
+            money = PaymentService(self.factory, clock=self.clock).confirmation_summary(
+                session, header, offer
+            )
+        return _RentalRead(rental, physical, money)
+
     def _view(
-        self, session: Session, header: Quotation, version: QuotationVersion
+        self,
+        session: Session,
+        header: Quotation,
+        version: QuotationVersion,
+        *,
+        current_rental: _RentalRead | None = None,
     ) -> dict[str, object]:
         demand: dict[UUID, int] = {}
         for line in cast(list[dict[str, object]], version.snapshot["lines"]):
@@ -541,14 +570,13 @@ class QuotationService:
             p.id: p
             for p in session.scalars(select(Product).where(Product.id.in_(demand)))
         }
-        rental = rental_summary(session, header.id)
-        physical_demand = (
-            outstanding_demand(session, UUID(str(rental["id"]))) if rental else None
-        )
+        current = current_rental or self._rental_read(session, header)
+        # Per-version capacity can differ; never mutate the shared current facts.
+        rental = dict(current.summary) if current.summary is not None else None
         capacity = self._capacity(
             session,
             products,
-            demand if physical_demand is None else physical_demand,
+            demand if current.physical_demand is None else current.physical_demand,
             version.pickup_date,
             version.return_date,
             UUID(str(rental["id"])) if rental else None,
@@ -557,18 +585,11 @@ class QuotationService:
             rental["inventory_pending"] = bool(rental["inventory_pending"]) or any(
                 int(str(row["shortage"])) > 0 for row in capacity
             )
-            if rental["state"] in {"out", "completed"}:
-                current_offer = session.get(
-                    QuotationVersion, (header.id, header.current_version)
-                )
-                assert current_offer is not None
-                money = PaymentService(
-                    self.factory, clock=self.clock
-                ).confirmation_summary(session, header, current_offer)
-                rental["operational_debt"] = money["operational_debt"]
+            if current.money is not None:
+                rental["operational_debt"] = current.money["operational_debt"]
                 rental["financial_pending"] = (
                     bool(rental["financial_pending"])
-                    or Decimal(str(money["operational_debt"])) > 0
+                    or Decimal(str(current.money["operational_debt"])) > 0
                 )
         return {
             **version.snapshot,
@@ -603,8 +624,9 @@ class QuotationService:
     def versions(self, identifier: UUID) -> list[dict[str, object]]:
         with session_scope(self.factory) as session:
             header = self._quotation(session, identifier)
+            current = self._rental_read(session, header)
             return [
-                self._view(session, header, version)
+                self._view(session, header, version, current_rental=current)
                 for version in session.scalars(
                     select(QuotationVersion)
                     .where(QuotationVersion.quotation_id == identifier)

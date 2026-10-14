@@ -68,6 +68,8 @@ class QuotationVersion(Base):
             name="ck_quotation_reason",
         ),
         Index("ix_quotation_versions_validity", "valid_until"),
+        Index("ix_quotation_versions_pickup", "pickup_date", "quotation_id", "number"),
+        Index("ix_quotation_versions_return", "return_date", "quotation_id", "number"),
     )
     quotation_id: Mapped[UUID] = mapped_column(
         ForeignKey("quotations.id"), primary_key=True

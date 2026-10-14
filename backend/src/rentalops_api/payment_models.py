@@ -29,6 +29,7 @@ class PaymentAccount(Base):
     __tablename__ = "payment_accounts"
     __table_args__ = (
         CheckConstraint("version >= 0", name="ck_payment_account_version"),
+        Index("ix_payment_accounts_pending", "requires_reconciliation", "quotation_id"),
         ForeignKeyConstraint(
             ["quotation_id", "reconciled_quotation_version"],
             ["quotation_versions.quotation_id", "quotation_versions.number"],

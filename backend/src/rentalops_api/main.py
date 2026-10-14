@@ -16,6 +16,7 @@ from rentalops_api.contract_routes import router as contract_router
 from rentalops_api.customer_contracts import Address, CustomerCreate, CustomerSearch
 from rentalops_api.customer_routes import router as customer_router
 from rentalops_api.customers import CustomerError
+from rentalops_api.dashboard_routes import router as dashboard_router
 from rentalops_api.database import build_engine
 from rentalops_api.handover_routes import router as handover_router
 from rentalops_api.operations_middleware import OperationalBoundary
@@ -40,6 +41,7 @@ app.include_router(payment_router)
 app.include_router(rental_router)
 app.include_router(contract_router)
 app.include_router(handover_router)
+app.include_router(dashboard_router)
 app.add_middleware(PhotoBodyLimit)
 app.add_middleware(OperationalBoundary)
 

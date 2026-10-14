@@ -325,21 +325,33 @@ class AuthService:
         email = normalize_email(email)
         identifier = self.pseudonym("identifier", email)
         source = self.pseudonym("origin", origin)
-        # Serialize counters across processes, including unknown account attempts.
+        # Check already-exhausted budgets before expensive work, but release the
+        # counter locks before Argon2. A slow password worker must not hold up all
+        # other attempts from the same origin for the duration of hashing.
+        with self.factory.begin() as db:
+            self.check_attempt_budget(db, LoginFailure, identifier, source)
+            stored = db.scalar(select(User.password_hash).where(User.email == email))
+            stored = stored or DUMMY_HASH
+        valid: bool
+        try:
+            valid = PASSWORD_HASHER.verify(stored, password)
+        except VerificationError, InvalidHashError:
+            valid = False
+        replacement = None
+        if valid and PASSWORD_HASHER.check_needs_rehash(stored):
+            replacement = PASSWORD_HASHER.hash(password)
+        # Recheck counters and the current account atomically. Concurrent failures
+        # still cannot exceed either budget; reset/deactivation during verification
+        # cannot turn a stale password result into a new session.
         with self.factory.begin() as db:
             self.check_attempt_budget(db, LoginFailure, identifier, source)
             user = db.scalar(select(User).where(User.email == email).with_for_update())
-            stored = user.password_hash if user and user.password_hash else DUMMY_HASH
-            valid: bool
-            try:
-                valid = PASSWORD_HASHER.verify(stored, password)
-            except VerificationError, InvalidHashError:
-                valid = False
             if (
                 not valid
                 or user is None
                 or not user.is_active
                 or not user.password_hash
+                or user.password_hash != stored
             ):
                 db.add(
                     LoginFailure(
@@ -352,8 +364,8 @@ class AuthService:
                 # Failure must persist; raise only after the transaction commits.
                 outcome = None
             else:
-                if PASSWORD_HASHER.check_needs_rehash(stored):
-                    user.password_hash = PASSWORD_HASHER.hash(password)
+                if replacement is not None:
+                    user.password_hash = replacement
                 token = secrets.token_urlsafe(32)
                 now = self.clock()
                 session = AuthSession(

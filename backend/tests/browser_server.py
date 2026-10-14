@@ -22,7 +22,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import event
 
-from rentalops_api.auth import AuthError, AuthService, AuthSettings
+from rentalops_api.auth import COOKIE_NAME, AuthError, AuthService, AuthSettings
 from rentalops_api.auth_routes import auth_service
 from rentalops_api.catalog import CatalogService
 from rentalops_api.catalog_routes import catalog_service
@@ -31,6 +31,8 @@ from rentalops_api.contract_routes import contract_service
 from rentalops_api.contracts import ContractService
 from rentalops_api.customer_routes import customer_service
 from rentalops_api.customers import CustomerService
+from rentalops_api.dashboard import DashboardService
+from rentalops_api.dashboard_routes import dashboard_service
 from rentalops_api.database import build_session_factory
 from rentalops_api.handover_routes import handover_service
 from rentalops_api.handovers import HandoverService
@@ -63,6 +65,7 @@ class BrowserFixture:
     rentals: RentalChangeService
     contracts: ContractService
     custody: HandoverService
+    dashboard: DashboardService
 
 
 # Only schema initialization uses this lock: Alembic's migration context is
@@ -132,6 +135,7 @@ def browser_fixture():
             rentals,
             contracts,
             custody,
+            DashboardService(build_session_factory(engine), business_fixture_clock),
         )
     finally:
         namespace.close()
@@ -155,6 +159,7 @@ async def lifespan(app):
         app.state.resources = resources
         app.state.fixture = resources.enter_context(browser_fixture())
         app.state.fixtures = {}
+        app.state.fixture_resources = {}
         app.state.targets = set()
         for dependency, attribute in (
             (auth_service, "auth"),
@@ -165,6 +170,7 @@ async def lifespan(app):
             (rental_service, "rentals"),
             (contract_service, "contracts"),
             (handover_service, "custody"),
+            (dashboard_service, "dashboard"),
         ):
             production_app.dependency_overrides[dependency] = fixture_dependency(
                 attribute
@@ -203,15 +209,35 @@ def cleanup(request: Request):
     return {"status": "cleaned"}
 
 
+@app.post("/__test/release-fixture", status_code=204)
+def release_fixture(request: Request, response: Response):
+    """Release only the caller's synthetic context; global teardown is fallback."""
+    if request.headers.get("origin") != "http://127.0.0.1:4173":
+        return JSONResponse({"detail": "Synthetic origin required."}, status_code=403)
+    key = request.cookies.get(FIXTURE_COOKIE)
+    if key is not None:
+        request.app.state.fixture_resources.pop(key).close()
+        request.app.state.fixtures.pop(key)
+        response.delete_cookie(FIXTURE_COOKIE)
+        response.delete_cookie(COOKIE_NAME)
+
+
 @app.post("/__test/setup")
 def setup(request: Request, response: Response, isolated: bool = False):
     fixture = current_fixture()
     if isolated:
         # Company parameters are intentionally global in the product. Give each
         # contract/custody test its own real schema, not competing global seeds.
-        fixture = request.app.state.resources.enter_context(browser_fixture())
+        resources = ExitStack()
+        try:
+            fixture = resources.enter_context(browser_fixture())
+        except BaseException:
+            resources.close()
+            raise
+        request.app.state.resources.callback(resources.close)
         key = uuid4().hex
         request.app.state.fixtures[key] = fixture
+        request.app.state.fixture_resources[key] = resources
         response.set_cookie(FIXTURE_COOKIE, key, httponly=True, samesite="lax")
     email = f"browser-{uuid4().hex}@example.invalid"
     service = fixture.auth
@@ -225,6 +251,24 @@ class Control(BaseModel):
     model_config = ConfigDict(extra="forbid")
     email: str
     operation: str
+
+
+@app.post("/__test/dashboard/{scenario}")
+def dashboard_seed(scenario: str, request: Request):
+    if scenario not in {"calendar", "overdue", "completed"}:
+        raise AuthError(400, "Synthetic scenario required.")
+    fixture = fixture_context.get()
+    if fixture is None:
+        raise AuthError(400, "Isolated synthetic fixture required.")
+    if request.headers.get("origin") != fixture.auth.settings.origin:
+        raise AuthError(403, "Synthetic origin required.")
+    fixture.auth.identity(request.cookies.get(COOKIE_NAME))
+    root = fixture.catalog.storage.checked_root()
+    if (root / "custody-contracts").exists():
+        raise AuthError(409, "Synthetic fixture already seeded.")
+    from .dashboard_seed import seed_dashboard
+
+    return seed_dashboard(fixture.dashboard.factory.kw["bind"], root, scenario)
 
 
 @app.post("/__test/control")

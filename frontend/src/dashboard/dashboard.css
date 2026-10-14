@@ -1,0 +1,211 @@
+.operations-workspace {
+  max-width: 1200px;
+}
+.operations-topline,
+.operations-list-heading,
+.operations-row-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.operations-topline > *,
+.operations-list-heading > *,
+.operations-row-heading > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.operations-filters,
+.operations-period {
+  margin-block: 1.5rem;
+}
+.operations-view {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-block: 1.5rem;
+}
+.operations-view [aria-pressed='true'] {
+  background: var(--color-ink, #24352e);
+  color: #fff;
+}
+.operations-date {
+  display: grid;
+  gap: 0.5rem;
+  max-width: 18rem;
+}
+.operations-date input {
+  min-height: 44px;
+  padding: 0.6rem;
+  font: inherit;
+  border: 1px solid #6e776f;
+  border-radius: 0.5rem;
+}
+.operations-queues {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: 0.75rem;
+  margin-block: 1.25rem;
+}
+.operations-queues button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  min-width: 0;
+  min-height: 80px;
+  padding: 1rem;
+  background: #fff;
+  color: #24352e;
+  border: 1px solid #849085;
+  border-radius: 12px;
+  font: inherit;
+}
+.operations-queues button > span {
+  flex: 1 1 10ch;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.operations-queues strong {
+  font-size: 1.65rem;
+  flex: 0 0 auto;
+}
+.operations-queues .is-selected {
+  border: 2px solid #24352e;
+  background: #eef2e9;
+}
+.operations-rows {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+}
+.operations-rows > li {
+  background: #fff;
+  border: 1px solid #d4d9d0;
+  border-radius: 16px;
+  padding: 1.25rem;
+  min-width: 0;
+}
+.operations-rows h3 {
+  margin: 0.4rem 0;
+  overflow-wrap: anywhere;
+}
+.operations-state {
+  border: 1px solid #657469;
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+  color: #263a2d;
+  font-size: 0.85rem;
+}
+.operations-rows dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  gap: 1rem;
+  margin-block: 1.25rem;
+}
+.operations-rows dl > div {
+  min-width: 0;
+}
+.operations-rows dt {
+  color: #526054;
+  font-size: 0.8rem;
+  margin-bottom: 0.3rem;
+}
+.operations-rows dd {
+  margin: 0;
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+}
+.operations-warning {
+  color: #5c3e10;
+  background: #fff6df;
+  padding: 0.75rem;
+  border-radius: 8px;
+}
+.operations-empty {
+  padding: 2rem 1rem;
+  background: #fff;
+  border: 1px solid #d4d9d0;
+  border-radius: 12px;
+  margin-block: 1rem;
+}
+.operations-calendar {
+  background: #fff;
+  padding: 1rem;
+  border-radius: 16px;
+  border: 1px solid #d4d9d0;
+  margin-block: 1.5rem;
+}
+.operations-week,
+.operations-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+  min-width: calc(19.25rem + 24px);
+}
+.operations-calendar-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+  padding: 3px;
+}
+.operations-week {
+  margin-block: 1rem 0.5rem;
+  text-align: center;
+  color: #4b5b50;
+  font-size: 0.75rem;
+}
+.operations-days button {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.5rem 0.25rem;
+  background: #f5f7f1;
+  border: 1px solid #adb9ad;
+  border-radius: 6px;
+  color: #24352e;
+  min-width: 0;
+  min-height: 78px;
+  font: inherit;
+}
+.operations-days button span {
+  font-size: 0.7rem;
+  overflow-wrap: anywhere;
+}
+.operations-days button.is-selected {
+  border: 2px solid #24352e;
+  background: #e7eddf;
+}
+.operations-workspace button:focus-visible,
+.operations-workspace a:focus-visible,
+.operations-calendar-scroll:focus-visible {
+  outline: 3px solid #7d5210;
+  outline-offset: 3px;
+}
+.operations-calendar p {
+  font-size: 0.85rem;
+  color: #4b5b50;
+  line-height: 1.6;
+}
+@media (max-width: 480px) {
+  .operations-calendar {
+    padding: 0.65rem;
+  }
+  .operations-rows > li {
+    padding: 1rem;
+  }
+  .operations-days button {
+    min-height: 72px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .operations-workspace *,
+  .operations-workspace *::before,
+  .operations-workspace *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
