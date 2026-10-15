@@ -19,7 +19,9 @@ export function QuotationsPage() {
   const [mode, setMode] = useState<'list' | 'new' | 'detail' | 'edit'>('list');
   const [data, setData] = useState<QuotationPage | null>(null);
   const [filters, setFilters] = useState<Record<string, string>>({});
-  const query = useDebouncedValue(filters);
+  const debouncedFilters = useDebouncedValue(filters);
+  const [submittedFilters, setSubmittedFilters] = useState(filters);
+  const query = filters === submittedFilters ? filters : debouncedFilters;
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -171,6 +173,7 @@ export function QuotationsPage() {
             className="catalog-panel quotation-search"
             onSubmit={(event) => {
               event.preventDefault();
+              setSubmittedFilters(filters);
               setPage(1);
               setRefresh((value) => value + 1);
             }}

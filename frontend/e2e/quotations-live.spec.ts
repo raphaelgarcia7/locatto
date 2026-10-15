@@ -531,10 +531,12 @@ test('quotation loading, empty, error retry, keyboard and reduced motion', async
     page.getByRole('heading', { name: 'Nova locação' }),
   ).toBeFocused();
   await page.keyboard.press('Tab');
-  await expect(page.getByLabel('Cliente', { exact: true })).toBeFocused();
+  await expect(
+    page.getByRole('combobox', { name: 'Cliente', exact: true }),
+  ).toBeFocused();
   expect(
     await page
-      .getByLabel('Cliente', { exact: true })
+      .getByRole('combobox', { name: 'Cliente', exact: true })
       .evaluate((element) => getComputedStyle(element).boxShadow),
   ).not.toBe('none');
   expect(

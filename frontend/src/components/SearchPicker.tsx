@@ -103,7 +103,7 @@ export function SearchPicker({
             </li>
           ))}
           {!matches.length && (
-            <li role="presentation">
+            <li role="option" aria-disabled="true" aria-selected="false">
               Nenhuma opção nesta busca. Continue digitando para pesquisar.
             </li>
           )}

@@ -1,4 +1,4 @@
-import { openRentalWorkflow } from './rental-workflow';
+import { openFinancialDetails, openRentalWorkflow } from './rental-workflow';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 import type { Page, TestInfo } from '@playwright/test';
@@ -87,6 +87,7 @@ function section(page: Page) {
   return page.getByRole('region', { name: '2. Confirmar a reserva' });
 }
 async function financialPaid(page: Page) {
+  await openFinancialDetails(page);
   const panel = page.getByRole('region', {
     name: 'Financeiro deste orçamento',
   });
@@ -220,6 +221,7 @@ test('confirmation requires payment and explicit action; unknown result reuses t
     name: 'Financeiro deste orçamento',
   });
   await expect(finance.getByText(/Para reservar, o sinal é de/)).toBeVisible();
+  await openFinancialDetails(page);
   await expect(
     finance.getByText('Nenhuma movimentação financeira no histórico.'),
   ).toBeVisible();

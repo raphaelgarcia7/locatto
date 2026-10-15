@@ -115,6 +115,9 @@
   margin-top: 1.25rem;
 }
 .operations-view {
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
   display: inline-flex;
   padding: 4px;
   gap: 4px;
@@ -181,6 +184,8 @@
   color: var(--metric-accent);
 }
 .operations-metric-hint {
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-size: 0.73rem;
   color: var(--muted);
   line-height: 1.45;
@@ -435,7 +440,7 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .operations-queues .operations-metric {
-    padding: 1rem;
+    padding: 12px;
   }
   .operations-queues .operations-metric:last-child {
     grid-column: 1 / -1;

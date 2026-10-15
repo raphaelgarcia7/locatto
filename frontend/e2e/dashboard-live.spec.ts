@@ -222,7 +222,7 @@ test('dashboard real 125-rental day, stable pagination, private filters and dire
   const searched = await search;
   expect(searched.method()).toBe('POST');
   expect(searched.url()).not.toContain('Synthetic');
-  await page.getByLabel('Nome do cliente').focus();
+  await page.getByRole('combobox', { name: 'Nome do cliente' }).focus();
   await page
     .locator(`[role=option][data-record-id="${ids.customer_id}"]`)
     .click();
@@ -372,15 +372,16 @@ test('dashboard complete day to agenda journey preserves pagination, filters and
     page.getByRole('button', { name: 'Retiradas do dia 125' }),
   ).toBeVisible();
   await page.getByText('Filtrar operação', { exact: true }).click();
-  await page.getByLabel('Nome do cliente').fill('Synthetic quotation');
   const searched = page.waitForRequest((request) =>
     request.url().endsWith('/api/customers/search'),
   );
-  await page.getByRole('button', { name: 'Pesquisar cliente' }).click();
+  await page
+    .getByRole('combobox', { name: 'Nome do cliente' })
+    .fill('Synthetic quotation');
   const request = await searched;
   expect(request.method()).toBe('POST');
   expect(request.url()).not.toContain('Synthetic');
-  await page.getByLabel('Nome do cliente').focus();
+  await page.getByRole('combobox', { name: 'Nome do cliente' }).focus();
   await page
     .locator(`[role=option][data-record-id="${ids.customer_id}"]`)
     .click();

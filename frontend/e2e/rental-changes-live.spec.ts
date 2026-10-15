@@ -123,6 +123,19 @@ async function visual(page: Page, info: TestInfo, name: string) {
         document.documentElement.scrollWidth <=
         document.documentElement.clientWidth,
     ),
+    JSON.stringify(
+      await page.locator('body *').evaluateAll((nodes) =>
+        nodes
+          .filter((node) => node.getBoundingClientRect().right > innerWidth)
+          .slice(0, 12)
+          .map((node) => ({
+            tag: node.tagName,
+            className: node.className,
+            right: node.getBoundingClientRect().right,
+            width: node.getBoundingClientRect().width,
+          })),
+      ),
+    ),
   ).toBe(true);
   expect(
     (
