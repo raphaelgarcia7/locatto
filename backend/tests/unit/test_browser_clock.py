@@ -69,13 +69,11 @@ def test_browser_clock_is_only_injected_into_quotation_and_rental_fixtures(monke
         browser_server.production_app.dependency_overrides.update(previous)
 
 
-@pytest.mark.parametrize("day,expired", [(9, False), (10, False), (11, True)])
-def test_explicit_clock_preserves_before_on_and_after_validity(day, expired):
+@pytest.mark.parametrize("day", [9, 10, 11])
+def test_explicit_clock_does_not_reintroduce_removed_commercial_expiration(day):
     def clock():
         return datetime(2026, 10, day, 12, tzinfo=UTC)
 
     service = QuotationService(object(), clock=clock)
     state = validity_state(date(2026, 10, 10), service.clock())
-    assert state["expired"] is expired
-    assert state["requires_revision"] is expired
-    assert state["state"] == ("expired" if expired else "current")
+    assert state == {"expired": False, "requires_revision": False, "state": "current"}

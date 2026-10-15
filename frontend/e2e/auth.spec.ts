@@ -3,6 +3,11 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
 test.beforeEach(async ({ page }) => {
+  await page.route('**/api/operations/calendar?**', (route) =>
+    route.fulfill({
+      json: { days: [], start: '2026-10-01', end: '2026-10-31' },
+    }),
+  );
   // These tests control auth timing; the real customer/auth flow has its own suite.
   await page.route('**/api/customers/search', (route) =>
     route.fulfill({ json: { items: [], total: 0, page: 1, page_size: 25 } }),

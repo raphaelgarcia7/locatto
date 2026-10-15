@@ -124,6 +124,8 @@
 .quotation-workflow,
 .quotation-secondary,
 .quotation-stock-details {
+  min-width: 0;
+  overflow-wrap: anywhere;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--surface);
@@ -215,6 +217,20 @@
 }
 .quotation-detail .quotation-summary {
   padding: 1rem;
+}
+@media (max-width: 480px) {
+  .quotation-workflow,
+  .quotation-secondary,
+  .quotation-stock-details,
+  .quotation-detail .quotation-summary {
+    padding: 0.75rem;
+  }
+  .quotation-workflow .catalog-section {
+    padding-inline: 0;
+  }
+  .quotation-detail .catalog-attributes {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 .quotation-detail .quotation-summary h3 {
   margin-top: 0;

@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from rentalops_api.auth import Identity
 from rentalops_api.catalog import CatalogService
 from rentalops_api.catalog_contracts import (
+    CategoryCreate,
     KitCreate,
     KitEdit,
     MaintenanceCommand,
@@ -69,6 +70,24 @@ def error(status, operation):
     with pytest.raises(CatalogError) as caught:
         operation()
     assert caught.value.status == status
+
+
+def test_category_unicode_duplicates_are_serialized_independent_of_db_locale(catalog):
+    service, actor = catalog
+    barrier = Barrier(2)
+
+    def register(name):
+        barrier.wait(timeout=10)
+        try:
+            service.create_category(CategoryCreate(name=name), actor)
+            return 201
+        except CatalogError as problem:
+            return problem.status
+
+    with ThreadPoolExecutor(max_workers=2) as workers:
+        outcomes = list(workers.map(register, ["Painéis", "PAINE\u0301IS"]))
+    assert sorted(outcomes) == [201, 409]
+    assert service.list_categories("", 1, 25)["total"] == 1
 
 
 def test_incremental_catalog_upgrade_repeat_and_rollback_preserves_auth(

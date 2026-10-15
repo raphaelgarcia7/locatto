@@ -2,9 +2,10 @@
 
 from datetime import UTC, datetime
 from typing import cast
+from unicodedata import normalize
 from uuid import UUID
 
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -181,6 +182,17 @@ class CatalogService:
     ) -> dict[str, object]:
         try:
             with session_scope(self.factory) as session:
+                # Category registration is rare; serialize its Unicode comparison
+                # rather than depending on the database's locale-specific lower().
+                session.execute(text("SELECT pg_advisory_xact_lock(731614, 13)"))
+                key = normalize("NFC", payload.name).casefold()
+                if any(
+                    normalize("NFC", name).casefold() == key
+                    for name in session.scalars(select(ProductCategory.name))
+                ):
+                    raise CatalogError(
+                        409, "Esta categoria já está cadastrada. Selecione-a na lista."
+                    )
                 category = ProductCategory(name=payload.name, created_by=actor.user_id)
                 session.add(category)
                 session.flush()

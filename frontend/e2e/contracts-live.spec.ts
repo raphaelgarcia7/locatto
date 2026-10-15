@@ -147,7 +147,7 @@ test('progressive company parameters, optional logo and preserved fields after c
   ).toBeFocused();
   const focus = await page
     .getByLabel('Identificação da locadora (CPF/CNPJ)')
-    .evaluate((element) => getComputedStyle(element).outlineStyle);
+    .evaluate((element) => getComputedStyle(element).boxShadow);
   expect(focus).not.toBe('none');
   let body: string | null = null;
   let calls = 0;

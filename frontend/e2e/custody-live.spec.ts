@@ -737,6 +737,15 @@ test('RET05 reviews exact repair, replacement and delay agreement types before r
   expect(saved.financial.received).toBe('200.00');
   expect(saved.financial.refunded).toBe('0.00');
   expect(pageErrors).toEqual([]);
+  const financialHistory = page.getByText('Histórico financeiro', {
+    exact: true,
+  });
+  if (
+    !(await financialHistory
+      .locator('..')
+      .evaluate((element) => element.hasAttribute('open')))
+  )
+    await financialHistory.click();
   await expect(
     page.getByText(
       'Acordo financeiro de ocorrência · financeiro 5 · comercial 1',

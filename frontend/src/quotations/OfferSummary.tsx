@@ -61,6 +61,12 @@ export function OfferSummary({
           simultâneos no período; confirmar sempre faz nova checagem.
         </p>
       )}
+      {compact && !showPaymentEstimate && (
+        <p>
+          Cancelar não renegocia valores. Consulte o sinal e o saldo vigentes no
+          financeiro.
+        </p>
+      )}
       <details
         className="quotation-stock-details"
         open={compact ? undefined : true}

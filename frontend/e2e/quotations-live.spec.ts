@@ -367,8 +367,11 @@ test('real quotation agreement, custom composition, revisions, expiration, confl
     .getByRole('button', { name: 'Calcular prévia', exact: true })
     .click();
   await expect(
-    page.getByText('Vencido · requer nova revisão antes de fechar'),
-  ).toBeVisible();
+    page.getByLabel('Validade comercial', { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: 'Salvar nova revisão' }),
+  ).toBeEnabled();
   await page.getByRole('button', { name: 'Salvar nova revisão' }).click();
   await expect(page.locator('.quotation-detail')).toHaveAttribute(
     'data-quotation-version',
@@ -495,7 +498,7 @@ test('quotation loading, empty, error retry, keyboard and reduced motion', async
     },
     { times: 1 },
   );
-  await page.getByRole('button', { name: 'Buscar orçamentos' }).click();
+  await page.getByRole('button', { name: 'Buscar locações' }).click();
   await expect(page.getByRole('alert')).toContainText('Serviço indisponível');
   await visual(page, info, 'error');
   let release: () => void = () => {};
@@ -532,7 +535,7 @@ test('quotation loading, empty, error retry, keyboard and reduced motion', async
   expect(
     await page
       .getByLabel('Cliente', { exact: true })
-      .evaluate((element) => getComputedStyle(element).outlineStyle),
+      .evaluate((element) => getComputedStyle(element).boxShadow),
   ).not.toBe('none');
   expect(
     await page.evaluate(

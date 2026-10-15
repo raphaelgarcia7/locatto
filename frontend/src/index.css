@@ -160,9 +160,13 @@ svg {
   outline: none;
 }
 :root :is(input, select, textarea):focus {
-  outline: none;
+  outline: 0;
   border-color: var(--focus-ring);
   box-shadow: 0 0 0 2px #2678b814;
+}
+:root input:is([type='checkbox'], [type='radio']):focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 .skip-link {
   position: fixed;

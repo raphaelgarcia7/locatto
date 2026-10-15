@@ -170,6 +170,7 @@ test('confirmation requires payment and explicit action; unknown result reuses t
     await route.continue();
   });
   await page.reload();
+  await openRentalWorkflow(page);
   await expect(section(page).getByText('Consultando locação…')).toBeVisible();
   await visual(page, info, 'loading');
   const finishedLoading = page.waitForResponse(
@@ -192,6 +193,7 @@ test('confirmation requires payment and explicit action; unknown result reuses t
     });
   });
   await page.reload();
+  await openRentalWorkflow(page);
   await expect(section(page).getByRole('alert')).toContainText(
     'Não foi possível consultar a locação',
   );

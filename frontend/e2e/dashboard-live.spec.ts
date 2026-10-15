@@ -7,6 +7,9 @@ test.use({ trace: 'off' });
 const origin = 'http://127.0.0.1:4173';
 
 async function selectCalendarDay(page: Page, date: string) {
+  const updated = page.waitForResponse('**/api/operations/calendar?**');
+  await page.getByRole('button', { name: 'Atualizar painel' }).click();
+  expect((await updated).status()).toBe(200);
   const [year, month, day] = date.split('-');
   const firstDay = page.locator('.operations-days button').first();
   await expect(firstDay).toBeVisible();
@@ -92,7 +95,9 @@ async function visual(
   expect(
     await page.locator('.operations-queues button').evaluateAll((buttons) =>
       buttons.every((button) => {
-        const label = button.querySelector('span')!.getBoundingClientRect();
+        const label = button
+          .querySelector('.operations-metric-label')!
+          .getBoundingClientRect();
         const count = button.querySelector('strong')!.getBoundingClientRect();
         return (
           button.scrollWidth <= button.clientWidth &&
@@ -210,11 +215,10 @@ test('dashboard real 125-rental day, stable pagination, private filters and dire
   await list.getByRole('button', { name: 'Página anterior' }).click();
   await expect(list.locator('li')).toHaveCount(50);
   await page.getByText('Filtrar operação', { exact: true }).click();
-  await page.getByLabel('Nome do cliente').fill('Synthetic quotation');
   const search = page.waitForRequest((request) =>
     request.url().endsWith('/api/customers/search'),
   );
-  await page.getByRole('button', { name: 'Pesquisar cliente' }).click();
+  await page.getByLabel('Nome do cliente').fill('Synthetic quotation');
   const searched = await search;
   expect(searched.method()).toBe('POST');
   expect(searched.url()).not.toContain('Synthetic');
@@ -523,6 +527,9 @@ test('dashboard loading, empty, independent calendar error, retry, keyboard and 
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const refresh = page.getByRole('button', { name: 'Atualizar painel' });
   await expect(refresh).toHaveCSS('transition-duration', '0s');
+  await expect(page.getByText('Consultando operação…')).toHaveCount(0);
+  await expect(page.getByText('Carregando calendário…')).toHaveCount(0);
+  await page.keyboard.press('Tab');
   await refresh.focus();
   await expect(refresh).toBeFocused();
   await expect(refresh).toHaveCSS('outline-width', '2px');

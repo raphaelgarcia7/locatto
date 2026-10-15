@@ -82,6 +82,10 @@ test('catalog loading, error, empty, validation and keyboard remain usable', asy
   await page.getByLabel('Quantidade inicial').fill('0');
   await page.keyboard.press('Tab');
   await expect(
+    page.getByRole('button', { name: /Selecionar categoria/ }),
+  ).toBeFocused();
+  await page.getByText('Mais detalhes (opcionais)', { exact: true }).focus();
+  await expect(
     page.getByText('Mais detalhes (opcionais)', { exact: true }),
   ).toBeFocused();
   await page.keyboard.press('Enter');
