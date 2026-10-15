@@ -51,8 +51,8 @@
 }
 .quotation-scope {
   padding: 16px;
-  border-left: 4px solid var(--green-dark);
-  background: #edf3e9;
+  border-left: 4px solid var(--primary-dark);
+  background: #e8f4ff;
   line-height: 1.65;
 }
 .quotation-capacity {
@@ -87,6 +87,11 @@
   overflow-wrap: anywhere;
   line-height: 1.65;
 }
+.quotation-workspace :is(button, summary, legend, label, h3, h4) {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
 @media (max-width: 600px) {
   .quotation-line,
   .quotation-summary,
@@ -97,4 +102,146 @@
     flex-direction: column;
     align-items: stretch;
   }
+}
+.quotation-search > button[type='submit'] {
+  margin-top: 1.5rem;
+}
+.quotation-add-item {
+  margin-top: 1.5rem;
+}
+.quotation-workspace [aria-invalid='true'] {
+  border-color: var(--danger, #b8403d);
+  background: #fff8f7;
+}
+.quotation-field-error {
+  display: block;
+  color: #963330;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.quotation-validation-summary {
+  padding: 1rem;
+  margin-block: 1rem;
+  border: 1px solid #e2b2b0;
+  border-radius: 10px;
+  background: #fff8f7;
+}
+.quotation-workflow,
+.quotation-secondary,
+.quotation-stock-details {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  margin-block: 1rem;
+  padding: 1rem;
+}
+.quotation-workflow > summary,
+.quotation-secondary > summary,
+.quotation-stock-details > summary,
+.quotation-kit-items > summary {
+  cursor: pointer;
+  min-height: 44px;
+  align-content: center;
+  color: var(--primary-dark);
+  font-weight: 600;
+}
+.quotation-workflow[open] > summary {
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 1.5rem;
+}
+.quotation-workflow--secondary {
+  background: var(--cream);
+}
+.quotation-workflow .catalog-section {
+  margin-block: 1.5rem;
+}
+.quotation-workflow button {
+  margin-block: 0.35rem;
+}
+.quotation-workflow input + button,
+.quotation-workflow select + button,
+.quotation-workflow label + button,
+.quotation-workflow form > button {
+  margin-top: 1rem;
+}
+.quotation-state,
+.quotation-flow-note {
+  padding: 0.75rem 1rem;
+  background: var(--primary-soft);
+  border-radius: 10px;
+  color: var(--primary-dark);
+}
+.quotation-help {
+  display: inline;
+  font-weight: 400;
+}
+.quotation-help-button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  margin-left: 0.35rem;
+  border: 1px solid var(--primary);
+  border-radius: 50%;
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+.quotation-help-text {
+  display: block;
+  padding: 0.75rem;
+  margin-block: 0.5rem;
+  background: var(--primary-soft);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+.quotation-kit-items {
+  margin-top: 0.5rem;
+}
+.quotation-date-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.quotation-date-label {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 28px;
+}
+.quotation-detail > .catalog-attributes {
+  grid-template-columns: repeat(auto-fit, minmax(125px, 1fr));
+}
+.quotation-detail .quotation-summary .catalog-attributes {
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+}
+.quotation-detail .quotation-summary {
+  padding: 1rem;
+}
+@media (max-width: 480px) {
+  .quotation-workflow,
+  .quotation-secondary,
+  .quotation-stock-details,
+  .quotation-detail .quotation-summary {
+    padding: 0.75rem;
+  }
+  .quotation-workflow .catalog-section {
+    padding-inline: 0;
+  }
+  .quotation-detail .catalog-attributes,
+  .quotation-detail .quotation-summary .catalog-attributes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .quotation-detail .payment-guide {
+    min-width: 0;
+    padding: 12px;
+  }
+}
+.quotation-detail .quotation-summary h3 {
+  margin-top: 0;
 }

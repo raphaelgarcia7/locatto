@@ -2,6 +2,7 @@ import { useContext, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { AuthContext } from '../authContext';
 import { StatePanel } from '../components/StatePanel';
+import { useDebouncedValue } from '../components/useDebouncedValue';
 import { priceLabel } from '../catalog/api';
 import { quotationFeedback, quotationLink, quotationRequest } from './api';
 import type { Quotation, QuotationPage } from './api';
@@ -18,7 +19,9 @@ export function QuotationsPage() {
   const [mode, setMode] = useState<'list' | 'new' | 'detail' | 'edit'>('list');
   const [data, setData] = useState<QuotationPage | null>(null);
   const [filters, setFilters] = useState<Record<string, string>>({});
-  const [query, setQuery] = useState<Record<string, string>>({});
+  const debouncedFilters = useDebouncedValue(filters);
+  const [submittedFilters, setSubmittedFilters] = useState(filters);
+  const query = filters === submittedFilters ? filters : debouncedFilters;
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -35,7 +38,12 @@ export function QuotationsPage() {
     });
     void quotationRequest<QuotationPage>(
       '/search',
-      { ...query, page },
+      {
+        ...Object.fromEntries(
+          Object.entries(query).filter(([, value]) => Boolean(value)),
+        ),
+        page,
+      },
       controller.signal,
     )
       .then((value) => {
@@ -111,15 +119,21 @@ export function QuotationsPage() {
   return (
     <div className="catalog-workspace quotation-workspace">
       <header className="page-heading">
-        <span className="section-kicker">SUA LOCADORA · PROPOSTAS</span>
+        {mode !== 'detail' && (
+          <span className="section-kicker">SUA LOCADORA · PROPOSTAS</span>
+        )}
         <h1>Locações</h1>
-        <p>
-          Orçamentos, pagamentos, reservas e alterações com histórico. Confirme
-          com sinal válido e nova checagem de estoque.
-        </p>
-        <Link className="catalog-back" to="/">
-          Voltar à visão geral
-        </Link>
+        {mode !== 'detail' && (
+          <>
+            <p>
+              Orçamentos, pagamentos, reservas e alterações com histórico.
+              Confirme com sinal válido e nova checagem de estoque.
+            </p>
+            <Link className="catalog-back" to="/">
+              Voltar à visão geral
+            </Link>
+          </>
+        )}
       </header>
       {notice && (
         <p role="status" className="auth-feedback">
@@ -152,87 +166,52 @@ export function QuotationsPage() {
                 setError('');
               }}
             >
-              Novo orçamento
+              Nova locação
             </button>
           </div>
           <form
             className="catalog-panel quotation-search"
             onSubmit={(event) => {
               event.preventDefault();
-              setQuery(
-                Object.fromEntries(
-                  Object.entries(filters).filter(([, value]) => value),
-                ),
-              );
+              setSubmittedFilters(filters);
               setPage(1);
+              setRefresh((value) => value + 1);
             }}
           >
             <div className="catalog-form-grid">
               <label>
-                ID do cliente
+                Nome do cliente
                 <input
-                  value={filters.customer_id ?? ''}
+                  value={filters.customer_name ?? ''}
+                  maxLength={200}
                   onChange={(event) =>
                     setFilters((value) => ({
                       ...value,
-                      customer_id: event.target.value,
+                      customer_name: event.target.value,
                     }))
                   }
                 />
               </label>
-              <label>
-                ID do orçamento
-                <input
-                  value={filters.quotation_id ?? ''}
-                  onChange={(event) =>
-                    setFilters((value) => ({
-                      ...value,
-                      quotation_id: event.target.value,
-                    }))
-                  }
-                />
-              </label>
-              <label>
-                Estado comercial
-                <select
-                  value={filters.state ?? ''}
-                  onChange={(event) =>
-                    setFilters((value) => ({
-                      ...value,
-                      state: event.target.value,
-                    }))
-                  }
-                >
-                  <option value="">Todos</option>
-                  <option value="current">Validade vigente</option>
-                  <option value="expired">Vencido</option>
-                </select>
-              </label>
-              {(
-                [
-                  'pickup_date',
-                  'event_date',
-                  'return_date',
-                  'valid_until',
-                ] as const
-              ).map((key, index) => (
-                <label key={key}>
-                  {['Retirada', 'Evento', 'Devolução', 'Validade'][index]}
-                  <input
-                    type="date"
-                    value={filters[key] ?? ''}
-                    onChange={(event) =>
-                      setFilters((value) => ({
-                        ...value,
-                        [key]: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-              ))}
+              {(['pickup_date', 'event_date', 'return_date'] as const).map(
+                (key, index) => (
+                  <label key={key}>
+                    {['Retirada', 'Evento', 'Devolução', 'Validade'][index]}
+                    <input
+                      type="date"
+                      value={filters[key] ?? ''}
+                      onChange={(event) =>
+                        setFilters((value) => ({
+                          ...value,
+                          [key]: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                ),
+              )}
             </div>
             <button className="auth-retry" type="submit">
-              Buscar orçamentos
+              Buscar locações
             </button>
           </form>
           {loading ? (
@@ -261,9 +240,7 @@ export function QuotationsPage() {
                     </span>
                     <h3>Orçamento {item.id.slice(0, 8)}</h3>
                     <p className="catalog-price">{priceLabel(item.total)}</p>
-                    <p>
-                      Evento {item.event_date} · validade {item.valid_until}
-                    </p>
+                    <p>Evento {item.event_date}</p>
                     {item.stock_pending && (
                       <p className="catalog-badge catalog-badge--warning">
                         Pendência de estoque cadastral

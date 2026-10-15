@@ -1,3 +1,4 @@
+import { openRentalWorkflow } from './rental-workflow';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 import type { Page, TestInfo } from '@playwright/test';
@@ -146,7 +147,7 @@ test('progressive company parameters, optional logo and preserved fields after c
   ).toBeFocused();
   const focus = await page
     .getByLabel('Identificação da locadora (CPF/CNPJ)')
-    .evaluate((element) => getComputedStyle(element).outlineStyle);
+    .evaluate((element) => getComputedStyle(element).boxShadow);
   expect(focus).not.toBe('none');
   let body: string | null = null;
   let calls = 0;
@@ -329,6 +330,7 @@ test('issued versions, missing photos, lost acknowledgement, delivery and manual
     await route.continue();
   });
   await page.goto(`/locacoes?orcamento=${quote.id}`);
+  await openRentalWorkflow(page);
   await expect(section(page).getByRole('status')).toContainText(
     'Carregando contratos',
   );
@@ -343,11 +345,11 @@ test('issued versions, missing photos, lost acknowledgement, delivery and manual
   // handle its in-flight request while route.continue is still pending.
   await page.unroute(`**/api/quotations/${quote.id}/contracts`);
   await fillAddress(page, 'Endereço do evento');
+  await expect(
+    section(page).getByRole('textbox', { name: /condição na saída/ }),
+  ).toHaveCount(0);
   await section(page)
-    .getByRole('textbox', { name: /condição na saída/ })
-    .fill('Conferência sintética: bom estado');
-  await section(page)
-    .getByRole('button', { name: 'Preparar prévia do contrato' })
+    .getByRole('button', { name: 'Visualizar contrato' })
     .click();
   await expect(
     section(page).getByText(/Foto do produto .* pendente/),
@@ -365,10 +367,10 @@ test('issued versions, missing photos, lost acknowledgement, delivery and manual
   });
   expect(upload.status()).toBe(201);
   await section(page)
-    .getByRole('button', { name: 'Reconsultar contratos e parâmetros' })
+    .getByRole('button', { name: 'Atualizar dados do contrato' })
     .click();
   await section(page)
-    .getByRole('button', { name: 'Preparar prévia do contrato' })
+    .getByRole('button', { name: 'Visualizar contrato' })
     .click();
   await expect(
     section(page).getByText(
@@ -405,6 +407,15 @@ test('issued versions, missing photos, lost acknowledgement, delivery and manual
     .getByRole('button', { name: 'Repetir mesma emissão' })
     .click();
   await expect(
+    section(page).getByRole('link', {
+      name: 'Baixar PDF do contrato',
+      exact: true,
+    }),
+  ).toBeVisible();
+  await section(page)
+    .getByText('Contratos emitidos e histórico', { exact: true })
+    .click();
+  await expect(
     section(page).getByRole('heading', {
       name: 'Contrato v1 · versão vigente',
     }),
@@ -422,13 +433,13 @@ test('issued versions, missing photos, lost acknowledgement, delivery and manual
   expect(pdfResponse.headers()['cache-control']).toBe('no-store');
   const originalPdf = await pdfResponse.body();
   await section(page)
-    .getByRole('button', { name: 'Registrar entrega v1' })
+    .getByRole('button', { name: 'Registrar entrega' })
     .click();
   await section(page)
     .getByLabel('Motivo / registro da entrega')
     .fill('Entrega sintética manual');
   await section(page)
-    .getByRole('checkbox', { name: 'Confirmo o registro para a versão 1' })
+    .getByRole('checkbox', { name: 'Confirmo os dados deste registro' })
     .check();
   await section(page)
     .getByRole('button', { name: 'Confirmar registro' })
@@ -440,7 +451,7 @@ test('issued versions, missing photos, lost acknowledgement, delivery and manual
     section(page).getByText('Registro confirmado pelo servidor.'),
   ).toBeFocused();
   await section(page)
-    .getByRole('button', { name: 'Anexar assinatura v1' })
+    .getByRole('button', { name: 'Anexar contrato assinado' })
     .click();
   await section(page).getByLabel('Arquivo assinado').setInputFiles({
     name: 'synthetic.png',
@@ -453,7 +464,7 @@ test('issued versions, missing photos, lost acknowledgement, delivery and manual
       .evaluate((element) => (element as HTMLInputElement).checkValidity()),
   ).toBe(true);
   await section(page)
-    .getByRole('checkbox', { name: 'Confirmo o registro para a versão 1' })
+    .getByRole('checkbox', { name: 'Confirmo os dados deste registro' })
     .check();
   await section(page)
     .getByRole('button', { name: 'Confirmar registro' })
@@ -494,13 +505,13 @@ test('issued versions, missing photos, lost acknowledgement, delivery and manual
   expect(uploadSummary).toBe(`Anexo recebido · ${uploadedDate}`);
   await visual(page, info, 'contract-awaiting-review');
   await section(page)
-    .getByRole('button', { name: 'Conferir anexo v1' })
+    .getByRole('button', { name: 'Conferir assinatura' })
     .click();
   await section(page)
     .getByLabel('Declaração de conferência')
     .fill('Conferência sintética manual da identidade, assinatura e versão');
   await section(page)
-    .getByRole('checkbox', { name: 'Confirmo o registro para a versão 1' })
+    .getByRole('checkbox', { name: 'Confirmo os dados deste registro' })
     .check();
   await section(page)
     .getByRole('button', { name: 'Confirmar registro' })
@@ -529,13 +540,16 @@ test('issued versions, missing photos, lost acknowledgement, delivery and manual
     address: address(),
   });
   await section(page)
-    .getByRole('button', { name: 'Reconsultar contratos e parâmetros' })
+    .getByRole('button', { name: 'Atualizar dados do contrato' })
     .click();
   await section(page)
-    .getByRole('button', { name: 'Preparar prévia do contrato' })
+    .getByText('Gerar nova versão do contrato', { exact: true })
+    .click();
+  await section(page)
+    .getByRole('button', { name: 'Visualizar contrato' })
     .click();
   await expect(
-    section(page).getByText('Mudanças em relação à versão anterior:'),
+    section(page).getByText('Mudanças em relação ao contrato anterior'),
   ).toBeVisible();
   await section(page)
     .getByRole('checkbox', {

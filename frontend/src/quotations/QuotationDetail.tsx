@@ -15,6 +15,7 @@ import { ConfirmationSection } from '../rentals/ConfirmationSection';
 import { RentalChanges } from '../rentals/RentalChanges';
 import { ContractsSection } from '../contracts/ContractsSection';
 import { CustodySection } from '../rentals/CustodySection';
+import { rentalStateLabel } from '../rentals/api';
 import '../rentals/custody.css';
 
 export function QuotationDetail({
@@ -33,6 +34,13 @@ export function QuotationDetail({
   const [changed, setChanged] = useState(false);
   const [financialRead, setFinancialRead] = useState(0);
   const heading = useRef<HTMLHeadingElement>(null);
+  const closing = useRef<HTMLDetailsElement>(null);
+  const contract = useRef<HTMLDetailsElement>(null);
+  function openStep(element: HTMLDetailsElement | null) {
+    if (!element) return;
+    element.open = true;
+    element.querySelector('summary')?.focus();
+  }
   useEffect(() => {
     heading.current?.focus();
   }, []);
@@ -75,16 +83,17 @@ export function QuotationDetail({
     }
   }
   return (
-    <section className="catalog-panel" aria-labelledby="quotation-detail-title">
+    <section
+      className="catalog-panel quotation-detail"
+      data-quotation-version={selected.version}
+      aria-labelledby="quotation-detail-title"
+    >
       <div className="catalog-panel-heading">
         <div>
-          <span className="section-kicker">
-            ORÇAMENTO · REVISÃO {selected.version}
-          </span>
+          <span className="section-kicker">LOCAÇÃO</span>
           <h2 id="quotation-detail-title" tabIndex={-1} ref={heading}>
-            Acordo comercial
+            Detalhes da locação
           </h2>
-          <p className="quotation-id">{record.id}</p>
         </div>
         <div className="catalog-actions">
           <button className="auth-retry" onClick={onClose}>
@@ -92,59 +101,97 @@ export function QuotationDetail({
           </button>
           <button
             className="auth-button"
-            onClick={onEdit}
-            disabled={Boolean(selected.rental)}
+            onClick={() =>
+              openStep(
+                selected.rental?.state === 'confirmed'
+                  ? contract.current
+                  : closing.current,
+              )
+            }
           >
-            Criar nova revisão
+            {selected.rental?.state === 'confirmed'
+              ? 'Ver contrato'
+              : 'Pagamento e confirmação'}
           </button>
         </div>
       </div>
       <p>
         <Link to={customerLink(record.customer_id)}>
-          Abrir cliente vinculado
+          Ver cadastro do cliente
         </Link>{' '}
-        · <Link to={quotationLink(record.id)}>Link deste orçamento</Link>
+        · <Link to={quotationLink(record.id)}>Link desta locação</Link>
       </p>
+      {selected.rental && (
+        <p className="quotation-state">
+          {rentalStateLabel[selected.rental.state]}
+        </p>
+      )}
+      {selected.rental?.inventory_pending && (
+        <p role="status" className="auth-feedback">
+          Há uma pendência de estoque. Confira antes de prometer a retirada.
+        </p>
+      )}
+      {selected.rental?.financial_pending && (
+        <p role="status" className="auth-feedback">
+          Há uma pendência financeira. Confira o pagamento desta locação.
+        </p>
+      )}
       <dl className="catalog-attributes">
-        {Object.entries(dateLabels).map(([key, label]) => (
-          <div key={key}>
-            <dt>{label}</dt>
-            <dd>{selected[key as keyof typeof dateLabels]}</dd>
-          </div>
-        ))}
-        {(['pickup_time', 'event_time', 'return_time'] as const).map(
-          (key, index) => (
+        {Object.entries(dateLabels)
+          .filter(([key]) => key !== 'valid_until')
+          .map(([key, label]) => (
             <div key={key}>
-              <dt>
-                {
-                  [
-                    'Horário da retirada',
-                    'Horário do evento',
-                    'Horário da devolução',
-                  ][index]
-                }
-              </dt>
-              <dd>{selected[key] ?? 'Não informado'}</dd>
+              <dt>{label}</dt>
+              <dd>
+                {selected[key as keyof typeof dateLabels]
+                  .split('-')
+                  .reverse()
+                  .join('/')}
+              </dd>
             </div>
-          ),
-        )}
+          ))}
       </dl>
-      <h3>Itens acordados nesta revisão</h3>
-      <ul className="quotation-capacity">
+      <details className="quotation-secondary">
+        <summary>Horários combinados</summary>
+        <dl className="catalog-attributes">
+          {(['pickup_time', 'event_time', 'return_time'] as const)
+            .filter((key) => selected[key])
+            .map((key, index) => (
+              <div key={key}>
+                <dt>
+                  {
+                    [
+                      'Horário da retirada',
+                      'Horário do evento',
+                      'Horário da devolução',
+                    ][index]
+                  }
+                </dt>
+                <dd>{selected[key] ?? 'Não informado'}</dd>
+              </div>
+            ))}
+        </dl>
+      </details>
+      <h3>Itens da locação</h3>
+      <ul className="quotation-capacity" aria-label="Itens da locação">
         {selected.lines.map((line) => (
           <li key={line.id}>
             <strong>{line.name}</strong>
             <span>
-              {line.quantity} × {priceLabel(line.unit_price)} · fonte v
-              {line.source_version}
+              {line.quantity} × {priceLabel(line.unit_price)}
             </span>
-            <ul>
-              {line.items.map((item) => (
-                <li key={item.product_id}>
-                  {item.quantity} × {item.name} · fonte v{item.source_version}
-                </li>
-              ))}
-            </ul>
+            {line.kind === 'kit' && (
+              <details className="quotation-kit-items">
+                <summary>Ver produtos do kit</summary>
+                <ul>
+                  {line.items.map((item) => (
+                    <li key={item.product_id}>
+                      {item.quantity} × {item.name}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
             {line.negotiation_reason && (
               <p>Negociação: {line.negotiation_reason}</p>
             )}
@@ -160,99 +207,137 @@ export function QuotationDetail({
           · {selected.discount.reason ?? 'Sem desconto positivo'}
         </p>
       )}
-      <OfferSummary offer={selected} showPaymentEstimate={!selected.rental} />
-      <FinancialSection
-        quotationId={record.id}
-        refreshVersion={financialRead}
+      <OfferSummary
+        offer={selected}
+        showPaymentEstimate={!selected.rental}
+        compact
       />
-      <ConfirmationSection
-        key={`${record.id}:${selected.current_version}:${selected.rental?.version ?? 0}`}
-        quotation={selected}
-        onConfirmed={() => void consult()}
-        onFinancialRefresh={() => setFinancialRead((version) => version + 1)}
-      />
-      {selected.version === selected.current_version && (
-        <RentalChanges
-          key={`${record.id}:${selected.current_version}`}
-          quotation={selected}
-          onChanged={() => {
-            void consult();
-            setFinancialRead((version) => version + 1);
-          }}
+      <p className="quotation-flow-note">
+        Confirme o pagamento e a reserva, gere o contrato e registre a retirada
+        após a assinatura.
+      </p>
+      <details ref={closing} className="quotation-workflow">
+        <summary>1. Pagamento e confirmação</summary>
+        <FinancialSection
+          compact
+          quotationId={record.id}
+          refreshVersion={financialRead}
+          onNext={
+            !selected.rental || selected.rental.state === 'review'
+              ? () => {
+                  document.getElementById('rental-confirmation-title')?.focus();
+                  document.getElementById('prepare-reservation')?.click();
+                }
+              : undefined
+          }
         />
-      )}
-      <button
-        className="auth-retry"
-        disabled={loading}
-        onClick={() => void consult()}
-      >
-        Reconsultar estoque cadastral
-      </button>
-      {selected.version === selected.current_version && (
-        <ContractsSection
-          key={`contracts:${record.id}:${selected.current_version}:${selected.rental?.version ?? 0}`}
+        <ConfirmationSection
+          guided
+          key={`${record.id}:${selected.current_version}:${selected.rental?.version ?? 0}`}
           quotation={selected}
+          onConfirmed={() => void consult()}
+          onFinancialRefresh={() => setFinancialRead((version) => version + 1)}
         />
-      )}
-      {changed && (
-        <p role="status">
-          O estoque cadastral mudou desde a última consulta. Os valores e a
-          composição acordados foram preservados.
-        </p>
-      )}
-      {selected.version === selected.current_version && (
-        <CustodySection
-          quotation={selected}
-          onChanged={() => {
-            void consult();
-            setFinancialRead((version) => version + 1);
-          }}
-        />
-      )}
-      <section className="catalog-section" aria-labelledby="quotation-versions">
-        <h3 id="quotation-versions">Histórico de revisões</h3>
-        {loading && <p role="status">Consultando revisões…</p>}
-        {error && (
-          <div role="alert" className="auth-feedback">
-            {error}
-            <button className="auth-retry" onClick={() => void consult()}>
-              Tentar novamente
-            </button>
-          </div>
+      </details>
+      <details ref={contract} className="quotation-workflow">
+        <summary>2. Contrato</summary>
+        {selected.version === selected.current_version && (
+          <ContractsSection
+            key={`contracts:${record.id}:${selected.current_version}:${selected.rental?.version ?? 0}`}
+            quotation={selected}
+          />
         )}
-        <ul className="catalog-history">
-          {versions.map((version) => (
-            <li key={version.version}>
-              <div>
-                <strong>
-                  Revisão {version.version} · {priceLabel(version.total)}
-                </strong>
-                <button
-                  className="auth-retry"
-                  onClick={() => {
-                    setSelected(version);
-                    setChanged(false);
-                  }}
-                >
-                  Consultar revisão {version.version}
-                </button>
-              </div>
-              <p>
-                {version.reason ?? 'Proposta inicial'} ·{' '}
-                {version.expired ? 'Vencido' : 'Validade vigente'}
-              </p>
-              <p>
-                Autor {version.actor_id} · sessão {version.session_id}
-              </p>
-              <time dateTime={version.revised_at}>
-                {new Date(version.revised_at).toLocaleString('pt-BR', {
-                  timeZone: 'America/Sao_Paulo',
-                })}
-              </time>
-            </li>
-          ))}
-        </ul>
-      </section>
+      </details>
+      <details className="quotation-workflow">
+        <summary>3. Retirada e devolução</summary>
+        {selected.version === selected.current_version && (
+          <CustodySection
+            quotation={selected}
+            onChanged={() => {
+              void consult();
+              setFinancialRead((version) => version + 1);
+            }}
+          />
+        )}
+      </details>
+      <details className="quotation-workflow quotation-workflow--secondary">
+        <summary>Alterações e cancelamento</summary>
+        {!selected.rental && (
+          <button className="auth-retry" onClick={onEdit}>
+            Editar proposta
+          </button>
+        )}
+        {selected.version === selected.current_version && (
+          <RentalChanges
+            key={`${record.id}:${selected.current_version}`}
+            quotation={selected}
+            onChanged={() => {
+              void consult();
+              setFinancialRead((version) => version + 1);
+            }}
+          />
+        )}
+      </details>
+      <details className="quotation-workflow quotation-workflow--secondary">
+        <summary>Consulta de estoque e histórico</summary>
+        <button
+          className="auth-retry"
+          disabled={loading}
+          onClick={() => void consult()}
+        >
+          Reconsultar estoque cadastral
+        </button>
+        {changed && (
+          <p role="status">
+            O estoque cadastral mudou desde a última consulta. Os valores e a
+            composição acordados foram preservados.
+          </p>
+        )}
+        <section
+          className="catalog-section"
+          aria-labelledby="quotation-versions"
+        >
+          <h3 id="quotation-versions">Histórico de revisões</h3>
+          {loading && <p role="status">Consultando revisões…</p>}
+          {error && (
+            <div role="alert" className="auth-feedback">
+              {error}
+              <button className="auth-retry" onClick={() => void consult()}>
+                Tentar novamente
+              </button>
+            </div>
+          )}
+          <ul className="catalog-history">
+            {versions.map((version) => (
+              <li key={version.version}>
+                <div>
+                  <strong>
+                    Revisão {version.version} · {priceLabel(version.total)}
+                  </strong>
+                  <button
+                    className="auth-retry"
+                    onClick={() => {
+                      setSelected(version);
+                      setChanged(false);
+                    }}
+                  >
+                    Consultar revisão {version.version}
+                  </button>
+                </div>
+                <p>
+                  {version.reason ?? 'Proposta inicial'} ·{' '}
+                  {version.expired ? 'Vencido' : 'Validade vigente'}
+                </p>
+                <time dateTime={version.revised_at}>
+                  {new Date(version.revised_at).toLocaleString('pt-BR', {
+                    timeZone: 'America/Sao_Paulo',
+                  })}
+                </time>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </details>
     </section>
   );
 }

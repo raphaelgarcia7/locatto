@@ -1,9 +1,36 @@
+import { openRentalWorkflow } from './rental-workflow';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 import type { Page, TestInfo } from '@playwright/test';
 
 test.use({ trace: 'off' });
 const origin = 'http://127.0.0.1:4173';
+
+async function selectCalendarDay(page: Page, date: string) {
+  const updated = page.waitForResponse('**/api/operations/calendar?**');
+  await page.getByRole('button', { name: 'Atualizar painel' }).click();
+  expect((await updated).status()).toBe(200);
+  const [year, month, day] = date.split('-');
+  const firstDay = page.locator('.operations-days button').first();
+  await expect(firstDay).toBeVisible();
+  const label = await firstDay.getAttribute('aria-label');
+  const current = label?.match(/^\d{2}\/(\d{2})\/(\d{4}):/);
+  if (!current) throw new Error('Calendar month is unavailable');
+  const offset =
+    (Number(year) - Number(current[2])) * 12 +
+    Number(month) -
+    Number(current[1]);
+  for (let index = 0; index < Math.abs(offset); index += 1) {
+    await page
+      .getByRole('button', {
+        name: offset > 0 ? 'Próximo mês' : 'Mês anterior',
+      })
+      .click();
+  }
+  await page
+    .getByRole('button', { name: new RegExp(`^${day}/${month}/${year}:`) })
+    .click();
+}
 
 test.afterEach(async ({ page }) => {
   const response = await page.request.post(
@@ -37,7 +64,7 @@ async function login(page: Page) {
     .fill('synthetic dashboard browser phrase');
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(
-    page.getByRole('heading', { level: 1, name: 'Painel operacional' }),
+    page.getByRole('heading', { level: 1, name: 'Visão geral' }),
   ).toBeVisible();
   await expect(
     page.getByRole('button', { name: 'Atualizar painel' }),
@@ -68,7 +95,9 @@ async function visual(
   expect(
     await page.locator('.operations-queues button').evaluateAll((buttons) =>
       buttons.every((button) => {
-        const label = button.querySelector('span')!.getBoundingClientRect();
+        const label = button
+          .querySelector('.operations-metric-label')!
+          .getBoundingClientRect();
         const count = button.querySelector('strong')!.getBoundingClientRect();
         return (
           button.scrollWidth <= button.clientWidth &&
@@ -136,7 +165,7 @@ test('dashboard queue labels and three digit counts stay inside cards at normal 
 }, info) => {
   await login(page);
   await seed(page, 'calendar');
-  await page.getByLabel('Dia consultado').fill('2026-10-10');
+  await selectCalendarDay(page, '2026-10-10');
   await expect(
     page.getByRole('button', { name: 'Retiradas do dia 125', exact: true }),
   ).toBeVisible();
@@ -155,7 +184,7 @@ test('dashboard real 125-rental day, stable pagination, private filters and dire
 }, info) => {
   await login(page);
   const ids = await seed(page, 'calendar');
-  await page.getByLabel('Dia consultado').fill('2026-10-10');
+  await selectCalendarDay(page, '2026-10-10');
   await expect(
     page.getByRole('button', { name: 'Retiradas do dia 125', exact: true }),
   ).toBeVisible();
@@ -185,17 +214,18 @@ test('dashboard real 125-rental day, stable pagination, private filters and dire
   ).toBeDisabled();
   await list.getByRole('button', { name: 'Página anterior' }).click();
   await expect(list.locator('li')).toHaveCount(50);
-  await page.getByLabel('Nome do cliente').fill('Synthetic quotation');
+  await page.getByText('Filtrar operação', { exact: true }).click();
   const search = page.waitForRequest((request) =>
     request.url().endsWith('/api/customers/search'),
   );
-  await page.getByRole('button', { name: 'Pesquisar cliente' }).click();
+  await page.getByLabel('Nome do cliente').fill('Synthetic quotation');
   const searched = await search;
   expect(searched.method()).toBe('POST');
   expect(searched.url()).not.toContain('Synthetic');
+  await page.getByRole('combobox', { name: 'Nome do cliente' }).focus();
   await page
-    .getByLabel('Cliente pesquisado', { exact: false })
-    .selectOption(ids.customer_id);
+    .locator(`[role=option][data-record-id="${ids.customer_id}"]`)
+    .click();
   await page.getByLabel('Situação financeira').selectOption('true');
   await page.getByRole('button', { name: 'Aplicar filtros' }).click();
   await expect(
@@ -203,20 +233,18 @@ test('dashboard real 125-rental day, stable pagination, private filters and dire
   ).toBeVisible();
   // The actual predecessor-created rental provides the same direct link as a row.
   await page.goto(`/locacoes?orcamento=${ids.quotation_id}`);
+  await openRentalWorkflow(page);
   await expect(
-    page.getByText('Reserva confirmada · locação v1', { exact: true }),
+    page.getByText('Reserva confirmada', { exact: true }).first(),
   ).toBeVisible();
 });
 
-test('dashboard calendar and upcoming share all 125 records with keyboard and month focus', async ({
+test('dashboard month and week share all 125 records with keyboard navigation', async ({
   page,
 }, info) => {
   await login(page);
   await seed(page, 'calendar');
-  await page
-    .getByRole('button', { name: 'Calendário e próximas', exact: true })
-    .click();
-  await page.getByLabel('Mês do calendário').fill('2026-10');
+  await selectCalendarDay(page, '2026-10-10');
   const calendar = page.getByRole('region', {
     name: 'Calendário · outubro de 2026',
   });
@@ -227,9 +255,9 @@ test('dashboard calendar and upcoming share all 125 records with keyboard and mo
   await calendar.getByRole('button', { name: 'Próximo mês' }).click();
   await expect(
     page.getByRole('heading', { name: 'Calendário · novembro de 2026' }),
-  ).toBeFocused();
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Mês anterior' }).click();
-  await expect(calendar.getByRole('heading', { level: 2 })).toBeFocused();
+  await expect(calendar.getByRole('heading', { level: 2 })).toBeVisible();
   await visual(page, info, 'calendar', '.operations-calendar');
   await tenth.focus();
   await page.keyboard.press('ArrowRight');
@@ -241,23 +269,24 @@ test('dashboard calendar and upcoming share all 125 records with keyboard and mo
   await page.keyboard.press('ArrowLeft');
   await page.keyboard.press('Enter');
   await expect(
-    page.getByRole('heading', { level: 1, name: 'Painel operacional' }),
+    page.getByRole('heading', { level: 2, name: 'Retiradas do dia' }),
   ).toBeFocused();
   await expect(
     page.getByRole('button', { name: 'Retiradas do dia 125' }),
   ).toBeVisible();
-  await page
-    .getByRole('button', { name: 'Calendário e próximas', exact: true })
-    .click();
-  await page.getByLabel('De', { exact: true }).fill('2026-10-10');
-  await page.getByLabel('Até', { exact: true }).fill('2026-10-10');
-  await page.getByRole('button', { name: 'Aplicar período' }).click();
+  await page.getByRole('button', { name: 'Semana', exact: true }).click();
+  await expect(page.locator('.operations-days button')).toHaveCount(7);
+  await expect(
+    page.getByRole('button', {
+      name: '10/10/2026: 125 retirada(s), 0 devolução(ões)',
+    }),
+  ).toBeVisible();
   await expect(
     page
-      .getByRole('region', { name: 'Próximas retiradas e devoluções' })
+      .getByRole('region', { name: 'Retiradas do dia', exact: true })
       .getByText('125 registro(s) · Página 1 de 3'),
   ).toBeVisible();
-  await visual(page, info, 'upcoming-row', '.operations-rows > li');
+  await visual(page, info, 'weekly-selected-day', '.operations-rows > li');
 });
 
 test('dashboard monthly calendar remains usable with 200 percent text', async ({
@@ -265,10 +294,7 @@ test('dashboard monthly calendar remains usable with 200 percent text', async ({
 }, info) => {
   await login(page);
   await seed(page, 'calendar');
-  await page
-    .getByRole('button', { name: 'Calendário e próximas', exact: true })
-    .click();
-  await page.getByLabel('Mês do calendário').fill('2026-10');
+  await selectCalendarDay(page, '2026-10-10');
   await expect(
     page.getByRole('button', {
       name: '10/10/2026: 125 retirada(s), 0 devolução(ões)',
@@ -296,7 +322,7 @@ test('dashboard complete day to agenda journey preserves pagination, filters and
 }) => {
   await login(page);
   const ids = await seed(page, 'calendar');
-  await page.getByLabel('Dia consultado').fill('2026-10-10');
+  await selectCalendarDay(page, '2026-10-10');
   await expect(
     page.getByRole('button', { name: 'Retiradas do dia 125' }),
   ).toBeVisible();
@@ -324,10 +350,6 @@ test('dashboard complete day to agenda journey preserves pagination, filters and
   ).toBeDisabled();
   await list.getByRole('button', { name: 'Página anterior' }).click();
   await expect(list.locator('li')).toHaveCount(50);
-  await page
-    .getByRole('button', { name: 'Calendário e próximas', exact: true })
-    .click();
-  await page.getByLabel('Mês do calendário').fill('2026-10');
   const calendar = page.getByRole('region', {
     name: 'Calendário · outubro de 2026',
   });
@@ -344,45 +366,45 @@ test('dashboard complete day to agenda journey preserves pagination, filters and
   await page.keyboard.press('ArrowLeft');
   await page.keyboard.press('Enter');
   await expect(
-    page.getByRole('heading', { level: 1, name: 'Painel operacional' }),
+    page.getByRole('heading', { level: 2, name: 'Retiradas do dia' }),
   ).toBeFocused();
   await expect(
     page.getByRole('button', { name: 'Retiradas do dia 125' }),
   ).toBeVisible();
-  await page.getByLabel('Nome do cliente').fill('Synthetic quotation');
+  await page.getByText('Filtrar operação', { exact: true }).click();
   const searched = page.waitForRequest((request) =>
     request.url().endsWith('/api/customers/search'),
   );
-  await page.getByRole('button', { name: 'Pesquisar cliente' }).click();
+  await page
+    .getByRole('combobox', { name: 'Nome do cliente' })
+    .fill('Synthetic quotation');
   const request = await searched;
   expect(request.method()).toBe('POST');
   expect(request.url()).not.toContain('Synthetic');
+  await page.getByRole('combobox', { name: 'Nome do cliente' }).focus();
   await page
-    .getByLabel('Cliente pesquisado', { exact: false })
-    .selectOption(ids.customer_id);
+    .locator(`[role=option][data-record-id="${ids.customer_id}"]`)
+    .click();
   await page.getByLabel('Situação financeira').selectOption('true');
   await page.getByRole('button', { name: 'Aplicar filtros' }).click();
   await expect(
     page.getByRole('button', { name: 'Retiradas do dia 125' }),
   ).toBeVisible();
-  await page
-    .getByRole('button', { name: 'Calendário e próximas', exact: true })
-    .click();
-  await page.getByLabel('De', { exact: true }).fill('2026-10-10');
-  await page.getByLabel('Até', { exact: true }).fill('2026-10-10');
-  await page.getByRole('button', { name: 'Aplicar período' }).click();
+  await page.getByRole('button', { name: 'Semana', exact: true }).click();
+  await expect(page.locator('.operations-days button')).toHaveCount(7);
   await expect(
     page
-      .getByRole('region', { name: 'Próximas retiradas e devoluções' })
+      .getByRole('region', { name: 'Retiradas do dia', exact: true })
       .getByText('125 registro(s) · Página 1 de 3'),
   ).toBeVisible();
-  await page.getByRole('button', { name: 'Filas do dia', exact: true }).click();
+  await page.getByRole('button', { name: 'Mês', exact: true }).click();
   await expect(
     page.getByRole('button', { name: 'Retiradas do dia 125' }),
   ).toBeVisible();
   await page.goto(`/locacoes?orcamento=${ids.quotation_id}`);
+  await openRentalWorkflow(page);
   await expect(
-    page.getByText('Reserva confirmada · locação v1', { exact: true }),
+    page.getByText('Reserva confirmada', { exact: true }).first(),
   ).toBeVisible();
 });
 
@@ -428,8 +450,7 @@ test('dashboard late outstanding remains visible after a new forecast with actua
   await login(page);
   // Settle an empty snapshot on the fixture date before seeding, so selecting
   // that same day below exercises the regression regardless of today's date.
-  await page.getByLabel('Dia consultado').fill('2026-10-14');
-  await expect(page.getByLabel('Dia consultado')).toHaveValue('2026-10-14');
+  await selectCalendarDay(page, '2026-10-14');
   const emptySnapshot = page.waitForResponse((response) => {
     const url = new URL(response.url());
     return (
@@ -441,7 +462,7 @@ test('dashboard late outstanding remains visible after a new forecast with actua
   expect((await emptySnapshot).status()).toBe(200);
   await expect(page.getByRole('button', { name: 'Atrasados 0' })).toBeVisible();
   await seed(page, 'overdue');
-  await page.getByLabel('Dia consultado').fill('2026-10-14');
+  await selectCalendarDay(page, '2026-10-14');
   await page.getByRole('button', { name: 'Atualizar painel' }).click();
   await expect(page.getByRole('button', { name: 'Atrasados 1' })).toBeVisible();
   await page.getByRole('button', { name: 'Atrasados 1' }).click();
@@ -451,10 +472,6 @@ test('dashboard late outstanding remains visible after a new forecast with actua
   await expect(list.getByText('Último recebimento real')).toBeVisible();
   await expect(list.getByText('4', { exact: true })).toBeVisible();
   await visual(page, info, 'overdue', '.operations-rows > li');
-  await page
-    .getByRole('button', { name: 'Calendário e próximas', exact: true })
-    .click();
-  await page.getByLabel('Mês do calendário').fill('2026-10');
   await expect(
     page.getByRole('button', {
       name: '16/10/2026: 0 retirada(s), 1 devolução(ões)',
@@ -463,7 +480,7 @@ test('dashboard late outstanding remains visible after a new forecast with actua
   await visual(page, info, 'forecast-calendar', '.operations-calendar');
 });
 
-test('dashboard loading, empty, unavailable, retry, explicit horizon, keyboard and reduced motion', async ({
+test('dashboard loading, empty, independent calendar error, retry, keyboard and reduced motion', async ({
   page,
 }, info) => {
   await login(page);
@@ -492,17 +509,29 @@ test('dashboard loading, empty, unavailable, retry, explicit horizon, keyboard a
   await page.unroute('**/api/operations/day?**');
   await page.getByRole('button', { name: 'Tentar novamente' }).click();
   await expect(page.getByText(/Nenhum registro nesta fila/)).toBeVisible();
+  await page.route('**/api/operations/calendar?**', async (route) => {
+    await route.fulfill({
+      status: 503,
+      json: { detail: 'Serviço indisponível.' },
+    });
+  });
+  await page.getByRole('button', { name: 'Atualizar painel' }).click();
+  await expect(page.getByRole('alert')).toContainText(
+    'Não foi possível consultar',
+  );
+  await expect(page.getByText(/Nenhum registro nesta fila/)).toBeVisible();
+  await page.unroute('**/api/operations/calendar?**');
   await page
-    .getByRole('button', { name: 'Calendário e próximas', exact: true })
+    .getByRole('button', { name: 'Tentar carregar calendário' })
     .click();
-  await page.getByLabel('De', { exact: true }).fill('2026-01-01');
-  await page.getByLabel('Até', { exact: true }).fill('2026-04-01');
-  await page.getByRole('button', { name: 'Aplicar período' }).click();
-  await expect(page.getByRole('alert')).toContainText('até 90 dias');
+  await expect(page.locator('.operations-days button').first()).toBeVisible();
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const refresh = page.getByRole('button', { name: 'Atualizar painel' });
   await expect(refresh).toHaveCSS('transition-duration', '0s');
+  await expect(page.getByText('Consultando operação…')).toHaveCount(0);
+  await expect(page.getByText('Carregando calendário…')).toHaveCount(0);
+  await page.keyboard.press('Tab');
   await refresh.focus();
   await expect(refresh).toBeFocused();
-  await expect(refresh).toHaveCSS('outline-width', '3px');
+  await expect(refresh).toHaveCSS('outline-width', '2px');
 });

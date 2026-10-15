@@ -60,7 +60,15 @@ async def rental_error(request: Request, error: RentalError) -> JSONResponse:
 async def quotation_error(request: Request, error: QuotationError) -> JSONResponse:
     return JSONResponse(
         status_code=error.status,
-        content={"detail": error.message, "code": error.code},
+        content={
+            "detail": error.message,
+            "code": error.code,
+            **(
+                {"field_errors": error.field_errors}
+                if isinstance(error, QuotationError)
+                else {}
+            ),
+        },
         headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
     )
 
@@ -140,6 +148,22 @@ async def invalid_input(
                 if part in allowed
             }
         ) or ["input"]
+        field_errors: dict[str, str] = {}
+        for item in error.errors():
+            path = [
+                str(part)
+                for part in item["loc"]
+                if part in allowed or isinstance(part, int)
+            ]
+            if not path:
+                continue
+            key = ".".join(path)
+            field_errors[key] = (
+                "Preencha este campo."
+                if item["type"] == "missing"
+                else "Confira o formato e os limites deste campo."
+            )
+        content["field_errors"] = field_errors
     return JSONResponse(
         status_code=422,
         content=content,

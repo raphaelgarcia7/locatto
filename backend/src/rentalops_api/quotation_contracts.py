@@ -94,7 +94,7 @@ class QuotationDraft(CatalogPayload):
     pickup_date: BusinessDate
     event_date: BusinessDate
     return_date: BusinessDate
-    valid_until: BusinessDate
+    valid_until: BusinessDate | None = None
     pickup_time: LocalTime = None
     event_time: LocalTime = None
     return_time: LocalTime = None
@@ -113,8 +113,8 @@ class QuotationDraft(CatalogPayload):
             raise ValueError("Planning next day exceeds the supported date range.")
         if not self.pickup_date <= self.event_date <= self.return_date:
             raise ValueError("Pickup/event/return dates are not ordered.")
-        if self.valid_until > self.pickup_date:
-            raise ValueError("Validity must end by pickup.")
+        # Legacy storage column only; commercial expiry was removed by the owner.
+        self.valid_until = min(self.valid_until or self.pickup_date, self.pickup_date)
         if (
             self.pickup_date == self.return_date
             and self.pickup_time is not None
@@ -135,6 +135,7 @@ class QuotationWrite(QuotationDraft):
 
 
 class QuotationSearch(CatalogPayload):
+    customer_name: Annotated[str, Field(max_length=200)] | None = None
     customer_id: UUID | None = None
     quotation_id: UUID | None = None
     state: Literal["current", "expired"] | None = None
@@ -258,11 +259,13 @@ def commercial_totals(
     }
 
 
-def validity_state(valid_until: date, now: datetime | None = None) -> dict[str, object]:
+def validity_state(
+    valid_until: date | None, now: datetime | None = None
+) -> dict[str, object]:
     current = now or datetime.now(UTC)
     if current.tzinfo is None:
         raise ValueError("Clock must be timezone-aware.")
-    expired = current.astimezone(SAO_PAULO).date() > valid_until
+    expired = False
     return {
         "state": "expired" if expired else "current",
         "expired": expired,

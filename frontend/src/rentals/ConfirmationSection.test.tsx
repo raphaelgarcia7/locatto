@@ -71,9 +71,7 @@ it('does not claim that a cancelled allocation remains active when money is pend
         },
   );
   render(<ConfirmationSection quotation={quotation} onConfirmed={vi.fn()} />);
-  expect(
-    await screen.findByText('Locação cancelada · locação v1'),
-  ).toBeVisible();
+  expect(await screen.findByText('Locação cancelada')).toBeVisible();
   expect(
     screen.getByText(/Pendência financeira após correção/),
   ).toHaveTextContent(
@@ -173,9 +171,7 @@ it.each([
     await userEvent.click(
       screen.getByRole('button', { name: 'Reconciliar a mesma confirmação' }),
     );
-    expect(
-      await screen.findByText('Reserva confirmada · locação v1'),
-    ).toBeVisible();
+    expect(await screen.findByText('Reserva confirmada')).toBeVisible();
     expect(onConfirmed).toHaveBeenCalledOnce();
     const commands = vi
       .mocked(quotationRequest)
@@ -223,9 +219,7 @@ it('sends only one confirmation when double-clicked while the response is pendin
       : rental,
   );
   await act(async () => finish(rental));
-  expect(
-    await screen.findByText('Reserva confirmada · locação v1'),
-  ).toBeVisible();
+  expect(await screen.findByText('Reserva confirmada')).toBeVisible();
   expect(onConfirmed).toHaveBeenCalledOnce();
 });
 

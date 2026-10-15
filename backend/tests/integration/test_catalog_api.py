@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
 from rentalops_api.auth import AuthService, AuthSettings
@@ -68,6 +68,63 @@ def create(client):
     )
     assert response.status_code == 201
     return response.json()
+
+
+def test_registered_categories_require_session_origin_and_persisted_selection(
+    catalog_client,
+):
+    client, _, _ = catalog_client
+    assert client.get("/product-categories").status_code == 401
+    login(client)
+    assert (
+        client.post("/product-categories", json={"name": "Painéis"}).status_code == 403
+    )
+    headers = {"Origin": ORIGIN}
+    assert (
+        client.post(
+            "/product-categories", headers=headers, json={"name": "  "}
+        ).status_code
+        == 422
+    )
+    created = client.post(
+        "/product-categories", headers=headers, json={"name": " Painéis "}
+    )
+    assert created.status_code == 201
+    assert created.json()["name"] == "Painéis"
+    assert (
+        client.post(
+            "/product-categories", headers=headers, json={"name": "PAINÉIS"}
+        ).status_code
+        == 409
+    )
+    listing = client.get("/product-categories?search=pain&page_size=1")
+    assert listing.status_code == 200 and listing.headers["cache-control"] == "no-store"
+    assert listing.json()["items"] == [created.json()]
+    assert client.get("/product-categories?page_size=101").status_code == 422
+    payload = {"name": "Painel sintético", "price": "10.00", "initial_quantity": 1}
+    assert (
+        client.post(
+            "/products", headers=headers, json={**payload, "category": "Livre"}
+        ).status_code
+        == 422
+    )
+    product = client.post(
+        "/products", headers=headers, json={**payload, "category": "Painéis"}
+    )
+    assert product.status_code == 201 and product.json()["category"] == "Painéis"
+    identifier = product.json()["id"]
+    changed = client.patch(
+        f"/products/{identifier}",
+        headers=headers,
+        json={
+            "name": "Painel sintético",
+            "price": "10.00",
+            "expected_version": 1,
+            "category": "Outra livre",
+        },
+    )
+    assert changed.status_code == 422
+    assert client.get(f"/products/{identifier}").json()["category"] == "Painéis"
 
 
 def test_api_auth_origin_actor_validation_contracts_versions_and_status(
@@ -159,14 +216,39 @@ def test_api_kit_missing_nested_rejected_and_inactivation_history(catalog_client
     )
 
 
+@pytest.mark.parametrize("kind", ["products", "kits"])
 def test_photo_api_principal_order_detach_and_auth_private_immutable_assets(
     catalog_client,
+    kind,
 ):
     client, service, auth = catalog_client
     login(client)
     product = create(client)
-    path = f"/products/{product['id']}/photos"
+    if kind == "kits":
+        kit = client.post(
+            "/kits",
+            headers={"Origin": ORIGIN},
+            json={
+                "name": "Kit sintético",
+                "price": "150.00",
+                "items": [{"product_id": product["id"], "quantity": 1}],
+            },
+        )
+        assert kit.status_code == 201
+        record = kit.json()
+    else:
+        record = product
+    path = f"/{kind}/{record['id']}/photos"
+    assert client.get(f"/{kind}").json()["items"][0]["principal_photo_id"] is None
     data = synthetic_image("JPEG", exif=True)
+    assert (
+        client.post(
+            path,
+            data={"expected_version": "1"},
+            files={"file": ("photo.jpg", data, "image/jpeg")},
+        ).status_code
+        == 403
+    )
     response = client.post(
         path,
         headers={"Origin": ORIGIN},
@@ -175,6 +257,31 @@ def test_photo_api_principal_order_detach_and_auth_private_immutable_assets(
     )
     assert response.status_code == 201
     first = response.json()["photos"][0]
+    assert (
+        client.get(f"/{kind}").json()["items"][0]["principal_photo_id"] == first["id"]
+    )
+    assert client.get(f"/{kind}/{record['id']}").json()["photos"] == [first]
+    assert (
+        client.patch(
+            path + f"/{first['id']}",
+            headers={"Origin": ORIGIN},
+            json={"expected_version": 1, "is_principal": True, "order": 0},
+        ).status_code
+        == 409
+    )
+    if kind == "kits":
+        assert (
+            client.patch(
+                f"/products/{product['id']}/photos/{first['id']}",
+                headers={"Origin": ORIGIN},
+                json={"expected_version": 1, "is_principal": True, "order": 0},
+            ).status_code
+            == 404
+        )
+        assert client.get(f"/products/{product['id']}").json()["photos"] == []
+        with pytest.raises(IntegrityError), service.factory.begin() as session:
+            photo = session.get(ProductPhoto, UUID(first["id"]))
+            photo.product_id = UUID(product["id"])
     assert first["is_principal"] and "storage_key" not in first
     second_response = client.post(
         path,
@@ -197,6 +304,9 @@ def test_photo_api_principal_order_detach_and_auth_private_immutable_assets(
     )
     previous = client.get(f"/photos/{first['id']}")
     assert (
+        client.get(f"/{kind}").json()["items"][0]["principal_photo_id"] == second["id"]
+    )
+    assert (
         previous.status_code == 200 and previous.headers["content-type"] == "image/jpeg"
     )
     assert previous.headers["x-content-type-options"] == "nosniff"
@@ -206,6 +316,9 @@ def test_photo_api_principal_order_detach_and_auth_private_immutable_assets(
         json={"expected_version": 4, "reason": "Replace gallery"},
     )
     assert detached.status_code == 200 and detached.json()["photos"][0]["is_principal"]
+    assert (
+        client.get(f"/{kind}").json()["items"][0]["principal_photo_id"] == first["id"]
+    )
     assert client.get(f"/photos/{second['id']}").status_code == 200
     assert client.get(f"/photos/{first['id']}").content == previous.content
     assert len(list(service.storage.root.iterdir())) == 2

@@ -10,6 +10,9 @@ from starlette.concurrency import run_in_threadpool
 from rentalops_api.auth_routes import CurrentIdentity, trusted_origin
 from rentalops_api.catalog import CatalogService
 from rentalops_api.catalog_contracts import (
+    CategoryCreate,
+    CategoryPage,
+    CategoryView,
     KitCreate,
     KitDetail,
     KitEdit,
@@ -56,6 +59,29 @@ Service = Annotated[CatalogService, Depends(catalog_service)]
 Search = Annotated[str, Query(max_length=200)]
 Page = Annotated[int, Query(ge=1, le=2_147_483_647)]
 PageSize = Annotated[int, Query(ge=1, le=100)]
+
+
+@router.get("/product-categories", response_model=CategoryPage)
+def categories(
+    service: Service,
+    identity: CurrentIdentity,
+    search: Search = "",
+    page: Page = 1,
+    page_size: PageSize = 25,
+) -> dict[str, object]:
+    return service.list_categories(search.strip(), page, page_size)
+
+
+@router.post(
+    "/product-categories",
+    status_code=201,
+    response_model=CategoryView,
+    dependencies=mutation,
+)
+def create_category(
+    payload: CategoryCreate, service: Service, identity: CurrentIdentity
+) -> dict[str, object]:
+    return service.create_category(payload, identity)
 
 
 @router.get("/products", response_model=ProductPage)
@@ -196,6 +222,12 @@ def inactivate_kit(
 
 
 @router.post(
+    "/kits/{identifier}/photos",
+    status_code=201,
+    response_model=KitDetail,
+    dependencies=mutation,
+)
+@router.post(
     "/products/{identifier}/photos",
     status_code=201,
     response_model=ProductDetail,
@@ -223,11 +255,17 @@ async def upload(
             data,
             file.content_type,
             identity,
+            "kits" if "/kits/" in request.scope["route"].path else "products",
         )
     finally:
         await file.close()
 
 
+@router.patch(
+    "/kits/{identifier}/photos/{photo_id}",
+    response_model=KitDetail,
+    dependencies=mutation,
+)
 @router.patch(
     "/products/{identifier}/photos/{photo_id}",
     response_model=ProductDetail,
@@ -239,10 +277,17 @@ def edit_photo(
     payload: PhotoEdit,
     service: Service,
     identity: CurrentIdentity,
+    request: Request,
 ) -> dict[str, object]:
-    return service.edit_photo(identifier, photo_id, payload, identity)
+    kind = "kits" if "/kits/" in request.scope["route"].path else "products"
+    return service.edit_photo(identifier, photo_id, payload, identity, kind)
 
 
+@router.post(
+    "/kits/{identifier}/photos/{photo_id}/detach",
+    response_model=KitDetail,
+    dependencies=mutation,
+)
 @router.post(
     "/products/{identifier}/photos/{photo_id}/detach",
     response_model=ProductDetail,
@@ -254,8 +299,10 @@ def detach_photo(
     payload: ReasonCommand,
     service: Service,
     identity: CurrentIdentity,
+    request: Request,
 ) -> dict[str, object]:
-    return service.edit_photo(identifier, photo_id, payload, identity)
+    kind = "kits" if "/kits/" in request.scope["route"].path else "products"
+    return service.edit_photo(identifier, photo_id, payload, identity, kind)
 
 
 @router.get("/photos/{photo_id}")

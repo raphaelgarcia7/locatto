@@ -1,3 +1,4 @@
+import { openRentalWorkflow } from './rental-workflow';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 import type { Page, TestInfo } from '@playwright/test';
@@ -36,7 +37,7 @@ async function seed(page: Page) {
     .fill('synthetic rental changes browser phrase');
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(
-    page.getByRole('button', { name: 'Novo orçamento' }),
+    page.getByRole('button', { name: 'Nova locação' }),
   ).toBeVisible();
   const suffix = randomUUID().slice(0, 8);
   const customer = await post(
@@ -109,6 +110,7 @@ async function seed(page: Page) {
     201,
   );
   await page.goto(`/locacoes?orcamento=${quotation.id}`);
+  await openRentalWorkflow(page);
   await expect(
     page.getByRole('button', { name: 'Alterar locação' }),
   ).toBeVisible();
@@ -120,6 +122,19 @@ async function visual(page: Page, info: TestInfo, name: string) {
       () =>
         document.documentElement.scrollWidth <=
         document.documentElement.clientWidth,
+    ),
+    JSON.stringify(
+      await page.locator('body *').evaluateAll((nodes) =>
+        nodes
+          .filter((node) => node.getBoundingClientRect().right > innerWidth)
+          .slice(0, 12)
+          .map((node) => ({
+            tag: node.tagName,
+            className: node.className,
+            right: node.getBoundingClientRect().right,
+            width: node.getBoundingClientRect().width,
+          })),
+      ),
     ),
   ).toBe(true);
   expect(
@@ -321,14 +336,16 @@ test('change diff, unknown replay, reduction, approved cancellation and same-ren
   ).toContainText('R$ 75,00');
   await visual(page, info, 'resumed-review');
   const confirmation = page.getByRole('region', {
-    name: 'Reserva e estoque do período',
+    name: '2. Confirmar a reserva',
   });
   await confirmation
-    .getByRole('button', { name: 'Consultar confirmação' })
+    .getByRole('button', { name: 'Conferir disponibilidade para reservar' })
     .click();
-  await confirmation.getByRole('button', { name: 'Confirmar reserva' }).click();
+  await confirmation
+    .getByRole('button', { name: 'Confirmar reserva e reservar itens' })
+    .click();
   await expect(
-    confirmation.getByText(/Reserva confirmada · locação v7/),
+    confirmation.getByText('Reserva confirmada', { exact: true }),
   ).toBeVisible();
   current = await (await page.request.get(`/api/rentals/${rental.id}`)).json();
   expect(current.id).toBe(rental.id);
@@ -349,7 +366,7 @@ test('change diff, unknown replay, reduction, approved cancellation and same-ren
     'confirmed',
   ]);
   await visual(page, info, 'reconfirmed');
-  await page.getByRole('link', { name: 'Abrir cliente vinculado' }).click();
+  await page.getByRole('link', { name: 'Ver cadastro do cliente' }).click();
   await expect(
     page.getByRole('link', {
       name: `Orçamento ${quotation.id.slice(0, 8)} · revisão 4`,
@@ -443,6 +460,7 @@ test('rental loading and unavailable reads stay explicit; expired quote resumes 
     });
   });
   await page.goto(`/locacoes?orcamento=${quotation.id}`);
+  await openRentalWorkflow(page);
   const changes = page.getByRole('region', {
     name: 'Alterações no aluguel do cliente',
   });
@@ -491,34 +509,26 @@ test('rental loading and unavailable reads stay explicit; expired quote resumes 
     201,
   );
   await page.goto(`/locacoes?orcamento=${expired.id}`);
+  await openRentalWorkflow(page);
   await expect(
     page.getByRole('button', { name: 'Revisar e retomar' }),
-  ).toBeVisible();
-  await visual(page, info, 'expired-empty');
-  await page.getByRole('button', { name: 'Revisar e retomar' }).click();
+  ).toHaveCount(0);
   await expect(
-    page.getByText(
-      'Nenhum recebimento anterior. Retomar não confirma nem aloca estoque.',
-    ),
-  ).toBeVisible();
-  await page
-    .getByLabel('Validade comercial', { exact: true })
-    .fill('2026-10-10');
-  await page
-    .getByLabel('Motivo da nova revisão', { exact: true })
-    .fill('Synthetic expiry review');
-  await page.getByRole('checkbox', { name: /Conferi os preços/ }).check();
-  await page.getByRole('button', { name: 'Calcular prévia' }).click();
-  await page.getByRole('button', { name: 'Retomar em revisão' }).click();
-  await expect(
-    page.getByText(
-      'Locação em revisão, sem alocação. A nova confirmação exige sinal válido e estoque disponível.',
-    ),
+    page.getByRole('button', { name: 'Editar proposta' }),
   ).toBeVisible();
   const current = await (
-    await page.request.get(`/api/rentals/by-quotation/${expired.id}`)
+    await page.request.get(`/api/quotations/${expired.id}`)
   ).json();
-  expect(current.state).toBe('review');
-  expect(current.allocations).toEqual([]);
-  expect(current.current_financial.receipts).toEqual([]);
+  expect(current.expired).toBe(false);
+  expect(current.state).toBe('current');
+  expect(
+    (
+      await page.request.get(`/api/rentals/by-quotation/${expired.id}`)
+    ).status(),
+  ).toBe(404);
+  const financial = await (
+    await page.request.get(`/api/quotations/${expired.id}/payments`)
+  ).json();
+  expect(financial.receipts).toEqual([]);
+  await visual(page, info, 'without-commercial-expiry');
 });

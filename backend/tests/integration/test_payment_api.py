@@ -51,12 +51,37 @@ def login(client):
     return result.json()
 
 
+def test_received_payment_endpoint_is_atomic_and_idempotent(client):
+    http, payments, _ = client
+    service, _, identifier, *_ = payments
+    login(client)
+    path = f"/quotations/{identifier}/payments/received-payments"
+    body = versions(
+        service,
+        identifier,
+        amount="400.00",
+        deposit="200.00",
+        balance="200.00",
+        method="pix",
+        business_date="2026-10-08",
+        reason="Synthetic reviewed payment",
+    )
+    response = http.post(path, headers=HEADERS, json=body)
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+    assert response.json()["fully_paid"] is True
+    assert len(response.json()["receipts"]) == 1
+    assert http.post(path, headers=HEADERS, json=body).json() == response.json()
+    assert len(service.get(identifier)["receipts"]) == 1
+
+
 def test_all_routes_require_session_origin_and_private_responses(client):
     http, payments, _ = client
     service, _, identifier, *_ = payments
     base = f"/quotations/{identifier}/payments"
     receipt, proof = uuid4(), uuid4()
     paths = [
+        base + "/received-payments",
         base + "/receipts",
         base + f"/receipts/{receipt}/corrections",
         base + "/reconciliations",

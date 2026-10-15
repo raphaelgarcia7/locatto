@@ -18,6 +18,10 @@ import { rentalRequest } from '../rentals/api';
 import type { ChangePreview, RentalRevision, Rental } from '../rentals/api';
 import { paymentRequest } from '../payments/api';
 import type { Payments } from '../payments/api';
+import { dateErrors, formErrors } from './validation';
+import { SearchPicker } from '../components/SearchPicker';
+import { useDebouncedValue } from '../components/useDebouncedValue';
+import type { FieldErrors } from './validation';
 
 type PickedLine = LineInput & {
   label: string;
@@ -102,6 +106,17 @@ export function QuotationEditor({
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const form = useRef<HTMLFormElement>(null);
+  const validationSummary = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (Object.keys(fieldErrors).length) {
+      const input = form.current?.querySelector<HTMLElement>(
+        '[aria-invalid="true"]',
+      );
+      (input ?? validationSummary.current)?.focus();
+    }
+  }, [fieldErrors]);
   const [versionReason, setVersionReason] = useState('');
   const [current, setCurrent] = useState<Quotation | null>(null);
   const [revisionState, setRevisionState] = useState(rentalRevision);
@@ -109,6 +124,8 @@ export function QuotationEditor({
     useState<RentalRevision | null>(null);
   const [uncertain, setUncertain] = useState(false);
   const [refresh, setRefresh] = useState(0);
+  const debouncedCustomer = useDebouncedValue(customerSearch);
+  const debouncedSource = useDebouncedValue(sourceSearch);
   const pending = useRef<object | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const alert = useRef<HTMLDivElement>(null);
@@ -129,16 +146,16 @@ export function QuotationEditor({
       customerRequest<CustomerPageData>(
         '/search',
         'POST',
-        { name: customerSearch, page_size: 100 },
+        { name: debouncedCustomer, page_size: 100 },
         controller.signal,
       ),
       catalogRequest<CatalogPage<Product>>(
-        `products?search=${encodeURIComponent(sourceSearch)}&page_size=100`,
+        `products?search=${encodeURIComponent(debouncedSource)}&page_size=100`,
         undefined,
         controller.signal,
       ),
       catalogRequest<CatalogPage<Kit>>(
-        `kits?search=${encodeURIComponent(sourceSearch)}&page_size=100`,
+        `kits?search=${encodeURIComponent(debouncedSource)}&page_size=100`,
         undefined,
         controller.signal,
       ),
@@ -157,11 +174,12 @@ export function QuotationEditor({
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [authenticated, customerSearch, sourceSearch, refresh]);
+  }, [authenticated, debouncedCustomer, debouncedSource, refresh]);
   function changed() {
     setPreview(null);
     setChangePreview(null);
     setError('');
+    setFieldErrors({});
     pending.current = null;
   }
   function updateDraft(changes: Partial<Draft>) {
@@ -201,10 +219,15 @@ export function QuotationEditor({
       },
     ]);
     setSource('');
+    setSourceSearch('');
   }
   function payload(): Draft {
     return {
       ...draft,
+      valid_until: undefined,
+      discount: draft.discount
+        ? { ...draft.discount, value: draft.discount.value.replace(',', '.') }
+        : null,
       lines: lines.map((line) => ({
         kind: line.kind,
         source_id: line.source_id,
@@ -214,7 +237,7 @@ export function QuotationEditor({
           : {}),
         ...(line.custom
           ? {
-              unit_price: line.price,
+              unit_price: line.price.replace(',', '.'),
               negotiation_reason: line.reason,
               ...(line.kind === 'kit' ? { items: line.customItems } : {}),
             }
@@ -245,6 +268,31 @@ export function QuotationEditor({
   }
   async function calculate(event: FormEvent) {
     event.preventDefault();
+    setError('');
+    setPreview(null);
+    setChangePreview(null);
+    const invalid = { ...formErrors(form.current!), ...dateErrors(draft) };
+    if (!draft.customer_id)
+      invalid.customer_id = 'Selecione um cliente nas sugestões.';
+    if (
+      draft.discount?.kind === 'percent' &&
+      Number(draft.discount.value.replace(',', '.')) > 100
+    )
+      invalid['discount.value'] =
+        'O desconto percentual não pode ultrapassar 100%.';
+    lines.forEach((line, index) => {
+      if (line.custom && line.kind === 'kit' && !line.customItems.length)
+        invalid[`lines.${index}.items`] =
+          'Adicione pelo menos um produto à composição deste kit.';
+    });
+    if (!lines.length)
+      invalid.lines =
+        'Adicione pelo menos um produto ou kit para calcular a prévia.';
+    if (Object.keys(invalid).length) {
+      setFieldErrors(invalid);
+      return;
+    }
+    setFieldErrors({});
     setBusy(true);
     setError('');
     try {
@@ -267,7 +315,16 @@ export function QuotationEditor({
         setPreview(value.after);
       } else setPreview(await quotationRequest<Offer>('/preview', payload()));
     } catch (problem) {
-      setError(quotationFeedback(problem));
+      if (
+        problem instanceof QuotationError &&
+        (problem.status === 422 || problem.code === 'customer_not_found')
+      ) {
+        setFieldErrors(
+          Object.keys(problem.fieldErrors).length
+            ? problem.fieldErrors
+            : { total: problem.message },
+        );
+      } else setError(quotationFeedback(problem));
       if (
         problem instanceof QuotationError &&
         problem.status === 409 &&
@@ -352,6 +409,32 @@ export function QuotationEditor({
       setBusy(false);
     }
   }
+
+  function field(name: string) {
+    const labels: Record<string, string> = {
+      ...dateLabels,
+      customer_id: 'Cliente',
+      pickup_time: 'Horário da retirada (opcional)',
+      event_time: 'Horário do evento (opcional)',
+      return_time: 'Horário da devolução (opcional)',
+      'discount.value': 'Valor do desconto',
+      'discount.reason': 'Motivo do desconto',
+      reason: 'Motivo da nova revisão',
+    };
+    return {
+      'aria-label': labels[name],
+      'data-validation-field': name,
+      'aria-invalid': Boolean(fieldErrors[name]),
+      'aria-describedby': fieldErrors[name] ? `validation-${name}` : undefined,
+    };
+  }
+  function message(name: string) {
+    return fieldErrors[name] ? (
+      <span className="quotation-field-error" id={`validation-${name}`}>
+        {fieldErrors[name]}
+      </span>
+    ) : null;
+  }
   function acceptCurrent(keep: boolean) {
     if (!current) return;
     if (conflictingRevision) {
@@ -411,8 +494,14 @@ export function QuotationEditor({
             : 'Alterar aluguel do cliente'
           : initial
             ? 'Nova revisão do orçamento'
-            : 'Novo orçamento'}
+            : 'Nova locação'}
       </h2>
+      {!initial && !rentalRevision && (
+        <p>
+          Comece pela proposta da locação. O estoque só será reservado após
+          validar o sinal e confirmar a disponibilidade.
+        </p>
+      )}
       <p>
         Preços por locação. Dados negociados ficam somente na memória desta
         tela. Datas e horários locais: São Paulo.
@@ -444,10 +533,7 @@ export function QuotationEditor({
           aria-label="Comparação de conflito"
         >
           <h3>Versão atual {current.version}</h3>
-          <p>
-            Total atual {current.total} · validade {current.valid_until}. Seu
-            rascunho continua abaixo.
-          </p>
+          <p>Total atual {current.total}. Seu rascunho continua abaixo.</p>
           {conflictingRevision && (
             <p>
               Locação v{conflictingRevision.expected_rental_version} ·
@@ -496,7 +582,7 @@ export function QuotationEditor({
           </button>
         </div>
       )}
-      <form onSubmit={(event) => void calculate(event)}>
+      <form ref={form} noValidate onSubmit={(event) => void calculate(event)}>
         {rentalRevision?.mode === 'resume' && (
           <fieldset disabled={busy || uncertain}>
             <legend>Conferência dos valores líquidos existentes</legend>
@@ -526,6 +612,7 @@ export function QuotationEditor({
                         : 'Aplicar ao saldo'}{' '}
                       do recebimento {index + 1} (R$)
                       <input
+                        {...field(`applications.${index}.${key}`)}
                         required
                         inputMode="decimal"
                         pattern="[0-9]+[.][0-9]{2}"
@@ -541,6 +628,7 @@ export function QuotationEditor({
                           );
                         }}
                       />
+                      {message(`applications.${index}.${key}`)}
                     </label>
                   ))}
                 </div>
@@ -548,6 +636,7 @@ export function QuotationEditor({
             ))}
             <label className="quotation-checkbox">
               <input
+                {...field('payments_reviewed')}
                 type="checkbox"
                 required
                 checked={reviewed}
@@ -558,51 +647,43 @@ export function QuotationEditor({
               />
               Conferi os preços, as datas e as aplicações dos valores líquidos
               desta revisão
+              {message('payments_reviewed')}
             </label>
           </fieldset>
         )}
         <fieldset disabled={busy || uncertain}>
           <legend>Cliente e datas</legend>
           <div className="catalog-form-grid">
-            <label>
-              Buscar cliente por nome
-              <input
-                value={customerSearch}
-                onChange={(event) => setCustomerSearch(event.target.value)}
-                maxLength={200}
-              />
-            </label>
-            <label>
-              Cliente
-              <select
-                aria-label="Cliente"
-                required
-                value={draft.customer_id}
+            <div>
+              <SearchPicker
+                label="Cliente"
+                query={customerSearch}
                 disabled={Boolean(initial)}
-                onChange={(event) =>
-                  updateDraft({ customer_id: event.target.value })
-                }
-              >
-                <option value="">Selecione um cliente</option>
-                {initial &&
-                  !customers.some(
-                    (customer) => customer.id === initial.customer_id,
-                  ) && (
-                    <option value={initial.customer_id}>
-                      Cliente vinculado
-                    </option>
-                  )}
-                {customers.map((customer) => (
-                  <option key={customer.id} value={customer.id}>
-                    {customer.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+                invalid={Boolean(fieldErrors.customer_id)}
+                options={customers.map((item) => ({
+                  id: item.id,
+                  label: item.name,
+                }))}
+                onQueryChange={(value) => {
+                  setCustomerSearch(value);
+                  updateDraft({ customer_id: '' });
+                }}
+                onSelect={(id, label) => {
+                  setCustomerSearch(label);
+                  updateDraft({ customer_id: id });
+                }}
+              />
+              {initial && <p>Cliente vinculado à locação.</p>}
+              {message('customer_id')}
+            </div>
             {Object.entries(dateLabels).map(([key, label]) => (
-              <label key={key}>
-                {label}
+              <div key={key} className="quotation-date-field">
+                <div className="quotation-date-label">
+                  <label htmlFor={`quotation-field-${key}`}>{label}</label>
+                </div>
                 <input
+                  id={`quotation-field-${key}`}
+                  {...field(key)}
                   type="date"
                   required
                   value={draft[key as keyof typeof dateLabels]}
@@ -610,7 +691,8 @@ export function QuotationEditor({
                     updateDraft({ [key]: event.target.value })
                   }
                 />
-              </label>
+                {message(key)}
+              </div>
             ))}
             {(['pickup_time', 'event_time', 'return_time'] as const).map(
               (key, index) => (
@@ -623,12 +705,14 @@ export function QuotationEditor({
                     ][index]
                   }
                   <input
+                    {...field(key)}
                     type="time"
                     value={draft[key] ?? ''}
                     onChange={(event) =>
                       updateDraft({ [key]: event.target.value || null })
                     }
                   />
+                  {message(key)}
                 </label>
               ),
             )}
@@ -637,14 +721,6 @@ export function QuotationEditor({
         <fieldset disabled={busy || uncertain}>
           <legend>Itens comerciais</legend>
           <div className="catalog-form-grid">
-            <label>
-              Buscar no catálogo
-              <input
-                value={sourceSearch}
-                onChange={(event) => setSourceSearch(event.target.value)}
-                maxLength={200}
-              />
-            </label>
             <label>
               Tipo de item
               <select
@@ -659,31 +735,32 @@ export function QuotationEditor({
                 <option value="product">Produto avulso</option>
               </select>
             </label>
-            <label>
-              Item do catálogo
-              <select
-                aria-label="Item do catálogo"
-                value={source}
-                onChange={(event) => setSource(event.target.value)}
-              >
-                <option value="">Selecione um item ativo</option>
-                {(kind === 'kit' ? kits : products)
+            <div>
+              <SearchPicker
+                label="Item do catálogo"
+                query={sourceSearch}
+                options={(kind === 'kit' ? kits : products)
                   .filter(
                     (item) =>
                       item.is_active &&
                       !('needs_review' in item && item.needs_review),
                   )
-                  .map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-              </select>
-            </label>
+                  .map((item) => ({ id: item.id, label: item.name }))}
+                onQueryChange={(value) => {
+                  setSourceSearch(value);
+                  setSource('');
+                }}
+                onSelect={(id, label) => {
+                  setSourceSearch(label);
+                  setSource(id);
+                }}
+              />
+              {message('lines')}
+            </div>
           </div>
           <button
             type="button"
-            className="auth-retry"
+            className="auth-retry quotation-add-item"
             disabled={!source || lines.length >= 1000}
             onClick={addLine}
           >
@@ -702,13 +779,19 @@ export function QuotationEditor({
               key={line.key}
               aria-label={`Linha ${index + 1}`}
             >
-              <h3>
+              <h3 tabIndex={-1} {...field(`lines.${index}.source_id`)}>
                 {index + 1}. {line.label}
               </h3>
+              {fieldErrors[`lines.${index}.source_id`] && (
+                <p className="quotation-field-error">
+                  {fieldErrors[`lines.${index}.source_id`]}
+                </p>
+              )}
               <div className="catalog-form-grid">
                 <label>
                   Quantidade
                   <input
+                    {...field(`lines.${index}.quantity`)}
                     type="number"
                     min={1}
                     max={2147483647}
@@ -721,6 +804,7 @@ export function QuotationEditor({
                       })
                     }
                   />
+                  {message(`lines.${index}.quantity`)}
                 </label>
                 <label className="quotation-checkbox">
                   <input
@@ -738,18 +822,21 @@ export function QuotationEditor({
                   <label>
                     Preço unitário acordado (R$)
                     <input
+                      {...field(`lines.${index}.unit_price`)}
                       required
                       inputMode="decimal"
                       value={line.price}
-                      pattern="[0-9]+([.][0-9]{1,2})?"
+                      pattern="[0-9]+([.,][0-9]{1,2})?"
                       onChange={(event) =>
                         updateLine(index, { price: event.target.value })
                       }
                     />
+                    {message(`lines.${index}.unit_price`)}
                   </label>
                   <label>
                     Motivo do preço / composição
                     <textarea
+                      {...field(`lines.${index}.negotiation_reason`)}
                       aria-label="Motivo do preço / composição"
                       required
                       maxLength={4000}
@@ -758,12 +845,14 @@ export function QuotationEditor({
                         updateLine(index, { reason: event.target.value })
                       }
                     />
+                    {message(`lines.${index}.negotiation_reason`)}
                   </label>
                 </div>
               )}
               {line.kind === 'kit' && (
                 <div>
                   <h4>Composição efetiva</h4>
+                  {message(`lines.${index}.items`)}
                   {line.customItems.map((item, itemIndex) => (
                     <div
                       className="quotation-component"
@@ -785,6 +874,9 @@ export function QuotationEditor({
                           <label>
                             Quantidade do componente {itemIndex + 1}
                             <input
+                              {...field(
+                                `lines.${index}.items.${itemIndex}.quantity`,
+                              )}
                               type="number"
                               required
                               min={1}
@@ -807,6 +899,9 @@ export function QuotationEditor({
                                 })
                               }
                             />
+                            {message(
+                              `lines.${index}.items.${itemIndex}.quantity`,
+                            )}
                           </label>
                           <button
                             type="button"
@@ -831,6 +926,7 @@ export function QuotationEditor({
                     <label>
                       Adicionar componente
                       <select
+                        {...field(`lines.${index}.items`)}
                         aria-label="Adicionar componente"
                         value=""
                         onChange={(event) => {
@@ -940,9 +1036,10 @@ export function QuotationEditor({
                 <label>
                   Valor do desconto
                   <input
+                    {...field('discount.value')}
                     required
                     inputMode="decimal"
-                    pattern="[0-9]+([.][0-9]{1,2})?"
+                    pattern="[0-9]+([.,][0-9]{1,2})?"
                     value={draft.discount.value}
                     onChange={(event) =>
                       updateDraft({
@@ -953,13 +1050,17 @@ export function QuotationEditor({
                       })
                     }
                   />
+                  {message('discount.value')}
                 </label>
                 <label>
                   Motivo do desconto
                   <textarea
+                    {...field('discount.reason')}
                     aria-label="Motivo do desconto"
                     maxLength={4000}
-                    required={Number(draft.discount.value) > 0}
+                    required={
+                      Number(draft.discount.value.replace(',', '.')) > 0
+                    }
                     value={draft.discount.reason ?? ''}
                     onChange={(event) =>
                       updateDraft({
@@ -970,6 +1071,7 @@ export function QuotationEditor({
                       })
                     }
                   />
+                  {message('discount.reason')}
                 </label>
               </>
             )}
@@ -978,18 +1080,44 @@ export function QuotationEditor({
             <label>
               Motivo da nova revisão
               <textarea
+                {...field('reason')}
                 aria-label="Motivo da nova revisão"
                 required
                 maxLength={rentalRevision ? 1000 : 4000}
                 value={versionReason}
                 onChange={(event) => {
                   setVersionReason(event.target.value);
+                  setFieldErrors({});
                   pending.current = null;
                 }}
               />
+              {message('reason')}
             </label>
           )}
         </fieldset>
+        {Object.keys(fieldErrors).length > 0 && (
+          <div
+            ref={validationSummary}
+            className="quotation-validation-summary"
+            role="alert"
+            tabIndex={-1}
+          >
+            <strong>
+              A prévia não foi calculada.
+              {Object.keys(fieldErrors).some((key) => key !== 'total') &&
+                ' Corrija os campos destacados.'}
+            </strong>
+            <ul>
+              {Object.entries(fieldErrors).map(([key, value]) => (
+                <li key={key}>{value}</li>
+              ))}
+            </ul>
+            <p>
+              Seu preenchimento foi mantido. Nenhuma locação foi salva ou
+              confirmada por esta tentativa.
+            </p>
+          </div>
+        )}
         <div className="catalog-actions">
           <button
             type="button"
@@ -1002,7 +1130,7 @@ export function QuotationEditor({
           <button
             type="submit"
             className="auth-button"
-            disabled={busy || uncertain || lines.length === 0}
+            disabled={busy || uncertain}
           >
             {busy ? 'Aguarde…' : 'Calcular prévia'}
           </button>

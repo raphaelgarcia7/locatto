@@ -7,10 +7,16 @@ export function ContractActions({
   record,
   currentVersion,
   onChanged,
+  compact = false,
+  disabled = false,
+  onLockChange,
 }: {
   record: Contract;
   currentVersion: number;
   onChanged: () => Promise<void>;
+  compact?: boolean;
+  disabled?: boolean;
+  onLockChange?: (locked: boolean) => void;
 }) {
   const [mode, setMode] = useState<'delivery' | 'upload' | 'validation' | null>(
     null,
@@ -27,6 +33,9 @@ export function ContractActions({
   const pending = useRef<{ path: string; body: object | FormData } | null>(
     null,
   );
+  useEffect(() => {
+    onLockChange?.(busy || unknown);
+  }, [busy, unknown, onLockChange]);
   const noticeRef = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
     if (notice) noticeRef.current?.focus();
@@ -95,36 +104,42 @@ export function ContractActions({
       <div className="catalog-actions">
         <button
           className="auth-retry"
-          disabled={busy || unknown}
+          disabled={disabled || busy || unknown}
           onClick={() => {
             setMode('delivery');
             setText('');
             setConfirmed(false);
           }}
         >
-          Registrar entrega v{record.number}
+          {compact
+            ? 'Registrar entrega'
+            : `Registrar entrega v${record.number}`}
         </button>
         <button
           className="auth-retry"
-          disabled={busy || unknown}
+          disabled={disabled || busy || unknown}
           onClick={() => {
             setMode('upload');
             setConfirmed(false);
           }}
         >
-          Anexar assinatura v{record.number}
+          {compact
+            ? 'Anexar contrato assinado'
+            : `Anexar assinatura v${record.number}`}
         </button>
         {latest && (
           <button
             className="auth-retry"
-            disabled={busy || unknown}
+            disabled={disabled || busy || unknown}
             onClick={() => {
               setMode('validation');
               setText('');
               setConfirmed(false);
             }}
           >
-            Conferir anexo v{record.number}
+            {compact
+              ? 'Conferir assinatura'
+              : `Conferir anexo v${record.number}`}
           </button>
         )}
       </div>
@@ -141,13 +156,15 @@ export function ContractActions({
       {unknown && (
         <button
           className="auth-button"
-          disabled={busy}
+          disabled={disabled || busy}
           onClick={() =>
             pending.current &&
             void send(pending.current.path, pending.current.body)
           }
         >
-          Repetir mesmo registro v{record.number}
+          {compact
+            ? 'Repetir mesmo registro'
+            : `Repetir mesmo registro v${record.number}`}
         </button>
       )}
       {mode && (
@@ -157,14 +174,14 @@ export function ContractActions({
             submit();
           }}
         >
-          <fieldset disabled={busy || unknown}>
+          <fieldset disabled={disabled || busy || unknown}>
             <legend>
               {mode === 'delivery'
                 ? 'Entrega manual'
                 : mode === 'upload'
                   ? 'Documento assinado externamente'
                   : 'Conferência manual da assinatura'}{' '}
-              · versão {record.number}
+              {!compact && `· versão ${record.number}`}
             </legend>
             {mode === 'upload' ? (
               <>
@@ -238,7 +255,9 @@ export function ContractActions({
                 checked={confirmed}
                 onChange={(event) => setConfirmed(event.target.checked)}
               />
-              Confirmo o registro para a versão {record.number}
+              {compact
+                ? 'Confirmo os dados deste registro'
+                : `Confirmo o registro para a versão ${record.number}`}
             </label>
             <div className="catalog-actions">
               <button

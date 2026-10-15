@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -81,6 +81,24 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
+it('refreshes unchanged filters when the user submits search again', async () => {
+  render(
+    <MemoryRouter>
+      <QuotationsPage />
+    </MemoryRouter>,
+  );
+  await screen.findByRole('heading', {
+    name: 'Seu primeiro orçamento começa aqui',
+  });
+  const requests = fetchMock.mock.calls.length;
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Buscar locações' }),
+  );
+  await waitFor(() =>
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(requests),
+  );
+});
+
 it('keeps the exact saved lines by identity rather than accepting new catalog prices', () => {
   const draft = draftOf(record);
   expect(draft.lines).toEqual([
@@ -117,25 +135,25 @@ it('posts private search filters in the body and displays error retry and empty'
     }),
   ).toBeVisible();
   await userEvent.type(
-    screen.getByLabelText('ID do cliente'),
-    record.customer_id,
+    screen.getByLabelText('Nome do cliente'),
+    'Cliente Sintético',
   );
+  expect(screen.queryByLabelText('ID do cliente')).not.toBeInTheDocument();
+  expect(screen.queryByLabelText('ID do orçamento')).not.toBeInTheDocument();
   await userEvent.click(
-    screen.getByRole('button', { name: 'Buscar orçamentos' }),
+    screen.getByRole('button', { name: 'Buscar locações' }),
   );
   await waitFor(() =>
     expect(
       fetchMock.mock.calls.some(
         ([url, options]) =>
           url === '/api/quotations/search' &&
-          JSON.parse(options.body).customer_id === record.customer_id,
+          JSON.parse(options.body).customer_name === 'Cliente Sintético',
       ),
     ).toBe(true),
   );
   expect(
-    fetchMock.mock.calls.every(
-      ([url]) => !String(url).includes(record.customer_id),
-    ),
+    fetchMock.mock.calls.every(([url]) => !String(url).includes('Cliente')),
   ).toBe(true);
 });
 
@@ -230,8 +248,134 @@ it('ends session on authenticated failure without leaking rejected fields into f
     ),
   );
   await expect(quotationRequest('/preview', {})).rejects.toThrow(
-    'Confira cliente, datas',
+    'Revise os campos destacados',
   );
+});
+
+it.each([
+  [
+    'Data do evento',
+    '2026-10-09',
+    'O evento não pode ser anterior à retirada.',
+  ],
+  [
+    'Devolução prevista',
+    '2026-10-10',
+    'A devolução não pode ser anterior ao evento.',
+  ],
+])(
+  'explains invalid %s beside the field and does not send or save the draft',
+  async (label, value, explanation) => {
+    const saved = vi.fn();
+    render(
+      <QuotationEditor initial={record} onSaved={saved} onCancel={() => {}} />,
+    );
+    await userEvent.type(
+      screen.getByLabelText('Motivo da nova revisão'),
+      'Revisão sintética',
+    );
+    fireEvent.change(screen.getByLabelText(label), { target: { value } });
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Calcular prévia' }),
+    );
+    const input = screen.getByLabelText(label);
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+    expect(input).toHaveFocus();
+    expect(
+      document.getElementById(input.getAttribute('aria-describedby')!),
+    ).toHaveTextContent(explanation);
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Nenhuma locação foi salva ou confirmada',
+    );
+    expect(
+      fetchMock.mock.calls.filter(
+        ([url]) => url.endsWith('/preview') || url.endsWith('/versions'),
+      ),
+    ).toHaveLength(0);
+    expect(saved).not.toHaveBeenCalled();
+  },
+);
+
+it('shows a required-field error, clears it after correction and only calculates the preview', async () => {
+  fetchMock.mockImplementation(async (url: string) =>
+    response(url.endsWith('/preview') ? record : empty),
+  );
+  const saved = vi.fn();
+  render(
+    <QuotationEditor initial={record} onSaved={saved} onCancel={() => {}} />,
+  );
+  await userEvent.type(
+    screen.getByLabelText('Motivo da nova revisão'),
+    'Revisão sintética',
+  );
+  fireEvent.change(screen.getByLabelText('Retirada prevista'), {
+    target: { value: '' },
+  });
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Calcular prévia' }),
+  );
+  expect(screen.getByLabelText('Retirada prevista')).toHaveFocus();
+  expect(
+    screen.getByLabelText('Retirada prevista'),
+  ).toHaveAccessibleDescription('Preencha este campo.');
+  fireEvent.change(screen.getByLabelText('Retirada prevista'), {
+    target: { value: record.pickup_date },
+  });
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Calcular prévia' }),
+  );
+  expect(
+    await screen.findByRole('button', { name: 'Salvar nova revisão' }),
+  ).toBeVisible();
+  expect(saved).not.toHaveBeenCalled();
+  expect(
+    fetchMock.mock.calls.filter(([url]) => url.endsWith('/versions')),
+  ).toHaveLength(0);
+});
+
+it('preserves the server calculation reason and points to the affected discount field', async () => {
+  const explanation = 'O desconto não pode deixar o total abaixo de R$ 0,01.';
+  fetchMock.mockImplementation(async (url: string) =>
+    url.endsWith('/preview')
+      ? response(
+          {
+            code: 'invalid_offer',
+            detail: explanation,
+            field_errors: { 'discount.value': explanation },
+          },
+          422,
+        )
+      : response(empty),
+  );
+  render(
+    <QuotationEditor
+      initial={{
+        ...record,
+        discount: {
+          kind: 'amount',
+          value: '200.00',
+          reason: 'Acordo sintético',
+        },
+      }}
+      onSaved={() => {}}
+      onCancel={() => {}}
+    />,
+  );
+  await userEvent.type(
+    screen.getByLabelText('Motivo da nova revisão'),
+    'Revisão sintética',
+  );
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Calcular prévia' }),
+  );
+  const discount = await screen.findByLabelText('Valor do desconto');
+  await waitFor(() => expect(discount).toHaveFocus());
+  expect(discount).toHaveAccessibleDescription(explanation);
+  expect(screen.queryByText(/Confira cliente, datas/)).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('button', { name: 'Salvar nova revisão' }),
+  ).not.toBeInTheDocument();
 });
 
 it('waits for current catalog values before enabling an explicit source refresh', async () => {

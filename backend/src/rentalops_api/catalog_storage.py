@@ -10,13 +10,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
 
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageOps, UnidentifiedImageError
 
 from rentalops_api.config import environment_values
 from rentalops_api.operations import OperationsError, private_path
 
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 MAX_IMAGE_PIXELS = 20_000_000
+MAX_IMAGE_EDGE = 1600
 CONTENT_TYPES = {"JPEG": "image/jpeg", "PNG": "image/png", "WEBP": "image/webp"}
 EXTENSIONS = {"JPEG": "jpg", "PNG": "png", "WEBP": "webp"}
 
@@ -52,11 +53,25 @@ def normalize_image(data: bytes, content_type: str | None) -> tuple[bytes, str]:
                 decoded.load()
                 # Fresh pixels remove EXIF, text, ICC and animation metadata.
                 mode = "RGB" if image_format == "JPEG" else "RGBA"
-                pixels = decoded.convert(mode)
+                pixels = ImageOps.exif_transpose(decoded).convert(mode)
+                pixels.thumbnail(
+                    (MAX_IMAGE_EDGE, MAX_IMAGE_EDGE), Image.Resampling.LANCZOS
+                )
                 clean = Image.new(mode, pixels.size)
                 clean.paste(pixels)
                 output = io.BytesIO()
-                clean.save(output, format=image_format)
+                if image_format == "JPEG":
+                    clean.save(
+                        output,
+                        format=image_format,
+                        quality=85,
+                        optimize=True,
+                        progressive=True,
+                    )
+                elif image_format == "WEBP":
+                    clean.save(output, format=image_format, quality=85, method=4)
+                else:
+                    clean.save(output, format=image_format, optimize=True)
                 normalized = output.getvalue()
                 if len(normalized) > MAX_UPLOAD_BYTES:
                     raise CatalogError(413, "Foto normalizada excede 10 MiB.")

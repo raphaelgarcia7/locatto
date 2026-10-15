@@ -2,15 +2,17 @@
 
 from datetime import UTC, datetime
 from typing import cast
+from unicodedata import normalize
 from uuid import UUID
 
-from sqlalchemy import delete, func, select, update
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import delete, func, select, text, update
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from rentalops_api.auth import Identity
 from rentalops_api.catalog_contracts import (
     MAX_QUANTITY,
+    CategoryCreate,
     KitCreate,
     KitEdit,
     MaintenanceCommand,
@@ -28,6 +30,7 @@ from rentalops_api.catalog_models import (
     KitItem,
     MaintenanceEntry,
     Product,
+    ProductCategory,
     ProductPhoto,
     StockMovement,
 )
@@ -149,6 +152,75 @@ class CatalogService:
         self.factory = factory
         self.storage = storage
 
+    def list_categories(
+        self, search: str, page: int, page_size: int
+    ) -> dict[str, object]:
+        with session_scope(self.factory) as session:
+            clause = ProductCategory.name.icontains(search, autoescape=True)
+            total = (
+                session.scalar(
+                    select(func.count()).select_from(ProductCategory).where(clause)
+                )
+                or 0
+            )
+            rows = session.scalars(
+                select(ProductCategory)
+                .where(clause)
+                .order_by(func.lower(ProductCategory.name), ProductCategory.id)
+                .offset((page - 1) * page_size)
+                .limit(page_size)
+            ).all()
+            return {
+                "items": [{"id": str(row.id), "name": row.name} for row in rows],
+                "total": total,
+                "page": page,
+                "page_size": page_size,
+            }
+
+    def create_category(
+        self, payload: CategoryCreate, actor: Identity
+    ) -> dict[str, object]:
+        try:
+            with session_scope(self.factory) as session:
+                # Category registration is rare; serialize its Unicode comparison
+                # rather than depending on the database's locale-specific lower().
+                session.execute(text("SELECT pg_advisory_xact_lock(731614, 13)"))
+                key = normalize("NFC", payload.name).casefold()
+                if any(
+                    normalize("NFC", name).casefold() == key
+                    for name in session.scalars(select(ProductCategory.name))
+                ):
+                    raise CatalogError(
+                        409, "Esta categoria já está cadastrada. Selecione-a na lista."
+                    )
+                category = ProductCategory(name=payload.name, created_by=actor.user_id)
+                session.add(category)
+                session.flush()
+                result: dict[str, object] = {
+                    "id": str(category.id),
+                    "name": category.name,
+                }
+                session.commit()
+                return result
+        except IntegrityError as error:
+            if getattr(error.orig, "sqlstate", None) != "23505":
+                raise
+            raise CatalogError(
+                409, "Esta categoria já está cadastrada. Selecione-a na lista."
+            ) from None
+
+    def _require_category(self, session: Session, name: str | None) -> str | None:
+        if not name:
+            return None
+        if (
+            session.scalar(
+                select(ProductCategory.id).where(ProductCategory.name == name)
+            )
+            is None
+        ):
+            raise CatalogError(422, "Selecione uma categoria cadastrada.")
+        return name
+
     def _commit_product(self, session: Session, product: Product) -> dict[str, object]:
         # Assemble the response while the row lock still protects this version.
         session.flush()
@@ -230,6 +302,7 @@ class CatalogService:
     ) -> dict[str, object]:
         with session_scope(self.factory) as session:
             fields = payload.model_dump(exclude={"initial_quantity"})
+            fields["category"] = self._require_category(session, payload.category)
             product = Product(
                 **fields,
                 total_quantity=payload.initial_quantity,
@@ -265,7 +338,9 @@ class CatalogService:
                 session, Product, identifier, payload.expected_version
             )
             assert isinstance(record, Product)
-            for key, value in payload.model_dump(exclude={"expected_version"}).items():
+            fields = payload.model_dump(exclude={"expected_version"})
+            fields["category"] = self._require_category(session, payload.category)
+            for key, value in fields.items():
                 setattr(record, key, value)
             self._touch(record, actor)
             self._audit(
@@ -565,14 +640,23 @@ class CatalogService:
             }
             for row in entries
         ]
-        result["photos"] = [
-            photo_snapshot(photo) for photo in self._photos(session, product.id)
-        ]
+        photos = self._photos(session, product.id)
+        result["photos"] = [photo_snapshot(photo) for photo in photos]
+        result["principal_photo_id"] = next(
+            (str(photo.id) for photo in photos if photo.is_principal),
+            str(photos[0].id) if photos else None,
+        )
         return result
 
     def _kit_detail(self, session: Session, kit: Kit) -> dict[str, object]:
         result = self._kit_snapshot(session, kit)
         result["history"] = self._history(session, "kits", kit.id)
+        photos = self._photos(session, kit.id, "kits")
+        result["photos"] = [photo_snapshot(photo) for photo in photos]
+        result["principal_photo_id"] = next(
+            (str(photo.id) for photo in photos if photo.is_principal),
+            str(photos[0].id) if photos else None,
+        )
         return result
 
     def get(self, kind: str, identifier: UUID) -> dict[str, object]:
@@ -612,6 +696,28 @@ class CatalogService:
                 else self._kit_snapshot(session, cast(Kit, row))
                 for row in rows
             ]
+            # One metadata query for the page; image bytes stay on the private route.
+            owner = (
+                ProductPhoto.product_id if kind == "products" else ProductPhoto.kit_id
+            )
+            principal_photos: dict[str, str] = {}
+            if rows:
+                photos = session.execute(
+                    select(owner, ProductPhoto.id)
+                    .where(
+                        owner.in_([UUID(str(item["id"])) for item in items]),
+                        ProductPhoto.is_attached,
+                    )
+                    .order_by(
+                        ProductPhoto.is_principal.desc(),
+                        ProductPhoto.position,
+                        ProductPhoto.id,
+                    )
+                )
+                for owner_id, photo_id in photos:
+                    principal_photos.setdefault(str(owner_id), str(photo_id))
+            for item in items:
+                item["principal_photo_id"] = principal_photos.get(str(item["id"]))
             return {
                 "items": items,
                 "total": total,
@@ -619,11 +725,14 @@ class CatalogService:
                 "page_size": page_size,
             }
 
-    def _photos(self, session: Session, identifier: UUID) -> list[ProductPhoto]:
+    def _photos(
+        self, session: Session, identifier: UUID, kind: str = "products"
+    ) -> list[ProductPhoto]:
+        owner = ProductPhoto.product_id if kind == "products" else ProductPhoto.kit_id
         return list(
             session.scalars(
                 select(ProductPhoto)
-                .where(ProductPhoto.product_id == identifier, ProductPhoto.is_attached)
+                .where(owner == identifier, ProductPhoto.is_attached)
                 .order_by(ProductPhoto.position, ProductPhoto.id)
             ).all()
         )
@@ -635,10 +744,11 @@ class CatalogService:
         data: bytes,
         content_type: str | None,
         actor: Identity,
+        kind: str = "products",
     ) -> dict[str, object]:
         with active_operation():
             return self._upload_photo(
-                identifier, expected_version, data, content_type, actor
+                identifier, expected_version, data, content_type, actor, kind
             )
 
     def _upload_photo(
@@ -648,6 +758,7 @@ class CatalogService:
         data: bytes,
         content_type: str | None,
         actor: Identity,
+        kind: str = "products",
     ) -> dict[str, object]:
         # Decode and write outside DB transaction. Only our new file is compensable.
         self.storage.checked_root()
@@ -656,11 +767,16 @@ class CatalogService:
         committed = False
         try:
             with session_scope(self.factory) as session:
-                product = self._locked(session, Product, identifier, expected_version)
-                assert isinstance(product, Product)
-                photos = self._photos(session, identifier)
+                product = self._locked(
+                    session,
+                    Product if kind == "products" else Kit,
+                    identifier,
+                    expected_version,
+                )
+                photos = self._photos(session, identifier, kind)
                 photo = ProductPhoto(
-                    product_id=identifier,
+                    product_id=identifier if kind == "products" else None,
+                    kit_id=identifier if kind == "kits" else None,
                     storage_key=stored.key,
                     format=stored.image_format,
                     size=stored.size,
@@ -681,7 +797,11 @@ class CatalogService:
                     photo_snapshot(photo),
                 )
                 session.flush()
-                result = self._product_detail(session, product)
+                result = (
+                    self._product_detail(session, product)
+                    if isinstance(product, Product)
+                    else self._kit_detail(session, product)
+                )
                 session.commit()
                 committed = True
                 return result
@@ -711,21 +831,34 @@ class CatalogService:
         photo_id: UUID,
         payload: PhotoEdit | ReasonCommand,
         actor: Identity,
+        kind: str = "products",
     ) -> dict[str, object]:
         with session_scope(self.factory) as session:
             product = self._locked(
-                session, Product, identifier, payload.expected_version
+                session,
+                Product if kind == "products" else Kit,
+                identifier,
+                payload.expected_version,
             )
-            assert isinstance(product, Product)
             photo = session.get(ProductPhoto, photo_id)
-            if photo is None or photo.product_id != identifier or not photo.is_attached:
+            owner_id = (
+                None
+                if photo is None
+                else (photo.product_id if kind == "products" else photo.kit_id)
+            )
+            if photo is None or owner_id != identifier or not photo.is_attached:
                 raise CatalogError(404, "Foto não encontrada nesta galeria.")
             if isinstance(payload, PhotoEdit):
                 if payload.is_principal:
                     session.execute(
                         update(ProductPhoto)
                         .where(
-                            ProductPhoto.product_id == identifier,
+                            (
+                                ProductPhoto.product_id
+                                if kind == "products"
+                                else ProductPhoto.kit_id
+                            )
+                            == identifier,
                             ProductPhoto.is_attached,
                         )
                         .values(is_principal=False)
@@ -743,7 +876,7 @@ class CatalogService:
                 was_principal = photo.is_principal
                 photo.is_principal = False
                 session.flush()
-                remaining = self._photos(session, identifier)
+                remaining = self._photos(session, identifier, kind)
                 if was_principal and remaining:
                     remaining[0].is_principal = True
                 reason, operation = payload.reason, "photo_detached"
@@ -751,7 +884,12 @@ class CatalogService:
             self._audit(
                 session, product, actor, operation, reason, photo_snapshot(photo)
             )
-            return self._commit_product(session, product)
+            if isinstance(product, Product):
+                return self._commit_product(session, product)
+            session.flush()
+            result = self._kit_detail(session, product)
+            session.commit()
+            return result
 
     def read_photo(self, photo_id: UUID) -> tuple[bytes, str]:
         self.storage.checked_root()

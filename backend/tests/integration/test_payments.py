@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from rentalops_api.auth import Identity
 from rentalops_api.models import AuthSession, Base, User
 from rentalops_api.payment_contracts import (
+    AppliedReceiptCommand,
     CorrectionCommand,
     PaymentCommand,
     ReceiptCommand,
@@ -95,6 +96,145 @@ def allocation(state, index=0, deposit="200.00", balance="0.00"):
     }
 
 
+def test_received_payment_commits_distribution_and_replay_together(payments):
+    service, actor, identifier, *_ = payments
+    payload = AppliedReceiptCommand.model_validate(
+        versions(
+            service,
+            identifier,
+            amount="250.00",
+            method="pix",
+            business_date="2026-10-08",
+            deposit="200.00",
+            balance="50.00",
+            reason="Synthetic explicit receipt and distribution",
+        )
+    )
+    result, replay = service.write(identifier, "receipt_applied", payload, actor)
+    assert not replay
+    assert result["deposit_validated"] is True
+    assert result["remaining"] == "150.00"
+    assert result["pending"] == "0.00"
+    assert result["financial_version"] == 1
+    assert service.write(identifier, "receipt_applied", payload, actor) == (
+        result,
+        True,
+    )
+    assert len(service.get(identifier)["receipts"]) == 1
+    history = service.history(identifier)["items"]
+    assert len(history) == 1
+    assert history[0]["operation"] == "receipt_applied"
+    assert history[0]["before"]["received"] == "0.00"
+    assert history[0]["after"]["applied_deposit"] == "200.00"
+    balance = AppliedReceiptCommand.model_validate(
+        versions(
+            service,
+            identifier,
+            amount="150.00",
+            method="cash",
+            business_date="2026-10-08",
+            deposit="0.00",
+            balance="150.00",
+            reason="Synthetic balance received",
+        )
+    )
+    paid, _ = service.write(identifier, "receipt_applied", balance, actor)
+    assert paid["fully_paid"] is True
+    assert paid["applied_deposit"] == "200.00"
+    assert paid["remaining"] == "0.00"
+    assert len(paid["receipts"]) == 2
+
+
+@pytest.mark.parametrize(
+    "amount,deposit,balance",
+    [
+        ("100.00", "200.00", "0.00"),
+        ("200.00", "100.00", "0.00"),
+        ("500.00", "200.00", "300.00"),
+    ],
+)
+def test_received_payment_invalid_distribution_rolls_back_everything(
+    payments, amount, deposit, balance
+):
+    service, actor, identifier, *_ = payments
+    before = service.get(identifier)
+    command = AppliedReceiptCommand.model_validate(
+        versions(
+            service,
+            identifier,
+            amount=amount,
+            method="pix",
+            business_date="2026-10-08",
+            deposit=deposit,
+            balance=balance,
+            reason="Synthetic invalid distribution",
+        )
+    )
+    with pytest.raises(PaymentError):
+        service.write(identifier, "receipt_applied", command, actor)
+    assert service.get(identifier) == before
+    assert service.history(identifier)["items"] == []
+
+
+def test_received_payment_preserves_existing_pending_origin_and_blocks_stale_version(
+    payments,
+):
+    service, actor, identifier, *_ = payments
+    received = receive(payments, "25.00")
+    command = AppliedReceiptCommand.model_validate(
+        versions(
+            service,
+            identifier,
+            amount="400.00",
+            method="pix",
+            business_date="2026-10-08",
+            deposit="200.00",
+            balance="200.00",
+            reason="Synthetic full payment with prior pending receipt",
+        )
+    )
+    result, _ = service.write(identifier, "receipt_applied", command, actor)
+    assert result["pending"] == "25.00"
+    assert result["excess"] == "25.00"
+    assert result["fully_paid"] is True
+    old = next(
+        row for row in result["receipts"] if row["id"] == received["receipts"][0]["id"]
+    )
+    assert old["pending"] == "25.00"
+    stale = command.model_copy(update={"request_id": uuid4()})
+    with pytest.raises(PaymentError) as error:
+        service.write(identifier, "receipt_applied", stale, actor)
+    assert error.value.status == 409
+    assert service.get(identifier) == result
+
+
+def test_received_payment_concurrent_replay_records_one_receipt(payments):
+    service, actor, identifier, *_ = payments
+    payload = AppliedReceiptCommand.model_validate(
+        versions(
+            service,
+            identifier,
+            amount="200.00",
+            method="pix",
+            business_date="2026-10-08",
+            deposit="200.00",
+            balance="0.00",
+            reason="Synthetic simultaneous replay",
+        )
+    )
+    barrier = Barrier(2)
+
+    def write():
+        barrier.wait()
+        return service.write(identifier, "receipt_applied", payload, actor)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(lambda _: write(), range(2)))
+    assert sorted(replay for _, replay in results) == [False, True]
+    assert results[0][0] == results[1][0]
+    assert len(service.get(identifier)["receipts"]) == 1
+
+
 def test_migration_roundtrip_constraints_metadata_and_immutable_history(
     isolated_engine,
 ):
@@ -103,7 +243,7 @@ def test_migration_roundtrip_constraints_metadata_and_immutable_history(
         command.upgrade(config, "head")
         assert (
             connection.scalar(text("SELECT version_num FROM alembic_version"))
-            == "0012_dashboard_indexes"
+            == "0014_kit_photos"
         )
         assert (
             compare_metadata(MigrationContext.configure(connection), Base.metadata)

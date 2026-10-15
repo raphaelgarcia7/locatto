@@ -9,6 +9,12 @@ import {
   paymentRequest,
 } from './api';
 import type { History, Payments, Receipt } from './api';
+import { GuidedPayment } from './GuidedPayment';
+import type { PaymentGoal } from './paymentSuggestions';
+import {
+  existingPaymentApplication,
+  newPaymentApplication,
+} from './paymentSuggestions';
 import './payments.css';
 
 type Mode = 'receipt' | 'reconciliation' | 'correction' | 'refund' | 'proof';
@@ -18,6 +24,7 @@ type Prepared = {
   description: string[];
   quotationVersion: number;
   financialVersion: number;
+  label?: string;
 };
 const empty = () => ({
   amount: '',
@@ -43,12 +50,38 @@ const financialLabels = {
   excess: 'Excedente sem crédito automático',
 } as const;
 
+function PaymentReview({ data, value }: { data: Payments; value: string }) {
+  let message: string;
+  try {
+    const application = newPaymentApplication(data, value);
+    message = `Você confirma que já recebeu ${priceLabel(value)}.`;
+    if (application.deposit !== '0.00')
+      message += ` Desse valor, ${priceLabel(application.deposit)} cobre o sinal.`;
+    if (application.balance !== '0.00')
+      message += ` ${priceLabel(application.balance)} abate o restante.`;
+    if (application.pending !== '0.00')
+      message += ` ${priceLabel(application.pending)} ficará pendente de conferência, sem crédito automático.`;
+    message += ' Esta ação não confirma a reserva.';
+  } catch (problem) {
+    message = problem instanceof Error ? problem.message : 'Confira o valor.';
+  }
+  return (
+    <p className="payment-review" role="status">
+      {message}
+    </p>
+  );
+}
+
 export function FinancialSection({
   quotationId,
   refreshVersion = 0,
+  compact = false,
+  onNext,
 }: {
   quotationId: string;
   refreshVersion?: number;
+  compact?: boolean;
+  onNext?: () => void;
 }) {
   const [data, setData] = useState<Payments | null>(null);
   const [history, setHistory] = useState<History | null>(null);
@@ -59,6 +92,8 @@ export function FinancialSection({
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [mode, setMode] = useState<Mode>('receipt');
+  const [receiptGoal, setReceiptGoal] = useState<PaymentGoal | null>(null);
+  const [manualReceipt, setManualReceipt] = useState(false);
   const [fields, setFields] = useState(empty);
   const [applications, setApplications] = useState<
     Record<string, { deposit: string; balance: string }>
@@ -146,6 +181,8 @@ export function FinancialSection({
     setError('');
     setNotice('');
     setFile(null);
+    setReceiptGoal(null);
+    setManualReceipt(compact && next === 'receipt');
     setFields(
       receipt
         ? {
@@ -169,6 +206,54 @@ export function FinancialSection({
     );
     title.current?.focus();
   }
+  function startReceipt(goal: PaymentGoal) {
+    if (!data || busy || unknown || prepared) return;
+    changeMode('receipt');
+    setReceiptGoal(goal);
+    setManualReceipt(false);
+    setFields({
+      ...empty(),
+      amount:
+        goal === 'deposit' ? data.estimated_deposit : data.balance_remaining,
+    });
+    queueMicrotask(() =>
+      document.getElementById('financial-form-title')?.focus(),
+    );
+  }
+  function reviewExisting() {
+    if (!data || busy || unknown || prepared) return;
+    const complete = existingPaymentApplication(data);
+    if (!complete) {
+      changeMode('reconciliation');
+      return;
+    }
+    setReceiptGoal(null);
+    setManualReceipt(false);
+    setMode('receipt');
+    setFields(empty());
+    setError('');
+    setNotice('');
+    setPrepared({
+      path: '/reconciliations',
+      body: {
+        request_id: crypto.randomUUID(),
+        expected_financial_version: data.financial_version,
+        expected_quotation_version: data.quotation_version,
+        applications: complete,
+        reason: 'Conferência explícita de pagamento já recebido',
+      },
+      description: [
+        'Conferir o dinheiro já registrado, sem criar outro pagamento.',
+        ...complete.map(
+          (item, index) =>
+            `Pagamento ${index + 1}: sinal ${priceLabel(item.deposit)} e restante ${priceLabel(item.balance)}.`,
+        ),
+      ],
+      quotationVersion: data.quotation_version,
+      financialVersion: data.financial_version,
+      label: 'Confirmar conferência do pagamento',
+    });
+  }
   function edit(key: keyof ReturnType<typeof empty>, value: string) {
     setFields((previous) => ({ ...previous, [key]: value }));
     setPrepared(null);
@@ -189,12 +274,37 @@ export function FinancialSection({
       business_date: fields.business_date,
       observation: fields.observation || null,
     };
+    if (compact && mode === 'receipt' && receiptGoal) {
+      try {
+        const application = newPaymentApplication(data, amount(fields.amount));
+        path = '/received-payments';
+        body = {
+          ...body,
+          deposit: application.deposit,
+          balance: application.balance,
+          reason: 'Recebimento e distribuição conferidos pela equipe',
+        };
+      } catch (problem) {
+        setError(
+          problem instanceof Error
+            ? problem.message
+            : 'Confira o valor recebido.',
+        );
+        return;
+      }
+    }
     let description = [
       `${operations[mode]}`,
       `Valor: ${priceLabel(amount(fields.amount))}`,
       `Forma: ${methods[fields.method as keyof typeof methods]}`,
       `Data: ${fields.business_date}`,
     ];
+    if (path === '/received-payments') {
+      const allocation = newPaymentApplication(data, amount(fields.amount));
+      description.push(
+        `Sinal ${priceLabel(allocation.deposit)} · restante ${priceLabel(allocation.balance)} · pendente ${priceLabel(allocation.pending)}.`,
+      );
+    }
     if (mode === 'correction') {
       path = `/receipts/${fields.receipt_id}/corrections`;
       body = { ...body, reason: fields.reason };
@@ -242,26 +352,48 @@ export function FinancialSection({
     }
     setError('');
     setNotice('');
-    setPrepared({
+    const command: Prepared = {
       path,
       body,
       description,
       quotationVersion: data.quotation_version,
       financialVersion: data.financial_version,
-    });
+      label:
+        compact && mode === 'receipt'
+          ? receiptGoal === 'deposit'
+            ? 'Confirmar sinal recebido'
+            : receiptGoal === 'balance'
+              ? 'Confirmar recebimento do restante'
+              : undefined
+          : undefined,
+    };
+    setPrepared(command);
+    if (path === '/received-payments') void save(command);
   }
-  async function save() {
-    if (!prepared) return;
+  async function save(command = prepared) {
+    if (!command) return;
     setBusy(true);
     setError('');
     setNotice('');
     try {
-      await paymentRequest<Payments>(quotationId, prepared.path, prepared.body);
+      await paymentRequest<Payments>(quotationId, command.path, command.body);
       setPrepared(null);
       setUnknown(false);
       setNotice(
-        'Registro financeiro salvo. Isso não confirma reserva nem aloca estoque.',
+        compact
+          ? command.path === '/received-payments'
+            ? 'Pagamento registrado e conferido. Confira a situação atual abaixo.'
+            : command.path === '/receipts'
+              ? 'Pagamento registrado. Use Conferir pagamento existente para aplicar este valor, sem registrar o mesmo dinheiro novamente.'
+              : command.path === '/reconciliations'
+                ? 'Validação registrada. Confira a situação atual abaixo; a reserva é confirmada no próximo passo.'
+                : 'Alteração financeira registrada. Confira a situação atual abaixo.'
+          : 'Registro financeiro salvo. Isso não confirma reserva nem aloca estoque.',
       );
+      if (compact) {
+        setReceiptGoal(null);
+        setManualReceipt(false);
+      }
       // An idempotent replay is the original result, not necessarily the current account.
       await refresh();
     } catch (problem) {
@@ -304,16 +436,22 @@ export function FinancialSection({
   const refreshing = loading || loadedVersion !== refreshVersion;
   return (
     <section
+      data-financial-version={
+        !refreshing && !readError ? data?.financial_version : undefined
+      }
       className="catalog-section payments-section"
       aria-labelledby="financial-heading"
     >
       <h3 id="financial-heading" ref={title} tabIndex={-1}>
         Financeiro deste orçamento
       </h3>
-      <p>
-        Recebimento é registrado após conferência manual. Conciliação valida a
-        distribuição. Nenhuma destas ações confirma reserva ou garante estoque.
-      </p>
+      {!compact && (
+        <p>
+          Recebimento é registrado após conferência manual. Conciliação valida a
+          distribuição. Nenhuma destas ações confirma reserva ou garante
+          estoque.
+        </p>
+      )}
       {(readError || error || notice) && (
         <div
           ref={feedback}
@@ -334,25 +472,85 @@ export function FinancialSection({
       </button>
       {data && !refreshing && !readError && (
         <>
-          <p>
-            Versão comercial {data.quotation_version} · Financeiro{' '}
-            {data.financial_version} · Conferida{' '}
-            {data.reconciled_quotation_version ?? 'nenhuma'}
-          </p>
+          {!compact && (
+            <p>
+              Versão comercial {data.quotation_version} · Financeiro{' '}
+              {data.financial_version} · Conferida{' '}
+              {data.reconciled_quotation_version ?? 'nenhuma'}
+            </p>
+          )}
           {data.commercial_version_pending && (
             <p role="status" className="auth-feedback">
               A versão comercial mudou. Confira e concilie novamente; a
               validação anterior não quita esta versão.
             </p>
           )}
-          <dl className="catalog-attributes">
-            {Object.entries(financialLabels).map(([key, label]) => (
-              <div key={key}>
-                <dt>{label}</dt>
-                <dd>{priceLabel(data[key as keyof typeof financialLabels])}</dd>
-              </div>
-            ))}
-          </dl>
+          {compact && (
+            <GuidedPayment
+              data={data}
+              disabled={busy || unknown || Boolean(prepared)}
+              onReceive={startReceipt}
+              onReview={reviewExisting}
+              onNext={onNext}
+            />
+          )}
+          <details className="payment-secondary" open={!compact}>
+            <summary>Resumo completo dos valores</summary>
+            <dl className="catalog-attributes">
+              {Object.entries(financialLabels)
+                .filter(
+                  ([key]) =>
+                    !compact ||
+                    [
+                      'total',
+                      'estimated_deposit',
+                      'estimated_balance',
+                      'received',
+                      'remaining',
+                      'pending',
+                      'excess',
+                    ].includes(key),
+                )
+                .map(([key, label]) => (
+                  <div key={key}>
+                    <dt>{label}</dt>
+                    <dd>
+                      {priceLabel(data[key as keyof typeof financialLabels])}
+                    </dd>
+                  </div>
+                ))}
+            </dl>
+            {compact && (
+              <details className="quotation-secondary">
+                <summary>Ver composição do financeiro</summary>
+                <dl className="catalog-attributes">
+                  {Object.entries(financialLabels)
+                    .filter(
+                      ([key]) =>
+                        ![
+                          'total',
+                          'estimated_deposit',
+                          'estimated_balance',
+                          'received',
+                          'remaining',
+                          'pending',
+                          'excess',
+                        ].includes(key),
+                    )
+                    .map(([key, label]) => (
+                      <div key={key}>
+                        <dt>{label}</dt>
+                        <dd>
+                          {priceLabel(
+                            data[key as keyof typeof financialLabels],
+                          )}
+                        </dd>
+                      </div>
+                    ))}
+                </dl>
+              </details>
+            )}
+          </details>
           {data.extra_agreed && data.extra_agreed !== '0.00' && (
             <p>
               Obrigações extras acordadas {priceLabel(data.extra_agreed)} ·
@@ -361,231 +559,259 @@ export function FinancialSection({
               não registra recebimento.
             </p>
           )}
-          <p>
-            <strong>
-              {data.fully_paid &&
-              (!data.extra_agreed || data.extra_agreed === '0.00')
-                ? 'Financeiro integralmente quitado'
-                : data.deposit_validated
-                  ? 'Sinal validado em um único recebimento'
-                  : 'Sinal não validado'}
-            </strong>{' '}
-            ·{' '}
-            {data.requires_reconciliation
-              ? 'Há pendência de conciliação'
-              : data.reconciled_quotation_version === null
-                ? 'Nenhuma conferência registrada'
-                : 'Distribuição conferida'}
-          </p>
+          {!compact && (
+            <p>
+              <strong>
+                {data.fully_paid &&
+                (!data.extra_agreed || data.extra_agreed === '0.00')
+                  ? 'Financeiro integralmente quitado'
+                  : data.deposit_validated
+                    ? 'Sinal validado em um único recebimento'
+                    : 'Sinal não validado'}
+              </strong>{' '}
+              ·{' '}
+              {data.requires_reconciliation
+                ? 'Há pendência de conciliação'
+                : data.reconciled_quotation_version === null
+                  ? 'Nenhuma conferência registrada'
+                  : 'Distribuição conferida'}
+            </p>
+          )}
           {data.receipts.length === 0 && (
             <p>Nenhum recebimento registrado. Comprovante é opcional.</p>
           )}
-          <ul className="catalog-history">
-            {data.receipts.map((receipt, index) => (
-              <li key={receipt.id}>
-                <h4>
-                  Recebimento {index + 1} · {priceLabel(receipt.amount)} ·{' '}
-                  {methods[receipt.method]}
-                </h4>
-                <p>
-                  {receipt.business_date} · revisão {receipt.revision} · autor{' '}
-                  {receipt.actor_id}
-                </p>
-                <p>
-                  Líquido {priceLabel(receipt.net)} · sinal{' '}
-                  {priceLabel(receipt.applied_deposit)} · saldo{' '}
-                  {priceLabel(receipt.applied_balance)} · pendente{' '}
-                  {priceLabel(receipt.pending)}
-                </p>
-                {receipt.observation && <p>{receipt.observation}</p>}
-                <div className="catalog-actions">
-                  {(['correction', 'refund', 'proof'] as const).map((next) => (
-                    <button
-                      key={next}
-                      className="auth-retry"
-                      disabled={busy || unknown}
-                      onClick={() => changeMode(next, receipt)}
-                    >
-                      {next === 'correction'
-                        ? 'Corrigir recebimento'
-                        : next === 'refund'
-                          ? 'Registrar devolução já realizada'
-                          : 'Anexar comprovante'}
-                    </button>
-                  ))}
-                </div>
-                {receipt.proofs.map((proof, i) => (
-                  <p key={proof.id}>
-                    <a
-                      href={`/api/quotations/${quotationId}/payments/proofs/${proof.id}/download`}
-                    >
-                      Baixar comprovante {i + 1} do recebimento {index + 1}
-                    </a>{' '}
-                    · {proof.content_type} ·{' '}
-                    {proof.size.toLocaleString('pt-BR')} bytes
-                  </p>
-                ))}
-              </li>
-            ))}
-          </ul>
-          <div className="catalog-actions">
-            <button
-              className="auth-retry"
-              disabled={busy || unknown}
-              onClick={() => changeMode('receipt')}
-            >
-              Novo recebimento
-            </button>
-            <button
-              className="auth-retry"
-              disabled={busy || unknown || !data.receipts.length}
-              onClick={() => changeMode('reconciliation')}
-            >
-              Conciliar distribuição completa
-            </button>
-          </div>
-          <form
-            className="catalog-form"
-            onSubmit={prepare}
-            aria-labelledby="financial-form-title"
-          >
-            <h4 id="financial-form-title">
-              {mode === 'receipt'
-                ? 'Registrar recebimento conferido'
-                : mode === 'reconciliation'
-                  ? 'Conferir distribuição completa'
-                  : mode === 'correction'
-                    ? 'Corrigir dados sem devolver dinheiro'
-                    : mode === 'refund'
-                      ? 'Registrar dinheiro já devolvido'
-                      : 'Anexar comprovante opcional'}
-            </h4>
-            <fieldset disabled={busy || unknown}>
-              {mode === 'reconciliation' ? (
-                <>
+          <details className="payment-secondary" open={!compact}>
+            <summary>Pagamentos registrados e outras operações</summary>
+            <ul className="catalog-history">
+              {data.receipts.map((receipt, index) => (
+                <li key={receipt.id}>
+                  <h4>
+                    Recebimento {index + 1} · {priceLabel(receipt.amount)} ·{' '}
+                    {methods[receipt.method]}
+                  </h4>
+                  <p>{receipt.business_date}</p>
                   <p>
-                    Esta distribuição substitui a anterior. Sinal completo em um
-                    único recebimento; dois valores insuficientes não se
-                    acumulam. O saldo aceita várias origens.
+                    Líquido {priceLabel(receipt.net)} · sinal{' '}
+                    {priceLabel(receipt.applied_deposit)} · saldo{' '}
+                    {priceLabel(receipt.applied_balance)} · pendente{' '}
+                    {priceLabel(receipt.pending)}
                   </p>
-                  {data.receipts.map((receipt, index) => (
-                    <fieldset key={receipt.id}>
-                      <legend>
-                        Recebimento {index + 1} · líquido{' '}
-                        {priceLabel(receipt.net)}
-                      </legend>
-                      {(['deposit', 'balance'] as const).map((key) => (
-                        <label key={key}>
-                          {key === 'deposit'
-                            ? 'Aplicar ao sinal'
-                            : 'Aplicar ao saldo'}{' '}
-                          — recebimento {index + 1}
-                          <input
-                            required
-                            inputMode="decimal"
-                            pattern="[0-9]+[.,][0-9]{2}"
-                            value={applications[receipt.id]?.[key] ?? '0.00'}
-                            onChange={(event) => {
-                              setPrepared(null);
-                              setApplications((previous) => ({
-                                ...previous,
-                                [receipt.id]: {
-                                  deposit:
-                                    previous[receipt.id]?.deposit ?? '0.00',
-                                  balance:
-                                    previous[receipt.id]?.balance ?? '0.00',
-                                  [key]: event.target.value,
-                                },
-                              }));
-                            }}
-                          />
-                        </label>
-                      ))}
-                    </fieldset>
+                  {receipt.observation && <p>{receipt.observation}</p>}
+                  <div className="catalog-actions">
+                    {(['correction', 'refund', 'proof'] as const).map(
+                      (next) => (
+                        <button
+                          key={next}
+                          className="auth-retry"
+                          disabled={busy || unknown}
+                          onClick={() => changeMode(next, receipt)}
+                        >
+                          {next === 'correction'
+                            ? 'Corrigir recebimento'
+                            : next === 'refund'
+                              ? 'Registrar devolução já realizada'
+                              : 'Anexar comprovante'}
+                        </button>
+                      ),
+                    )}
+                  </div>
+                  {receipt.proofs.map((proof, i) => (
+                    <p key={proof.id}>
+                      <a
+                        href={`/api/quotations/${quotationId}/payments/proofs/${proof.id}/download`}
+                      >
+                        Baixar comprovante {i + 1} do recebimento {index + 1}
+                      </a>{' '}
+                      · {proof.content_type} ·{' '}
+                      {proof.size.toLocaleString('pt-BR')} bytes
+                    </p>
                   ))}
-                </>
-              ) : mode === 'proof' ? (
-                <label>
-                  Comprovante PDF, JPEG ou PNG (até 10.000.000 bytes)
-                  <input
-                    required
-                    type="file"
-                    accept="application/pdf,image/jpeg,image/png"
-                    onChange={(event) => {
-                      setFile(event.target.files?.[0] ?? null);
-                      setPrepared(null);
-                    }}
-                  />
-                </label>
-              ) : (
-                <>
+                </li>
+              ))}
+            </ul>
+            <div className="catalog-actions">
+              <button
+                className="auth-retry"
+                disabled={busy || unknown}
+                onClick={() => changeMode('receipt')}
+              >
+                Novo recebimento
+              </button>
+              <button
+                className="auth-retry"
+                disabled={busy || unknown || !data.receipts.length}
+                onClick={() => changeMode('reconciliation')}
+              >
+                Conciliar distribuição completa
+              </button>
+            </div>
+          </details>
+          {(!compact || manualReceipt || receiptGoal || mode !== 'receipt') && (
+            <form
+              className="catalog-form"
+              onSubmit={prepare}
+              aria-labelledby="financial-form-title"
+            >
+              <h4 id="financial-form-title" tabIndex={-1}>
+                {mode === 'receipt'
+                  ? receiptGoal === 'deposit'
+                    ? 'Registrar pagamento'
+                    : receiptGoal === 'balance'
+                      ? 'Registrar pagamento'
+                      : 'Registrar recebimento conferido'
+                  : mode === 'reconciliation'
+                    ? 'Conferir distribuição completa'
+                    : mode === 'correction'
+                      ? 'Corrigir dados sem devolver dinheiro'
+                      : mode === 'refund'
+                        ? 'Registrar dinheiro já devolvido'
+                        : 'Anexar comprovante opcional'}
+              </h4>
+              {compact && receiptGoal && data && (
+                <PaymentReview data={data} value={amount(fields.amount)} />
+              )}
+              <fieldset disabled={busy || unknown}>
+                {mode === 'reconciliation' ? (
+                  <>
+                    <p>
+                      Esta distribuição substitui a anterior. Sinal completo em
+                      um único recebimento; dois valores insuficientes não se
+                      acumulam. O saldo aceita várias origens.
+                    </p>
+                    {data.receipts.map((receipt, index) => (
+                      <fieldset key={receipt.id}>
+                        <legend>
+                          Recebimento {index + 1} · líquido{' '}
+                          {priceLabel(receipt.net)}
+                        </legend>
+                        {(['deposit', 'balance'] as const).map((key) => (
+                          <label key={key}>
+                            {key === 'deposit'
+                              ? 'Aplicar ao sinal'
+                              : 'Aplicar ao saldo'}{' '}
+                            — recebimento {index + 1}
+                            <input
+                              required
+                              inputMode="decimal"
+                              pattern="[0-9]+[.,][0-9]{2}"
+                              value={applications[receipt.id]?.[key] ?? '0.00'}
+                              onChange={(event) => {
+                                setPrepared(null);
+                                setApplications((previous) => ({
+                                  ...previous,
+                                  [receipt.id]: {
+                                    deposit:
+                                      previous[receipt.id]?.deposit ?? '0.00',
+                                    balance:
+                                      previous[receipt.id]?.balance ?? '0.00',
+                                    [key]: event.target.value,
+                                  },
+                                }));
+                              }}
+                            />
+                          </label>
+                        ))}
+                      </fieldset>
+                    ))}
+                  </>
+                ) : mode === 'proof' ? (
                   <label>
-                    Valor em reais
+                    Comprovante PDF, JPEG ou PNG (até 10.000.000 bytes)
                     <input
                       required
-                      inputMode="decimal"
-                      pattern="[0-9]+[.,][0-9]{2}"
-                      placeholder="200,00"
-                      value={fields.amount}
-                      onChange={(event) => edit('amount', event.target.value)}
+                      type="file"
+                      accept="application/pdf,image/jpeg,image/png"
+                      onChange={(event) => {
+                        setFile(event.target.files?.[0] ?? null);
+                        setPrepared(null);
+                      }}
                     />
                   </label>
-                  <label>
-                    Forma de pagamento
-                    <select
-                      value={fields.method}
-                      onChange={(event) => edit('method', event.target.value)}
-                    >
-                      {Object.entries(methods).map(([key, label]) => (
-                        <option key={key} value={key}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Data do movimento realizado
-                    <input
-                      required
-                      type="date"
-                      max={businessToday()}
-                      value={fields.business_date}
-                      onChange={(event) =>
-                        edit('business_date', event.target.value)
-                      }
-                    />
-                  </label>
-                  {mode !== 'refund' && (
+                ) : (
+                  <>
                     <label>
-                      Observação (opcional)
-                      <textarea
-                        maxLength={2000}
-                        value={fields.observation}
+                      Valor em reais
+                      <input
+                        required
+                        inputMode="decimal"
+                        pattern="[0-9]+[.,][0-9]{2}"
+                        placeholder="200,00"
+                        value={fields.amount}
+                        onChange={(event) => edit('amount', event.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Forma de pagamento
+                      <select
+                        value={fields.method}
+                        onChange={(event) => edit('method', event.target.value)}
+                      >
+                        {Object.entries(methods).map(([key, label]) => (
+                          <option key={key} value={key}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Data do movimento realizado
+                      <input
+                        required
+                        type="date"
+                        max={businessToday()}
+                        value={fields.business_date}
                         onChange={(event) =>
-                          edit('observation', event.target.value)
+                          edit('business_date', event.target.value)
                         }
                       />
                     </label>
-                  )}
-                </>
-              )}
-              {mode !== 'receipt' && mode !== 'proof' && (
-                <label>
-                  Motivo obrigatório
-                  <textarea
-                    required
-                    maxLength={1000}
-                    value={fields.reason}
-                    onChange={(event) => edit('reason', event.target.value)}
-                  />
-                </label>
-              )}
-              <button className="auth-button" type="submit">
-                Revisar operação financeira
-              </button>
-            </fieldset>
-          </form>
-          {prepared && (
+                    {mode !== 'refund' && (
+                      <label>
+                        Observação (opcional)
+                        <textarea
+                          maxLength={2000}
+                          value={fields.observation}
+                          onChange={(event) =>
+                            edit('observation', event.target.value)
+                          }
+                        />
+                      </label>
+                    )}
+                  </>
+                )}
+                {mode !== 'receipt' && mode !== 'proof' && (
+                  <label>
+                    Motivo obrigatório
+                    <textarea
+                      required
+                      maxLength={1000}
+                      value={fields.reason}
+                      onChange={(event) => edit('reason', event.target.value)}
+                    />
+                  </label>
+                )}
+                <button className="auth-button" type="submit">
+                  {compact && mode === 'receipt' && receiptGoal
+                    ? 'Confirmar pagamento recebido'
+                    : 'Revisar operação financeira'}
+                </button>
+                {compact && receiptGoal && (
+                  <button
+                    type="button"
+                    className="auth-retry"
+                    onClick={() => {
+                      setReceiptGoal(null);
+                      setPrepared(null);
+                      title.current?.focus();
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                )}
+              </fieldset>
+            </form>
+          )}
+          {prepared && (prepared.path !== '/received-payments' || unknown) && (
             <section
               className="auth-feedback"
               aria-labelledby="financial-preview"
@@ -598,9 +824,14 @@ export function FinancialSection({
               </ul>
               {fields.reason && <p>Motivo: {fields.reason}</p>}
               <p>
-                Versão comercial {prepared.quotationVersion} · Financeiro{' '}
-                {prepared.financialVersion}. Não realiza transferência nem
-                confirma reserva.
+                {!compact && (
+                  <>
+                    Versão comercial {prepared.quotationVersion} · Financeiro{' '}
+                    {prepared.financialVersion}.{' '}
+                  </>
+                )}
+                Não realiza transferência nem confirma reserva. Confirme somente
+                valores já recebidos e conferidos.
               </p>
               <button
                 ref={confirm}
@@ -612,7 +843,7 @@ export function FinancialSection({
                   ? 'Registrando…'
                   : unknown
                     ? 'Repetir a mesma operação'
-                    : 'Confirmar registro financeiro'}
+                    : (prepared.label ?? 'Confirmar registro financeiro')}
               </button>
               {!unknown && (
                 <button
@@ -628,81 +859,84 @@ export function FinancialSection({
               )}
             </section>
           )}
-          <h4>Histórico financeiro</h4>
-          {history?.total === 0 && (
-            <p>Nenhuma movimentação financeira no histórico.</p>
-          )}
-          <ul className="catalog-history">
-            {history?.items.map((item) => (
-              <li key={item.id}>
-                <strong>
-                  {operations[item.operation]} · financeiro{' '}
-                  {item.financial_version} · comercial {item.quotation_version}
-                </strong>
+          <details className="payment-secondary" open={!compact}>
+            <summary>Histórico financeiro</summary>
+            {history?.total === 0 && (
+              <p>Nenhuma movimentação financeira no histórico.</p>
+            )}
+            <ul className="catalog-history">
+              {history?.items.map((item) => (
+                <li key={item.id}>
+                  <strong>
+                    {operations[item.operation]} · financeiro{' '}
+                    {item.financial_version} · comercial{' '}
+                    {item.quotation_version}
+                  </strong>
+                  <p>
+                    Autor {item.actor_id} · sessão {item.session_id}
+                  </p>
+                  <time dateTime={item.created_at}>
+                    {new Date(item.created_at).toLocaleString('pt-BR', {
+                      timeZone: 'America/Sao_Paulo',
+                    })}
+                  </time>
+                  {item.reason && <p>Motivo: {item.reason}</p>}
+                  <details>
+                    <summary>Consultar antes e depois</summary>
+                    {(
+                      [
+                        ['Antes', item.before],
+                        ['Depois', item.after],
+                      ] as const
+                    ).map(([label, value]) => (
+                      <div key={label}>
+                        <h5>{label}</h5>
+                        <p>
+                          Recebido {priceLabel(value.received)} · devolvido{' '}
+                          {priceLabel(value.refunded)} · sinal aplicado{' '}
+                          {priceLabel(value.applied_deposit)} · saldo aplicado{' '}
+                          {priceLabel(value.applied_balance)}
+                        </p>
+                        <ul>
+                          {value.receipts.map((receipt, index) => (
+                            <li key={receipt.id}>
+                              Recebimento {index + 1} revisão {receipt.revision}
+                              : {priceLabel(receipt.amount)},{' '}
+                              {methods[receipt.method]}, {receipt.business_date}
+                              {receipt.observation
+                                ? ` · ${receipt.observation}`
+                                : ''}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </details>
+                </li>
+              ))}
+            </ul>
+            {history && history.total > 50 && (
+              <div className="catalog-actions">
+                <button
+                  className="auth-retry"
+                  disabled={busy || history.page === 1}
+                  onClick={() => void historyPage(history.page - 1)}
+                >
+                  Histórico anterior
+                </button>
                 <p>
-                  Autor {item.actor_id} · sessão {item.session_id}
+                  Página {history.page} · {history.total} eventos
                 </p>
-                <time dateTime={item.created_at}>
-                  {new Date(item.created_at).toLocaleString('pt-BR', {
-                    timeZone: 'America/Sao_Paulo',
-                  })}
-                </time>
-                {item.reason && <p>Motivo: {item.reason}</p>}
-                <details>
-                  <summary>Consultar antes e depois</summary>
-                  {(
-                    [
-                      ['Antes', item.before],
-                      ['Depois', item.after],
-                    ] as const
-                  ).map(([label, value]) => (
-                    <div key={label}>
-                      <h5>{label}</h5>
-                      <p>
-                        Recebido {priceLabel(value.received)} · devolvido{' '}
-                        {priceLabel(value.refunded)} · sinal aplicado{' '}
-                        {priceLabel(value.applied_deposit)} · saldo aplicado{' '}
-                        {priceLabel(value.applied_balance)}
-                      </p>
-                      <ul>
-                        {value.receipts.map((receipt, index) => (
-                          <li key={receipt.id}>
-                            Recebimento {index + 1} revisão {receipt.revision}:{' '}
-                            {priceLabel(receipt.amount)},{' '}
-                            {methods[receipt.method]}, {receipt.business_date}
-                            {receipt.observation
-                              ? ` · ${receipt.observation}`
-                              : ''}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </details>
-              </li>
-            ))}
-          </ul>
-          {history && history.total > 50 && (
-            <div className="catalog-actions">
-              <button
-                className="auth-retry"
-                disabled={busy || history.page === 1}
-                onClick={() => void historyPage(history.page - 1)}
-              >
-                Histórico anterior
-              </button>
-              <p>
-                Página {history.page} · {history.total} eventos
-              </p>
-              <button
-                className="auth-retry"
-                disabled={busy || history.page * 50 >= history.total}
-                onClick={() => void historyPage(history.page + 1)}
-              >
-                Próxima página do histórico
-              </button>
-            </div>
-          )}
+                <button
+                  className="auth-retry"
+                  disabled={busy || history.page * 50 >= history.total}
+                  onClick={() => void historyPage(history.page + 1)}
+                >
+                  Próxima página do histórico
+                </button>
+              </div>
+            )}
+          </details>
         </>
       )}
     </section>

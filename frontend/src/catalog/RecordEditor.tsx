@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
+import { useDebouncedValue } from '../components/useDebouncedValue';
 import type { FormEvent } from 'react';
 import { CatalogError, catalogRequest, feedback, priceLabel } from './api';
 import { HistoryValue } from './RecordDetail';
+import { CategoryPicker } from './CategoryPicker';
+import { ProductPhotoPicker } from './ProductPhotoPicker';
 import type { CatalogDetail, CatalogPage, KitItem, Kind, Product } from './api';
 
 export function RecordEditor({
@@ -16,6 +19,7 @@ export function RecordEditor({
   onCancel: () => void;
 }) {
   const product = initial && 'total_quantity' in initial ? initial : undefined;
+  const recordLabel = kind === 'products' ? 'produto' : 'kit';
   const [name, setName] = useState(initial?.name ?? '');
   const [price, setPrice] = useState(initial?.price.replace('.', ',') ?? '');
   const [quantity, setQuantity] = useState('0');
@@ -35,6 +39,11 @@ export function RecordEditor({
   const [conflict, setConflict] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [createdRecord, setCreatedRecord] = useState<CatalogDetail | null>(
+    null,
+  );
+  const [uploadProgress, setUploadProgress] = useState('');
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     heading.current?.focus();
@@ -42,6 +51,7 @@ export function RecordEditor({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (createdRecord) return;
     if (
       kind === 'kits' &&
       (!items.length || items.some((item) => !item.is_active))
@@ -81,19 +91,57 @@ export function RecordEditor({
             })),
             ...(initial ? { expected_version: version } : {}),
           };
+    let persisted: CatalogDetail | null = null;
     try {
-      const record = await catalogRequest<CatalogDetail>(
+      let record = await catalogRequest<CatalogDetail>(
         initial ? `${kind}/${initial.id}` : kind,
         { method: initial ? 'PATCH' : 'POST', body },
       );
+      persisted = record;
+      if (!initial) {
+        setCreatedRecord(record);
+        for (const [index, file] of photos.entries()) {
+          setUploadProgress(`Enviando foto ${index + 1} de ${photos.length}…`);
+          const upload = new FormData();
+          upload.set('file', file);
+          upload.set('expected_version', String(record.version));
+          record = await catalogRequest<CatalogDetail>(
+            `${kind}/${record.id}/photos`,
+            { method: 'POST', body: upload },
+          );
+          persisted = record;
+          setCreatedRecord(record);
+        }
+      }
       onSaved(record);
     } catch (failure) {
-      setError(feedback(failure));
+      if (!initial && persisted) {
+        setCreatedRecord(persisted);
+        setError(
+          `O ${recordLabel} foi cadastrado, mas o envio das fotos não terminou. Abra o ${recordLabel} salvo para conferir a galeria e adicionar as fotos que faltarem. ` +
+            feedback(failure),
+        );
+      } else setError(feedback(failure));
       setConflict(
         failure instanceof CatalogError &&
           failure.status === 409 &&
           Boolean(initial),
       );
+    } finally {
+      setBusy(false);
+      setUploadProgress('');
+    }
+  }
+
+  async function openCreated() {
+    if (!createdRecord) return;
+    setBusy(true);
+    try {
+      onSaved(
+        await catalogRequest<CatalogDetail>(`${kind}/${createdRecord.id}`),
+      );
+    } catch (failure) {
+      setError(`O ${recordLabel} já está salvo. ` + feedback(failure));
     } finally {
       setBusy(false);
     }
@@ -113,7 +161,6 @@ export function RecordEditor({
 
   const optionalLabels = {
     description: 'Descrição',
-    category: 'Categoria',
     color: 'Cor',
     dimensions: 'Medidas',
     replacement_value: 'Valor de reposição (R$)',
@@ -124,9 +171,7 @@ export function RecordEditor({
     <section className="catalog-panel" aria-labelledby="editor-heading">
       <div className="catalog-panel-heading">
         <div>
-          <span className="section-kicker">
-            {initial ? 'EDITAR CADASTRO' : 'CADASTRO PROGRESSIVO'}
-          </span>
+          <span className="section-kicker">CADASTRO</span>
           <h2 id="editor-heading" ref={heading} tabIndex={-1}>
             {initial
               ? `Editar ${initial.name}`
@@ -135,8 +180,12 @@ export function RecordEditor({
                 : 'Novo kit'}
           </h2>
         </div>
-        <button className="auth-retry" onClick={onCancel} disabled={busy}>
-          Cancelar
+        <button
+          className="auth-retry"
+          onClick={createdRecord ? () => void openCreated() : onCancel}
+          disabled={busy}
+        >
+          {createdRecord ? `Abrir ${recordLabel} salvo` : 'Cancelar'}
         </button>
       </div>
       <p className="catalog-help">
@@ -218,7 +267,7 @@ export function RecordEditor({
         onSubmit={(event) => void submit(event)}
         aria-busy={busy}
       >
-        <fieldset disabled={busy}>
+        <fieldset disabled={busy || Boolean(createdRecord)}>
           <legend className="sr-only">Dados do cadastro</legend>
           <div className="catalog-form-grid">
             <label>
@@ -257,7 +306,14 @@ export function RecordEditor({
                 />
               </label>
             )}
+            {kind === 'products' && (
+              <CategoryPicker
+                value={optional.category}
+                onChange={(category) => setOptional({ ...optional, category })}
+              />
+            )}
           </div>
+          {!initial && <ProductPhotoPicker kind={kind} onChange={setPhotos} />}
           {kind === 'products' ? (
             <>
               {initial && (
@@ -327,16 +383,22 @@ export function RecordEditor({
         <div className="catalog-actions">
           <button
             className="auth-button"
-            disabled={busy || conflict}
+            disabled={busy || conflict || Boolean(createdRecord)}
             type="submit"
           >
-            {busy ? 'Salvando…' : 'Salvar cadastro'}
+            {busy
+              ? uploadProgress || 'Salvando…'
+              : createdRecord
+                ? kind === 'products'
+                  ? 'Produto cadastrado'
+                  : 'Kit cadastrado'
+                : 'Salvar cadastro'}
           </button>
           <p className="catalog-help">
             {initial
               ? `Edição da versão ${version}.`
               : kind === 'products'
-                ? 'Fotos e detalhes podem ser incluídos depois.'
+                ? 'Fotos são opcionais; você também pode adicioná-las depois.'
                 : 'Composição e preço definidos pela equipe.'}
           </p>
         </div>
@@ -353,7 +415,7 @@ function KitComposer({
   onChange: (items: KitItem[]) => void;
 }) {
   const [search, setSearch] = useState('');
-  const [query, setQuery] = useState('');
+  const query = useDebouncedValue(search.trim());
   const [page, setPage] = useState(1);
   const [data, setData] = useState<CatalogPage<Product> | null>(null);
   const [error, setError] = useState('');
@@ -369,7 +431,9 @@ function KitComposer({
       undefined,
       controller.signal,
     )
-      .then(setData)
+      .then((result) => {
+        if (!controller.signal.aborted) setData(result);
+      })
       .catch((failure: unknown) => {
         if (!controller.signal.aborted) setError(feedback(failure));
       })
@@ -449,7 +513,6 @@ function KitComposer({
           type="button"
           onClick={() => {
             setPage(1);
-            setQuery(search);
           }}
         >
           Buscar produtos

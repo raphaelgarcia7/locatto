@@ -136,7 +136,9 @@ def test_partial_edit_and_search_limits_exact_normalized_filters():
         {"page": True},
         {"name": "x" * 201},
         {"cpf": "invalid"},
-        {"phone": "123"},
+        {"phone": "invalid"},
     ):
         with pytest.raises(ValidationError):
             CustomerSearch.model_validate(payload)
+    assert CustomerSearch(phone="123").phone == "123"
+    assert CustomerSearch(cpf="123").cpf == "123"

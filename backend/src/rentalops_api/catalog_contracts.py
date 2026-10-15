@@ -55,6 +55,22 @@ class ProductFields(CatalogPayload):
     observation: str | None = Field(default=None, max_length=4000)
 
 
+class CategoryCreate(CatalogPayload):
+    name: str = Field(min_length=1, max_length=100)
+
+
+class CategoryView(BaseModel):
+    id: UUID
+    name: str
+
+
+class CategoryPage(BaseModel):
+    items: list[CategoryView]
+    total: int
+    page: int
+    page_size: int
+
+
 class ProductCreate(ProductFields):
     initial_quantity: Quantity
 
@@ -168,6 +184,7 @@ class RecordView(BaseModel):
     updated_by: UUID
     created_at: str
     updated_at: str
+    principal_photo_id: UUID | None = None
 
 
 class ProductView(RecordView):
@@ -203,6 +220,7 @@ class KitView(RecordView):
 
 class KitDetail(KitView):
     history: list[HistoryView]
+    photos: list[PhotoView]
 
 
 class ProductPage(BaseModel):

@@ -47,7 +47,55 @@
   cursor: pointer;
   padding-block: 0.5rem;
 }
-.payments-section :focus-visible {
-  outline: 3px solid var(--accent, #27624b);
-  outline-offset: 3px;
+.payment-guide {
+  padding: 1.25rem;
+  margin-block: 1rem 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--primary-soft);
+}
+.payment-guide h4 {
+  margin-top: 0;
+  font-size: 1.1rem;
+}
+.payment-guide-totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 130px), 1fr));
+  gap: 1rem;
+}
+.payment-guide-totals dt {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+.payment-guide-totals dd {
+  margin: 0.4rem 0 0;
+  font-weight: 700;
+  font-size: 1.15rem;
+}
+.payment-guide-validation {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+.payment-guide-validation h5 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+.payment-secondary {
+  border-bottom: 1px solid var(--line);
+  margin-block: 0.75rem;
+}
+.payment-secondary > summary {
+  min-height: 44px;
+  color: var(--primary-dark);
+}
+.payment-guide + .payment-secondary {
+  margin-top: 1.5rem;
+}
+.payments-section .catalog-form > fieldset {
+  display: grid;
+  gap: 1rem;
+}
+.payments-section .catalog-form > fieldset > label {
+  margin-bottom: 0;
 }

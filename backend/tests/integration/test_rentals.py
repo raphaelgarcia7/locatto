@@ -78,7 +78,7 @@ def test_migration_metadata_roundtrip_and_database_constraints(isolated_engine):
         command.upgrade(config, "head")
         assert (
             connection.scalar(text("SELECT version_num FROM alembic_version"))
-            == "0012_dashboard_indexes"
+            == "0014_kit_photos"
         )
         assert (
             compare_metadata(MigrationContext.configure(connection), Base.metadata)
@@ -177,7 +177,7 @@ def test_stale_financial_commercial_expiry_and_backdate_guards(rentals):
     service.clock = lambda: datetime(2026, 10, 10, 12, tzinfo=UTC)
     with pytest.raises(RentalError) as error:
         service.confirm(payments[2], confirmation(payments), actor)
-    assert error.value.code == "expired"
+    assert error.value.code == "deposit_required"
     # A valid saved offer must still refuse a pickup day that has passed.
     offer = create(payments[3], valid_until="2026-10-10")
     service.clock = lambda: datetime(2026, 10, 14, 12, tzinfo=UTC)

@@ -139,6 +139,34 @@ def uuid_from(value):
     return UUID(value)
 
 
+def test_preview_returns_safe_field_errors_and_creates_no_quotation(client, quotations):
+    http, service = client
+    login(http)
+    body = draft(quotations).model_dump(mode="json")
+    body["discount"] = {
+        "kind": "amount",
+        "value": "2000",
+        "reason": "Synthetic agreement",
+    }
+    response = http.post("/quotations/preview", headers=HEADERS, json=body)
+    assert response.status_code == 422
+    assert response.json()["field_errors"] == {
+        "discount.value": (
+            "O desconto não pode deixar o total abaixo de R$ 0,01. Reduza o desconto."
+        )
+    }
+    assert response.headers["cache-control"] == "no-store"
+    body = draft(quotations).model_dump(mode="json")
+    body["lines"][0]["quantity"] = "PRIVATE_SYNTHETIC_DO_NOT_ECHO"
+    response = http.post("/quotations/preview", headers=HEADERS, json=body)
+    assert response.status_code == 422
+    assert "lines.0.quantity" in response.json()["field_errors"]
+    assert "PRIVATE_SYNTHETIC_DO_NOT_ECHO" not in response.text
+    from rentalops_api.quotation_contracts import QuotationSearch
+
+    assert service.search(QuotationSearch())["total"] == 0
+
+
 def test_errors_no_input_echo_logs_sql_or_pii_and_body_search(
     client, quotations, caplog
 ):

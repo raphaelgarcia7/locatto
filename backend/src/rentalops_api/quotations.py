@@ -9,7 +9,7 @@ from decimal import Decimal
 from typing import cast
 from uuid import UUID, uuid4
 
-from sqlalchemy import func, select, text
+from sqlalchemy import ColumnElement, false, func, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from rentalops_api.auth import Identity
@@ -49,13 +49,22 @@ class _RentalRead:
 
 
 class QuotationError(Exception):
-    def __init__(self, status: int, code: str, message: str) -> None:
+    def __init__(
+        self,
+        status: int,
+        code: str,
+        message: str,
+        field_errors: dict[str, str] | None = None,
+    ) -> None:
         super().__init__(message)
         self.status, self.code, self.message = status, code, message
+        self.field_errors = field_errors or {}
 
 
-def invalid(message: str) -> QuotationError:
-    return QuotationError(422, "invalid_offer", message)
+def invalid(message: str, field: str | None = None) -> QuotationError:
+    return QuotationError(
+        422, "invalid_offer", message, {field: message} if field else None
+    )
 
 
 def conflict(code: str = "version_conflict") -> QuotationError:
@@ -96,7 +105,17 @@ class QuotationService:
         exclusive_products: bool = False,
     ) -> dict[str, object]:
         if session.get(Customer, payload.customer_id) is None:
-            raise QuotationError(404, "customer_not_found", "Cliente não encontrado.")
+            raise QuotationError(
+                404,
+                "customer_not_found",
+                "Cliente não encontrado.",
+                {
+                    "customer_id": (
+                        "Este cliente não está mais disponível. "
+                        "Selecione outro cliente."
+                    )
+                },
+            )
         old_lines: dict[UUID, QuotationLine] = {}
         if payload.quotation_id:
             header = self._quotation(session, payload.quotation_id)
@@ -160,16 +179,23 @@ class QuotationService:
         versions: dict[str, int] = {}
         resolved: list[dict[str, object]] = []
         demand: dict[UUID, int] = {}
-        for entry in payload.lines:
+        for line_index, entry in enumerate(payload.lines):
             source = (
                 products.get(entry.source_id)
                 if entry.kind == "product"
                 else kits.get(entry.source_id)
             )
             if source is None:
-                raise invalid("Item do catálogo não encontrado.")
+                raise invalid(
+                    "Item do catálogo não encontrado. "
+                    "Remova esta linha e selecione outro item.",
+                    f"lines.{line_index}.source_id",
+                )
             if not source.is_active:
-                raise invalid("Substitua o item inativo antes de salvar.")
+                raise invalid(
+                    "Substitua o item inativo antes de salvar.",
+                    f"lines.{line_index}.source_id",
+                )
             versions[f"{entry.kind}:{source.id}"] = source.version
             original = (
                 old_lines.get(entry.retained_line_id)
@@ -226,7 +252,10 @@ class QuotationService:
             if customized and entry.kind == "kit" and entry.unit_price is None:
                 raise invalid("Defina explicitamente o preço do kit personalizado.")
             if negotiated and not entry.negotiation_reason:
-                raise invalid("Preço ou composição negociada exige motivo.")
+                raise invalid(
+                    "Explique o motivo do preço ou da composição negociada.",
+                    f"lines.{line_index}.negotiation_reason",
+                )
             items: list[dict[str, object]] = []
             for pid, quantity in sorted(components.items()):
                 product = products.get(pid)
@@ -287,10 +316,26 @@ class QuotationService:
                 ],
                 payload.discount,
             )
-        except ValueError:
-            raise invalid(
-                "Confira os valores: total mínimo R$ 0,01 e limites monetários."
-            ) from None
+        except ValueError as problem:
+            if str(problem) == "Quotation subtotal overflow.":
+                message = (
+                    "O subtotal ultrapassa o limite de R$ 9.999.999.999,99. "
+                    "Reduza os preços ou as quantidades."
+                )
+                field = "total"
+            elif payload.discount and payload.discount.value > 0:
+                message = (
+                    "O desconto não pode deixar o total abaixo de R$ 0,01. "
+                    "Reduza o desconto."
+                )
+                field = "discount.value"
+            else:
+                message = (
+                    "Os itens somam menos de R$ 0,01. "
+                    "Confira os preços dos itens antes de calcular novamente."
+                )
+                field = "total"
+            raise invalid(message, field) from None
         snapshot = payload.model_dump(
             mode="json", exclude={"lines", "quotation_id", "expected_version"}
         )
@@ -640,15 +685,21 @@ class QuotationService:
         result = self.get(identifier)
         if result["version"] != expected_version:
             raise conflict()
-        if result["expired"]:
-            raise QuotationError(
-                409, "expired", "Orçamento vencido: crie nova revisão antes de fechar."
-            )
         return result
 
     def search(self, payload: QuotationSearch) -> dict[str, object]:
         with session_scope(self.factory) as session:
-            filters = []
+            filters: list[ColumnElement[bool]] = []
+            if payload.customer_name and payload.customer_name.strip():
+                filters.append(
+                    Quotation.customer_id.in_(
+                        select(Customer.id).where(
+                            Customer.name.icontains(
+                                payload.customer_name.strip(), autoescape=True
+                            )
+                        )
+                    )
+                )
             for name in ("customer_id", "quotation_id"):
                 value = getattr(payload, name)
                 if value:
@@ -664,13 +715,9 @@ class QuotationService:
                 value = getattr(payload, name)
                 if value:
                     filters.append(getattr(QuotationVersion, name) == value)
-            if payload.state:
-                today = self.clock().astimezone(SAO_PAULO).date()
-                filters.append(
-                    QuotationVersion.valid_until < today
-                    if payload.state == "expired"
-                    else QuotationVersion.valid_until >= today
-                )
+            if payload.state == "expired":
+                # Legacy API filter: commercial expiration no longer exists.
+                filters.append(false())
             query = (
                 select(Quotation, QuotationVersion)
                 .join(

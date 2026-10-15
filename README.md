@@ -55,7 +55,7 @@ O backend expõe `GET /health` para verificar o processo e `GET /health/ready` p
 
 O frontend oferece uma visão geral e navegação responsiva para Catálogo (`/catalogo`), Clientes (`/clientes`), Locações (`/locacoes`) e Parâmetros (`/parametros`), com links ativos, acesso direto, histórico do navegador e recuperação de endereços inexistentes. Componentes e tokens visuais são compartilhados entre as telas.
 
-O Catálogo permite cadastrar, buscar, editar e inativar produtos e kits, consultar histórico, ajustar estoque com motivo, registrar manutenção/liberação e adicionar fotos privadas. Produtos completos têm estoque próprio; kits têm preço comercial próprio e composição somente de produtos, sem estoque independente. Clientes permite cadastrar, buscar, consultar e editar pessoas físicas com nome/telefone e detalhes opcionais posteriores. Locações integra propostas, financeiro manual, confirmação com estoque fresco e alterações/cancelamento/retomada com histórico. Contratos privados versionados Pegue e Monte agora podem ser preparados nesse registro. Não há assistente funcional, cadastro público, SMTP, senha padrão, roles nem tela de gestão de usuários; Google e integrações posteriores permanecem adiados.
+O Catálogo permite cadastrar, buscar, editar e inativar produtos e kits, consultar histórico, ajustar estoque com motivo, registrar manutenção/liberação e adicionar fotos privadas. As listas de produtos e kits exibem a foto principal, com carregamento sob demanda e indicação de foto ausente ou indisponível. Produtos completos têm estoque próprio; kits têm preço comercial próprio e composição somente de produtos, sem estoque independente. Clientes permite cadastrar, buscar, consultar e editar pessoas físicas com nome/telefone e detalhes opcionais posteriores. Locações integra propostas, financeiro manual, confirmação com estoque fresco e alterações/cancelamento/retomada com histórico. Contratos privados versionados Pegue e Monte agora podem ser preparados nesse registro. Não há assistente funcional, cadastro público, SMTP, senha padrão, roles nem tela de gestão de usuários; Google e integrações posteriores permanecem adiados.
 
 ## Requisitos
 
@@ -76,7 +76,7 @@ a continuação então é imediata, sem aguardar o próximo heartbeat.
 Em **Parâmetros**, salve progressivamente nome, identificação, endereço e contato;
 a logo é opcional. Dados reais e fotos são cadastrados depois do desenvolvimento:
 somente a emissão final exige todos os obrigatórios do cliente/locadora/evento,
-CPF do cliente e foto legível/condição de cada produto efetivamente locado,
+CPF do cliente e foto legível de cada produto efetivamente locado,
 incluindo componentes de kits personalizados e avulsos. RG e logo são opcionais;
 valores de reposição não são exibidos nem exigidos, sem apagar o catálogo.
 
@@ -169,6 +169,34 @@ Produto mínimo: nome, preço por locação e quantidade inicial (inclusive zero
 
 Kits exigem composição não vazia com produtos existentes/ativos e quantidades inteiras positivas. Repetições são agregadas; kit aninhado é recusado. Alterar o preço do produto não recalcula o preço do kit. Inativar um componente conserva composição/histórico e sinaliza revisão; substitua/remova o inativo para salvar a revisão. Não há exclusão definitiva.
 
+Categorias são cadastradas e selecionadas no modal do produto, com busca e
+paginação; não há texto livre no campo. A API autenticada `GET/POST /product-categories`
+lista/cria os registros e o produto aceita somente uma
+categoria existente (ou nenhuma). A migração `0013_product_categories` importa
+as categorias antigas, consolida variações de maiúsculas/minúsculas e mantém
+os históricos anteriores. Nomes duplicados são recusados também no banco.
+
+O primeiro cadastro permite selecionar fotos com prévia; a primeira será a
+principal usada na integração de contratos existente. O produto é salvo antes
+dos uploads sequenciais, que usam a versão retornada pelo servidor. Se uma
+foto falhar, a tela informa que o produto já existe e oferece abrir sua galeria
+para conferência, sem repetir o cadastro.
+
+Kits também têm galeria própria e seleção de fotos no primeiro cadastro,
+usando o mesmo armazenamento privado, otimização, versionamento e histórico.
+As rotas `/kits/{id}/photos` permitem adicionar fotos, escolher a principal,
+ordenar e retirar da galeria sem apagar assets históricos. Fotos do kit não
+alteram o estoque ou substituem as fotos dos produtos nos contratos existentes.
+A migração `0014_kit_photos` preserva fotos anteriores; seu downgrade recusa
+remover metadados enquanto houver fotos de kits.
+
+Novas imagens têm a orientação corrigida e são reduzidas proporcionalmente a
+até 1600 px no maior lado, sem ampliar fotos pequenas. JPEG/WebP usam qualidade
+85 e PNG é otimizado; os limites de entrada e a remoção de metadados continuam
+ativos. Fotos antigas e documentos emitidos não são reprocessados. Essa cópia
+privada otimizada atende à galeria e ao contrato, sem bytes de foto no banco
+nem um serviço externo adicional.
+
 Defina `STORAGE_ROOT` no `.env` privado como caminho absoluto de uma pasta existente, fora de qualquer checkout Git e do diretório público do frontend. Crie essa pasta e conceda acesso somente ao processo/operador autorizado. Sem configuração válida, upload/leitura retornam 503 genérico; o restante do catálogo não depende dela. JPEG, PNG e WebP precisam ser decodificáveis e corresponder ao tipo declarado: máximo **10 MiB e 20 megapixels** por imagem. SVG/HTML/conteúdo disfarçado são recusados, EXIF/metadados são removidos na cópia normalizada e o nome interno é aleatório. Não há fotografia inventada ou reconhecimento de pessoas.
 
 PostgreSQL guarda metadados/hash/ordem/principal, não bytes. IDs e bytes são imutáveis; substituição cria outro asset. Remover da galeria apenas desassocia e conserva acesso autenticado ao asset histórico. Não apague/mova arquivos manualmente: snapshots futuros poderão referenciá-los. Falha confirmada no banco compensa somente o arquivo novo; resultado incerto de commit conserva o asset para não quebrar referência persistida. Não existe coleta automática de órfãos. Volume, retenção e backup coordenado de banco/arquivos antes de produção pertencem à #4. Fotos continuam opcionais nesta entrega; a emissão ilustrada de contrato pertence à #15.
@@ -250,11 +278,46 @@ operacional pela locadora.
 
 ## Orçamentos comerciais (quotations-v1)
 
+Na tela Locações, a ação **Nova locação** inicia uma proposta comercial; não
+confirma reserva automaticamente. A busca usa nome do cliente e datas, sem
+exigir IDs internos. O nome é enviado no corpo da busca autenticada, nunca
+na URL; sinal e disponibilidade continuam sendo validados na confirmação.
+
+Ao calcular a prévia, campos obrigatórios e relações entre datas/horários são
+validados no formulário, com mensagem ao lado do campo e foco no primeiro erro.
+Falhas de cálculo retornam motivos e campos seguros, sem repetir o conteúdo
+rejeitado. O preenchimento é mantido e o aviso explica que calcular não salva
+nem confirma uma locação. As validações do servidor continuam obrigatórias.
+
+O detalhe da locação prioriza datas, itens e valores, sem UUIDs ou versões de
+origem visíveis. Produtos avulsos aparecem uma vez; a composição dos kits fica
+expansível. Pagamento/confirmação, contrato e retirada/devolução têm seções
+separadas, sem desmontar formulários ao recolher; alterações e histórico ficam
+em segundo plano. A validade comercial foi removida por orientação humana em
+2026-10-15: não aparece no formulário e não vence nem bloqueia propostas.
+As regras de sinal, reserva de estoque e assinatura antes da saída não mudam.
+
 Na área **Locações**, a equipe autenticada prepara e consulta orçamentos reais vinculados ao UUID do cliente. O cadastro mínimo do cliente basta. Kits usam seu preço próprio por locação; avulsos usam seu preço individual. A equipe pode negociar preço e composição com motivo, sem alterar o catálogo. **Orçamento não reserva estoque; agenda ainda não considerada.** Falta de estoque apto cadastral permite salvar com pendência visível. O registro manual de pagamentos foi acrescentado em payments-v1 abaixo; não há confirmação, hold, contrato, cobrança ou chamada de IA.
 
 Aplicar a migração incremental `0006_quotations` após `0005_customers` pelo procedimento PostgreSQL já documentado (`uv run --project backend alembic -c backend/alembic.ini upgrade head`). Não executar migrações com dados reais pelo harness de testes. As seis novas tabelas preservam cabeçalho, revisões, linhas/composição, auditoria sem conteúdo pessoal e resultados idempotentes. Constraints, referências e triggers impedem sobrescrever/apagar revisões comerciais; rollback preserva o orçamento anterior.
 
-Retirada ≤ evento ≤ devolução, inclusive no mesmo dia. Datas são `YYYY-MM-DD`, horários opcionais `HH:mm`, locais em `America/Sao_Paulo`. Validade obrigatória termina até a retirada e inclui toda a data escolhida em São Paulo; o dia seguinte exige nova revisão antes de fechar. `QuotationService.guard_current_validity(id, expected_version)` recusa revisão stale/vencida para os futuros consumidores de pagamentos, confirmação e contratos. Nenhuma operação fictícia de fechamento foi adicionada. Devolução prevista dia 13 indica planejamento a partir do dia 14; isso não aloca capacidade. [Regras aprovadas de orçamentos](docs/product/quotation-rules.md).
+Retirada ≤ evento ≤ devolução, inclusive no mesmo dia. Datas são `YYYY-MM-DD`, horários opcionais `HH:mm`, locais em `America/Sao_Paulo`. O campo técnico legado `valid_until` é opcional na entrada e mantido apenas por compatibilidade de armazenamento; não é prazo de negócio nem causa expiração. Registros antigos permanecem intactos, revisões stale continuam recusadas e retirada passada ainda exige revisão de datas. Devolução prevista dia 13 indica planejamento a partir do dia 14; isso não aloca capacidade. [Regras de orçamentos](docs/product/quotation-rules.md).
+
+As buscas de catálogo, clientes, locações e composição do kit consultam enquanto a
+equipe digita, com breve debounce e cancelamento de consultas antigas. Seleção de
+cliente/item na locação e filtro de cliente no painel usam sugestões abaixo do
+campo, com setas/Enter/Escape e sem exigir IDs. Pesquisas pessoais continuam em
+corpo privado de requisição; CPF/telefone aceitam trechos apenas na busca, não no
+cadastro.
+
+O contrato usa o título **Contrato de locação de decorações**, campos em linha e
+total/entrada paga/restante pago dos valores efetivamente conferidos. A condição
+do material deixou de ser campo ou pré-requisito do contrato; fotos continuam
+necessárias. Anexos mostram produtos componentes consolidados, não linhas de kit,
+com caixas para checklist. Versões continuam internas para integridade/assinatura,
+sem número visível no PDF. Após confirmar, **Baixar checklist de separação** gera
+uma folha privada a partir da composição persistida da locação, sem exigir emissão
+do contrato e sem alterar estoque. PDFs já emitidos não são reescritos.
 
 Dinheiro é `Decimal`/PostgreSQL `Numeric(12,2)`, serializado como string de duas casas. Subtotal soma quantidade × preço comercial de cada linha, sem substituir o preço do kit pela soma dos componentes. Desconto único em reais ou percentual de 0 a 100, com até duas casas, exige motivo quando positivo. Percentual arredonda uma vez com `ROUND_HALF_UP`; total mínimo R$ 0,01. Sinal previsto = metade do total arredondada para cima ao centavo, saldo = total − sinal. Total 100,01 resulta em 50,01/50,00; total 0,01 resulta em 0,01/0,00. São previsões, nunca recebimentos.
 
@@ -262,13 +325,13 @@ Rotas privadas autenticadas:
 
 | Método e rota | Resultado |
 | --- | --- |
-| `POST /quotations/preview` | Valida e calcula sem persistir; informa versões atuais das fontes, demanda/estoque apto/falta e validade |
+| `POST /quotations/preview` | Valida e calcula sem persistir; informa fontes, demanda/estoque apto/falta, sem expiração comercial |
 | `POST /quotations` | Cria orçamento, 201/Location; replay idêntico 200 |
 | `GET /quotations/{id}` | Revisão vigente e nova consulta cadastral |
 | `GET /quotations/{id}/versions` | Histórico imutável |
 | `GET /quotations/{id}/versions/{number}` | Snapshot comercial da revisão indicada |
 | `POST /quotations/{id}/versions` | Nova revisão com `quotation_id`, `expected_version` e motivo, 201; replay 200 |
-| `POST /quotations/search` | Filtros no corpo: cliente/orçamento UUID, estado `current/expired`, datas/validade; page≥1, page_size padrão25/máximo100, created_at desc + UUID |
+| `POST /quotations/search` | Filtros no corpo: cliente/orçamento UUID e datas; page≥1, page_size padrão25/máximo100, created_at desc + UUID. Estado legado `expired` não retorna propostas |
 
 Escritas recebem `request_id` UUID e `catalog_versions` da prévia. A mesma chave por ator/operação com conteúdo normalizado idêntico devolve o resultado original, mesmo depois de a revisão ter avançado; conteúdo diferente retorna409. Unicidade persistida e lock transacional PostgreSQL protegem repetições concorrentes. Sem conexão enquanto a tela espera. Prévia/gravação revalidam referências e atividade, incluindo componentes; catálogo alterado entre elas retorna409. Campos calculados, ator/sessão/version arbitrários e extras são recusados. Todas as rotas POST, inclusive busca/prévia, reutilizam Origin/CSRF da sessão real. Erros:401/403/404/409/422/503 genéricos e `no-store`, sem eco de conteúdo, SQL ou stack.
 
@@ -319,15 +382,36 @@ Não usar esse override para apontar sistemas ou contas reais.
 
 ## Confirmação de reservas (ROP-011)
 
-Após registrar e conciliar o sinal, abra o orçamento e use **Consultar confirmação**,
-confira a demanda agregada e então **Confirmar reserva**. A prévia é informativa;
-o servidor revalida versões, validade, sinal líquido único e capacidade na gravação.
+Na locação, abra **Pagamento e confirmação** e use **Registrar pagamento**.
+Confira valor, forma, data e a distribuição mostrada antes de **Confirmar pagamento
+recebido**. A mesma ação registra e aplica o valor em uma transação: sinal completo
+em uma única origem, restante limitado ao devido e excedente pendente, sem mover
+dinheiro de pagamentos anteriores. Dinheiro insuficiente não valida o sinal.
+O pagamento seguinte usa o mesmo botão. A conta resume total, pago e falta pagar;
+pagamentos antigos pendentes têm **Conferir pagamento existente**, sem registrá-los
+novamente. Correções e distribuição manual ficam em opções secundárias.
+
+Depois do sinal, **Confirmar reserva** consulta a disponibilidade; confira o resumo
+e use **Confirmar reserva e reservar itens**. Pagamento não reserva estoque nem
+executa transferência. A prévia é informativa;
+o servidor revalida versões, datas, sinal líquido único e capacidade na gravação.
 Conflito preserva dinheiro e seleção. Resultado desconhecido oferece reconciliação
 com a mesma chave, sem anunciar sucesso antes da resposta.
-Consultar confirmação e cada tentativa/replay também reconsultam o financeiro e
+A conferência de disponibilidade e cada tentativa/replay também reconsultam o financeiro e
 seu histórico, inclusive pagamentos registrados por outra pessoa com a tela aberta.
 Enquanto a leitura está pendente ou falha, fatos antigos não são apresentados como
 atuais; **Reconsultar financeiro** recupera a leitura sem repetir uma gravação.
+
+No contrato, **Visualizar contrato** busca fatos atuais da locadora, financeiro,
+contratos e assinatura antes de preparar a prévia. Cada falha de consulta identifica
+sua origem e permite tentar apenas essa leitura sem perder endereço/condições.
+Pendências obrigatórias continuam bloqueando emissão, com atalhos de correção.
+Depois de emitir, download e ações de assinatura ficam no cartão **Contrato atual**;
+versões e auditoria ficam no histórico. O texto jurídico aprovado não foi alterado.
+
+API adicional: `POST /quotations/{id}/payments/received-payments` recebe o comando
+de recebimento com `deposit`, `balance` e `reason` explícitos, nas mesmas proteções,
+versões e regras de replay. Recibo, distribuição, histórico e resposta são atômicos.
 
 API privada: `POST /quotations/{id}/confirmation-preview` recebe
 `expected_quotation_version` e `expected_financial_version`; `POST /quotations/{id}/confirm`
@@ -467,9 +551,12 @@ um orçamento sem confirmação não vira retirada. Locação concluída com dí
 continua nas pendências financeiras. Recebimento real, prazo original e nova
 previsão têm rótulos próprios; uma nova previsão não libera estoque.
 
-O calendário mensal mostra contagens completas e abre o dia. A lista alternativa
-das próximas retiradas/devoluções começa com 30 dias e permite período explícito
-de até 90 dias. Listas começam com 50 registros por página (API no máximo 100),
+A visão geral reúne cinco indicadores e o calendário, sem os cartões de áreas
+da locadora. Alterne entre mês e semana, navegue pelos períodos ou volte para
+hoje; selecionar uma data abre as retiradas ou devoluções daquele dia para
+organizar os kits. Semanas que cruzam meses consultam os dois meses completos.
+Os filtros ficam recolhidos em “Filtrar operação”. A lista diária alternativa
+começa com 50 registros por página (API no máximo 100),
 ordenados por data, horário informado antes dos ausentes, criação e ID. Filtros
 por estado operacional, pendência financeira e cliente pesquisado privadamente
 permanecem na navegação. Links internos abrem a locação e o histórico do cliente

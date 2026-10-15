@@ -143,7 +143,8 @@ def test_ctr02_03_deterministic_nine_clauses_term_images_no_internal_notes():
     for number in range(1, 10):
         assert f"Cláusula {number}ª" in text
     for item in frozen.items:
-        assert text.count(item.name) == 2
+        # Material checklist, photo caption and delivery responsibility relation.
+        assert text.count(item.name) == 3
     for phrase in (
         "nenhum valor será reembolsado",
         "seis meses",
@@ -182,9 +183,9 @@ def test_ctr02_03_deterministic_nine_clauses_term_images_no_internal_notes():
 
 
 @pytest.mark.parametrize("name", ["Locadora Sintética", "W" * 200])
-def test_long_company_footer_cannot_overlap_page_number(monkeypatch, name):
-    from reportlab.lib.pagesizes import A4
-    from reportlab.pdfbase.pdfmetrics import stringWidth
+def test_removed_company_footer_keeps_full_company_field_and_page_numbers(
+    monkeypatch, name
+):
     from reportlab.pdfgen.canvas import Canvas
 
     frozen = snapshot()
@@ -195,19 +196,18 @@ def test_long_company_footer_cannot_overlap_page_number(monkeypatch, name):
     def draw_string(canvas, x, y, text, *args, **kwargs):
         if x == 44 and y == 27:
             footers.append(text)
-            # Reserve24pt for the page number and a visible separating gap.
-            assert x + stringWidth(text, "Helvetica", 8) <= A4[0] - 44 - 24
         return original(canvas, x, y, text, *args, **kwargs)
 
     monkeypatch.setattr(Canvas, "drawString", draw_string)
     content = render_pdf(frozen, draft=False)
-    assert footers
-    if len(name) == 200:
-        assert all(text.endswith("...") for text in footers)
-    else:
-        assert all(text == f"Contrato v1 | {name}" for text in footers)
-    # The duplicate footer may be shortened, never the full authoritative field.
-    text = "".join(page.extract_text() for page in PdfReader(io.BytesIO(content)).pages)
+    assert footers == []
+    pages = PdfReader(io.BytesIO(content)).pages
+    assert all(
+        str(index) in page.extract_text().splitlines()
+        for index, page in enumerate(pages, 1)
+    )
+    text = "".join(page.extract_text() for page in pages)
+    assert "Contrato v1" not in text
     assert "".join(name.split()) in "".join(text.split())
 
 
@@ -246,8 +246,11 @@ def test_event_commands_require_iso_dates_and_explicit_boolean_review():
         SignatureCommand.model_validate({**common, "reviewed": "true"})
 
 
-def test_document_issuance_date_is_sao_paulo_while_audit_timestamp_stays_utc():
+def test_document_hides_technical_issuance_header_and_preserves_audit_timestamp():
     frozen = snapshot().model_copy(update={"issued_at": "2026-10-11T00:30:00+00:00"})
     document = PdfReader(io.BytesIO(render_pdf(frozen, draft=False)))
-    assert "Pegue e Monte | Versão 1 | 2026-10-10" in document.pages[0].extract_text()
+    title = document.pages[0].extract_text()
+    assert "Contrato de locação de decorações" in title
+    assert "Pegue e Monte | Versão" not in title
+    assert "LOCAL E DATA:" in "".join(page.extract_text() for page in document.pages)
     assert frozen.issued_at == "2026-10-11T00:30:00+00:00"

@@ -131,6 +131,7 @@ export async function paymentRequest<T>(
 }
 export const methods = { pix: 'Pix', cash: 'Dinheiro', card: 'Cartão' };
 export const operations: Record<string, string> = {
+  receipt_applied: 'Pagamento recebido e conferido',
   receipt: 'Recebimento registrado',
   reconciliation: 'Conciliação substituída',
   correction: 'Recebimento corrigido',

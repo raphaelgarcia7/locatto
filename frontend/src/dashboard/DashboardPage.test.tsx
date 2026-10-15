@@ -5,6 +5,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { DashboardPage } from './DashboardPage';
 import { OperationsCalendar } from './OperationsCalendar';
 import type { Calendar } from './api';
+import { calendarDates, calendarMonths, moveCalendar } from './calendar';
 
 const row = {
   rental_id: '00000000-0000-4000-8000-000000000001',
@@ -32,6 +33,18 @@ const row = {
   last_actual_return_date: '2026-10-12',
 };
 const empty = { items: [], total: 0, page: 1, page_size: 50 };
+function monthData(month = '2026-10'): Calendar {
+  return {
+    month,
+    timezone: 'America/Sao_Paulo',
+    checked_at: '',
+    days: calendarDates(`${month}-01`, 'month').map((date, index) => ({
+      date,
+      pickup: index === 0 ? 125 : 0,
+      returns: 0,
+    })),
+  };
+}
 function day() {
   return {
     date: '2026-10-10',
@@ -63,11 +76,23 @@ it('ignores obsolete responses and hides prior counts while a new query is pendi
   }) => void)[] = [];
   vi.stubGlobal(
     'fetch',
-    vi.fn(() => new Promise((resolve) => pending.push(resolve))),
+    vi.fn((path: string) =>
+      path.includes('/calendar?')
+        ? Promise.resolve({
+            ok: true,
+            json: async () =>
+              monthData(
+                new URL(path, 'http://localhost').searchParams.get('month') ??
+                  undefined,
+              ),
+          })
+        : new Promise((resolve) => pending.push(resolve)),
+    ),
   );
   const user = userEvent.setup();
   renderPage();
   await waitFor(() => expect(pending).toHaveLength(1));
+  await user.click(screen.getByText('Filtrar operação', { exact: true }));
   await user.selectOptions(
     screen.getByLabelText('Situação financeira'),
     'true',
@@ -110,6 +135,8 @@ it('shows persisted debt separately, real dates, direct private links and stable
     'fetch',
     vi.fn(async (path: string) => {
       calls.push(path);
+      if (path.includes('/calendar?'))
+        return { ok: true, json: async () => monthData() };
       const response = day();
       const page = new URL(path, 'http://localhost').searchParams.get('page');
       response.queues.pickup.page = Number(page ?? 1);
@@ -135,6 +162,13 @@ it('shows persisted debt separately, real dates, direct private links and stable
   expect(
     screen.getByRole('link', { name: 'Histórico do cliente' }),
   ).toHaveAttribute('href', `/clientes?cliente=${row.customer_id}`);
+  await user.click(
+    screen.getByRole('button', { name: 'Retiradas do dia 125' }),
+  );
+  expect(
+    screen.getByRole('heading', { level: 2, name: 'Retiradas do dia' }),
+  ).toHaveFocus();
+  await user.click(screen.getByText('Filtrar operação', { exact: true }));
   await user.selectOptions(
     screen.getByLabelText('Situação financeira'),
     'true',
@@ -143,22 +177,32 @@ it('shows persisted debt separately, real dates, direct private links and stable
   await user.click(
     await screen.findByRole('button', { name: 'Próxima página' }),
   );
-  await waitFor(() => expect(calls.at(-1)).toContain('page=2'));
+  await waitFor(() =>
+    expect(calls.filter((path) => path.includes('/day?')).at(-1)).toContain(
+      'page=2',
+    ),
+  );
   await waitFor(() =>
     expect(
       screen.getByRole('heading', { level: 2, name: 'Retiradas do dia' }),
     ).toHaveFocus(),
   );
-  expect(calls.at(-1)).toContain('financial_pending=true');
+  expect(calls.filter((path) => path.includes('/day?')).at(-1)).toContain(
+    'financial_pending=true',
+  );
   expect(calls.some((path) => path.includes('/auth/activity'))).toBe(false);
 });
 
 it('keeps loading, empty and failed queries distinct; retry and private customer search are explicit', async () => {
-  const fetcher = vi.fn().mockImplementation(async () => ({
-    ok: false,
-    status: 503,
-    json: async () => ({}),
-  }));
+  const fetcher = vi.fn().mockImplementation(async (path: string) =>
+    path.includes('/calendar?')
+      ? { ok: true, json: async () => monthData() }
+      : {
+          ok: false,
+          status: 503,
+          json: async () => ({}),
+        },
+  );
   vi.stubGlobal('fetch', fetcher);
   const user = userEvent.setup();
   renderPage();
@@ -172,35 +216,40 @@ it('keeps loading, empty and failed queries distinct; retry and private customer
   fetcher.mockImplementation(async (path: string) => ({
     ok: true,
     json: async () =>
-      path.includes('/customers/')
-        ? {
-            ...empty,
-            items: [{ id: row.customer_id, name: 'Cliente Sintético' }],
-            total: 1,
-          }
-        : {
-            ...day(),
-            queues: Object.fromEntries(
-              Object.keys(day().queues).map((key) => [key, empty]),
-            ),
-          },
+      path.includes('/calendar?')
+        ? monthData()
+        : path.includes('/customers/')
+          ? {
+              ...empty,
+              items: [
+                { id: row.customer_id, name: 'Cliente Sintético privado' },
+              ],
+              total: 1,
+            }
+          : {
+              ...day(),
+              queues: Object.fromEntries(
+                Object.keys(day().queues).map((key) => [key, empty]),
+              ),
+            },
   }));
   await user.click(screen.getByRole('button', { name: 'Tentar novamente' }));
   expect(await screen.findByText(/Nenhum registro nesta fila/)).toBeVisible();
+  await user.click(screen.getByText('Filtrar operação', { exact: true }));
   await user.type(
     screen.getByLabelText('Nome do cliente'),
     'Sintético privado',
   );
-  await user.click(screen.getByRole('button', { name: 'Pesquisar cliente' }));
-  const select = await screen.findByLabelText('Cliente pesquisado', {
-    exact: false,
-  });
-  await user.selectOptions(select, row.customer_id);
+  await user.click(
+    await screen.findByRole('option', { name: /Sintético privado/ }),
+  );
   await user.click(screen.getByRole('button', { name: 'Aplicar filtros' }));
   await waitFor(() =>
-    expect(fetcher.mock.calls.at(-1)?.[0]).toContain(
-      `customer_id=${row.customer_id}`,
-    ),
+    expect(
+      fetcher.mock.calls
+        .filter((call) => call[0].includes('/day?'))
+        .at(-1)?.[0],
+    ).toContain(`customer_id=${row.customer_id}`),
   );
   const searchCall = fetcher.mock.calls.find((call) =>
     call[0].includes('/customers/'),
@@ -215,7 +264,7 @@ it('keeps loading, empty and failed queries distinct; retry and private customer
 
 it('calendar exposes every count, keyboard day navigation and focused selection', async () => {
   const onSelect = vi.fn();
-  const onMonth = vi.fn();
+  const onNavigate = vi.fn();
   const user = userEvent.setup();
   const calendar: Calendar = {
     month: '2026-10',
@@ -229,10 +278,16 @@ it('calendar exposes every count, keyboard day navigation and focused selection'
   };
   render(
     <OperationsCalendar
-      data={calendar}
+      data={[calendar]}
+      anchor="2026-10-01"
+      view="month"
+      loading={false}
+      error=""
       selected="2026-10-01"
       onSelect={onSelect}
-      onMonth={onMonth}
+      onNavigate={onNavigate}
+      onViewChange={vi.fn()}
+      onRetry={vi.fn()}
     />,
   );
   const region = screen.getByRole('region', {
@@ -251,5 +306,84 @@ it('calendar exposes every count, keyboard day navigation and focused selection'
     }),
   ).toHaveFocus();
   await user.click(screen.getByRole('button', { name: 'Próximo mês' }));
-  expect(onMonth).toHaveBeenCalledWith('2026-11');
+  expect(onNavigate).toHaveBeenCalledWith('2026-11-01');
+});
+
+it('loads both months for a week crossing a month boundary and opens the selected day', async () => {
+  const calls: string[] = [];
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (path: string) => {
+      calls.push(path);
+      const query = new URL(path, 'http://localhost').searchParams;
+      return {
+        ok: true,
+        json: async () =>
+          path.includes('/calendar?')
+            ? monthData(query.get('month') ?? undefined)
+            : day(),
+      };
+    }),
+  );
+  const user = userEvent.setup();
+  renderPage();
+  await screen.findByText('Cliente Sintético');
+  expect(screen.queryByLabelText('Dia consultado')).not.toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Próximo mês' }));
+  await user.click(
+    await screen.findByRole('button', {
+      name: '01/11/2026: 125 retirada(s), 0 devolução(ões)',
+    }),
+  );
+  await user.click(screen.getByRole('button', { name: 'Semana' }));
+  expect(
+    await screen.findByRole('button', {
+      name: '26/10/2026: 0 retirada(s), 0 devolução(ões)',
+    }),
+  ).toBeVisible();
+  expect(
+    screen.getByRole('button', {
+      name: '01/11/2026: 125 retirada(s), 0 devolução(ões)',
+    }),
+  ).toBeVisible();
+  expect(
+    calls.some(
+      (path) => path.includes('/calendar?') && path.includes('month=2026-10'),
+    ),
+  ).toBe(true);
+  expect(
+    calls.some(
+      (path) => path.includes('/calendar?') && path.includes('month=2026-11'),
+    ),
+  ).toBe(true);
+  await user.click(
+    screen.getByRole('button', {
+      name: '26/10/2026: 0 retirada(s), 0 devolução(ões)',
+    }),
+  );
+  await waitFor(() =>
+    expect(calls.filter((path) => path.includes('/day?')).at(-1)).toContain(
+      'date=2026-10-26',
+    ),
+  );
+  expect(screen.getByRole('button', { name: 'Semana' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+});
+
+it('calculates complete weeks, leap months and year navigation without local timezone drift', () => {
+  expect(calendarDates('2026-11-01', 'week')).toEqual([
+    '2026-10-26',
+    '2026-10-27',
+    '2026-10-28',
+    '2026-10-29',
+    '2026-10-30',
+    '2026-10-31',
+    '2026-11-01',
+  ]);
+  expect(calendarMonths('2026-11-01', 'week')).toEqual(['2026-10', '2026-11']);
+  expect(calendarDates('2028-02-29', 'month')).toHaveLength(29);
+  expect(moveCalendar('2026-12-31', 'month', 1)).toBe('2027-01-01');
+  expect(moveCalendar('2026-12-31', 'week', 1)).toBe('2027-01-07');
 });

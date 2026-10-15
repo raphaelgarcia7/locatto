@@ -178,12 +178,27 @@ class CustomerSearch(CustomerPayload):
     @field_validator("phone")
     @classmethod
     def valid_phone(cls, value: str | None) -> str | None:
-        return normalize_phone(value) if value is not None else None
+        if value is None:
+            return None
+        digits = re.sub(r"\D", "", value)
+        if not digits or len(digits) > 15:
+            raise ValueError("Invalid phone search.")
+        if len(digits) >= 10:
+            try:
+                return normalize_phone(value)
+            except ValueError:
+                pass
+        return digits
 
     @field_validator("cpf")
     @classmethod
     def valid_cpf(cls, value: str | None) -> str | None:
-        return normalize_cpf(value) if value is not None else None
+        if value is None:
+            return None
+        digits = re.sub(r"\D", "", value)
+        if not digits or len(digits) > 11:
+            raise ValueError("Invalid CPF search.")
+        return digits
 
 
 class CustomerSummary(BaseModel):

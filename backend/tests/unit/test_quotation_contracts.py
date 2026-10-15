@@ -111,7 +111,6 @@ def test_reason_single_discount_internal_fields_and_limits():
     [
         {"pickup_date": "2026-10-12"},
         {"return_date": "2026-10-10"},
-        {"valid_until": "2026-10-11"},
         {"pickup_date": "10/10/2026"},
         {"event_date": "2026-10-10T00:00:00Z"},
         {"pickup_time": "12:30:00"},
@@ -152,11 +151,21 @@ def test_same_day_optional_times_local_inclusive_validity_and_return_day():
         validity_state(result.valid_until, datetime(2026, 10, 11, 3, tzinfo=UTC))[
             "requires_revision"
         ]
-        is True
+        is False
     )
     assert next_planning_day(date(2026, 10, 13)) == date(2026, 10, 14)
     with pytest.raises(ValueError):
         validity_state(result.valid_until, datetime(2026, 10, 10))
+
+
+def test_quotation_no_longer_requires_commercial_expiry():
+    value = draft().model_dump(exclude={"valid_until"})
+    result = QuotationDraft.model_validate(value)
+    assert result.valid_until == result.pickup_date
+    assert (
+        validity_state(result.valid_until, datetime(2026, 12, 1, tzinfo=UTC))["expired"]
+        is False
+    )
 
 
 @pytest.mark.parametrize(

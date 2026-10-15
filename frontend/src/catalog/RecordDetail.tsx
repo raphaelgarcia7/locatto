@@ -7,7 +7,7 @@ import {
   priceLabel,
   productDetail,
 } from './api';
-import type { CatalogDetail, Kind, Photo, ProductDetail } from './api';
+import type { CatalogDetail, Kind, Photo } from './api';
 
 type Action = {
   kind: 'stock' | 'maintenance' | 'release' | 'inactivate' | 'detach';
@@ -185,6 +185,7 @@ export function RecordDetail({
             )}
           </section>
           <PhotoGallery
+            kind={kind}
             record={record}
             onChange={onChange}
             onDetach={(target) => setAction({ kind: 'detach', target })}
@@ -245,6 +246,14 @@ export function RecordDetail({
             ))}
           </ul>
         </section>
+      )}
+      {kind === 'kits' && (
+        <PhotoGallery
+          kind={kind}
+          record={record}
+          onChange={onChange}
+          onDetach={(target) => setAction({ kind: 'detach', target })}
+        />
       )}
       <section className="catalog-section" aria-labelledby="catalog-history">
         <h3 id="catalog-history">Histórico cadastral</h3>
@@ -499,11 +508,13 @@ function CommandForm({
 }
 
 function PhotoGallery({
+  kind,
   record,
   onChange,
   onDetach,
 }: {
-  record: ProductDetail;
+  kind: Kind;
+  record: CatalogDetail;
   onChange: (record: CatalogDetail) => void;
   onDetach: (id: string) => void;
 }) {
@@ -528,7 +539,7 @@ function PhotoGallery({
     body.set('expected_version', String(record.version));
     try {
       onChange(
-        await catalogRequest<ProductDetail>(`products/${record.id}/photos`, {
+        await catalogRequest<CatalogDetail>(`${kind}/${record.id}/photos`, {
           method: 'POST',
           body,
         }),
@@ -545,8 +556,8 @@ function PhotoGallery({
     setError('');
     try {
       onChange(
-        await catalogRequest<ProductDetail>(
-          `products/${record.id}/photos/${photo.id}`,
+        await catalogRequest<CatalogDetail>(
+          `${kind}/${record.id}/photos/${photo.id}`,
           {
             method: 'PATCH',
             body: {
@@ -565,15 +576,15 @@ function PhotoGallery({
   }
   return (
     <section className="catalog-section" aria-labelledby="photos-title">
-      <h3 id="photos-title">Fotos do produto</h3>
+      <h3 id="photos-title">Fotos do {kind === 'kits' ? 'kit' : 'produto'}</h3>
       <p className="catalog-help">
         Fotos privadas e opcionais no cadastro. JPEG, PNG ou WebP; até 10 MiB e
-        20 megapixels. A foto principal identifica o produto.
+        20 megapixels. A foto principal identifica o cadastro.
       </p>
-      {!record.photos.length && (
+      {!record.photos?.length && (
         <p className="catalog-photo-empty">
-          Sem foto. Adicione uma imagem real do produto quando estiver
-          disponível.
+          Sem foto. Adicione uma imagem real do{' '}
+          {kind === 'kits' ? 'kit' : 'produto'} quando estiver disponível.
         </p>
       )}
       {error && (
@@ -582,7 +593,7 @@ function PhotoGallery({
         </p>
       )}
       <div className="catalog-gallery">
-        {record.photos.map((photo, index) => (
+        {(record.photos ?? []).map((photo, index) => (
           <div className="catalog-photo-card" key={photo.id}>
             <PhotoPreview photo={photo} name={record.name} />
             <span className="catalog-badge">

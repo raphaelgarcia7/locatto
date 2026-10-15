@@ -42,6 +42,7 @@ def test_every_operational_route_session_origin_version_private_history_and_priv
     preview = base + "/confirmation-preview"
     confirm = base + "/confirm"
     paths = [
+        f"/rentals/{uuid4()}/checklist/download",
         f"/rentals/{uuid4()}",
         f"/rentals/{uuid4()}/history",
         f"/rentals/by-quotation/{identifier}",
@@ -89,6 +90,11 @@ def test_every_operational_route_session_origin_version_private_history_and_priv
         == 409
     )
     assert http.get(f"/rentals/{rental['id']}").json() == rental
+    checklist = http.get(f"/rentals/{rental['id']}/checklist/download")
+    assert checklist.status_code == 200
+    assert checklist.content.startswith(b"%PDF-")
+    assert checklist.headers["Cache-Control"] == "no-store"
+    assert checklist.headers["X-Content-Type-Options"] == "nosniff"
     assert http.get(f"/rentals/by-quotation/{identifier}").json() == rental
     history = http.get(f"/rentals/{rental['id']}/history?page=1&page_size=1")
     assert history.status_code == 200 and history.json()["total"] == 1

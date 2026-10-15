@@ -16,7 +16,7 @@ from rentalops_api.capacity import capacity_view
 from rentalops_api.catalog_models import Kit, Product
 from rentalops_api.database import session_scope
 from rentalops_api.payments import PaymentService
-from rentalops_api.quotation_contracts import SAO_PAULO, validity_state
+from rentalops_api.quotation_contracts import SAO_PAULO
 from rentalops_api.quotation_models import Quotation, QuotationVersion
 from rentalops_api.rental_contracts import (
     ConfirmationCommand,
@@ -109,12 +109,6 @@ class RentalService:
                 409,
                 "pickup_passed",
                 "A retirada prevista já passou. Revise as datas antes de confirmar.",
-            )
-        if validity_state(offer.valid_until, self.clock())["expired"]:
-            raise RentalError(
-                409,
-                "expired",
-                "Orçamento vencido: revise a proposta antes de confirmar.",
             )
         financial = self.payments.confirmation_summary(
             session, header, offer, locked=locked

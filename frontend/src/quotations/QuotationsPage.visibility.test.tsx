@@ -128,9 +128,12 @@ it('does not search a hidden list for direct UUID, edit or saved revision; closi
 it('preserves list filters and pagination through selection and refreshes the list on return', async () => {
   renderPage();
   await screen.findByText('51 orçamento(s) · página 1');
-  await userEvent.type(screen.getByLabelText('ID do cliente'), second);
+  await userEvent.type(
+    screen.getByLabelText('Nome do cliente'),
+    'Cliente Azul',
+  );
   await userEvent.click(
-    screen.getByRole('button', { name: 'Buscar orçamentos' }),
+    screen.getByRole('button', { name: 'Buscar locações' }),
   );
   await waitFor(() => expect(searches()).toHaveLength(2));
   await userEvent.click(screen.getByRole('button', { name: 'Próxima página' }));
@@ -142,9 +145,9 @@ it('preserves list filters and pagination through selection and refreshes the li
   await userEvent.click(screen.getByRole('button', { name: 'Close selected' }));
   await waitFor(() => expect(searches()).toHaveLength(4));
   await screen.findByText('51 orçamento(s) · página 2');
-  expect(screen.getByLabelText('ID do cliente')).toHaveValue(second);
+  expect(screen.getByLabelText('Nome do cliente')).toHaveValue('Cliente Azul');
   expect(JSON.parse(searches().at(-1)![1].body)).toEqual({
-    customer_id: second,
+    customer_name: 'Cliente Azul',
     page: 2,
   });
 });
@@ -158,7 +161,7 @@ it('aborts pending list reads when hidden and ignores their stale response after
   renderPage();
   await waitFor(() => expect(searches()).toHaveLength(1));
   const signal = searches()[0][1].signal as AbortSignal;
-  await userEvent.click(screen.getByRole('button', { name: 'Novo orçamento' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Nova locação' }));
   expect(signal.aborted).toBe(true);
   await act(async () => {
     finish(response({ items: [], total: 0, page: 99, page_size: 25 }));
@@ -218,9 +221,12 @@ it('aborts stale identifier reads and keeps the existing detail until the next i
 it('returns from selected detail through browser history to a fresh filtered list without losing its page', async () => {
   renderPage();
   await screen.findByText('51 orçamento(s) · página 1');
-  await userEvent.type(screen.getByLabelText('ID do cliente'), second);
+  await userEvent.type(
+    screen.getByLabelText('Nome do cliente'),
+    'Cliente Azul',
+  );
   await userEvent.click(
-    screen.getByRole('button', { name: 'Buscar orçamentos' }),
+    screen.getByRole('button', { name: 'Buscar locações' }),
   );
   await waitFor(() => expect(searches()).toHaveLength(2));
   await userEvent.click(screen.getByRole('button', { name: 'Próxima página' }));
@@ -231,9 +237,9 @@ it('returns from selected detail through browser history to a fresh filtered lis
   await screen.findByRole('heading', { name: /^Orçamentos$/ });
   await waitFor(() => expect(searches()).toHaveLength(4));
   await screen.findByText('51 orçamento(s) · página 2');
-  expect(screen.getByLabelText('ID do cliente')).toHaveValue(second);
+  expect(screen.getByLabelText('Nome do cliente')).toHaveValue('Cliente Azul');
   expect(JSON.parse(searches().at(-1)![1].body)).toEqual({
-    customer_id: second,
+    customer_name: 'Cliente Azul',
     page: 2,
   });
   await userEvent.click(screen.getByRole('button', { name: 'Forward route' }));

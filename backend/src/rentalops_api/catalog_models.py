@@ -40,6 +40,23 @@ class CatalogRecord:
     )
 
 
+class ProductCategory(Base):
+    __tablename__ = "product_categories"
+    __table_args__ = (
+        CheckConstraint(
+            "name = btrim(name) AND length(name) BETWEEN 1 AND 100",
+            name="ck_category_name",
+        ),
+        Index("uq_category_name_folded", text("lower(name)"), unique=True),
+    )
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    name: Mapped[str] = mapped_column(String(100), unique=True)
+    created_by: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("now()")
+    )
+
+
 class Product(CatalogRecord, Base):
     __tablename__ = "products"
     __table_args__ = (
@@ -58,7 +75,9 @@ class Product(CatalogRecord, Base):
     total_quantity: Mapped[int] = mapped_column(Integer)
     maintenance_quantity: Mapped[int] = mapped_column(Integer, default=0)
     description: Mapped[str | None] = mapped_column(String(4000))
-    category: Mapped[str | None] = mapped_column(String(100))
+    category: Mapped[str | None] = mapped_column(
+        String(100), ForeignKey("product_categories.name", name="fk_product_category")
+    )
     color: Mapped[str | None] = mapped_column(String(100))
     dimensions: Mapped[str | None] = mapped_column(String(200))
     replacement_value: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
@@ -162,6 +181,15 @@ class ProductPhoto(Base):
         CheckConstraint("format IN ('JPEG','PNG','WEBP')", name="ck_photo_format"),
         CheckConstraint("size > 0 AND position >= 0", name="ck_photo_size_order"),
         CheckConstraint("sha256 ~ '^[0-9a-f]{64}$'", name="ck_photo_hash"),
+        CheckConstraint(
+            "(product_id IS NOT NULL) <> (kit_id IS NOT NULL)", name="ck_photo_owner"
+        ),
+        Index(
+            "uq_kit_principal_photo",
+            "kit_id",
+            unique=True,
+            postgresql_where=text("is_principal AND is_attached"),
+        ),
         Index(
             "uq_product_principal_photo",
             "product_id",
@@ -170,7 +198,12 @@ class ProductPhoto(Base):
         ),
     )
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    product_id: Mapped[UUID] = mapped_column(ForeignKey("products.id"), index=True)
+    product_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("products.id"), index=True
+    )
+    kit_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("kits.id", name="fk_photo_kit"), index=True
+    )
     storage_key: Mapped[str] = mapped_column(String(40))
     format: Mapped[str] = mapped_column(String(4))
     size: Mapped[int] = mapped_column(Integer)

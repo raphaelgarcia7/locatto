@@ -27,6 +27,7 @@ export type Photo = {
   is_principal: boolean;
 };
 export type RecordSummary = {
+  principal_photo_id?: string | null;
   id: string;
   name: string;
   price: string;
@@ -64,7 +65,7 @@ export type ProductDetail = Product & {
   maintenance: Maintenance[];
   photos: Photo[];
 };
-export type KitDetail = Kit & { history: HistoryEntry[] };
+export type KitDetail = Kit & { history: HistoryEntry[]; photos: Photo[] };
 export type CatalogRecord = Product | Kit;
 export type CatalogDetail = ProductDetail | KitDetail;
 export type Kind = 'products' | 'kits';

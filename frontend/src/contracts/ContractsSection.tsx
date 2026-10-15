@@ -25,6 +25,20 @@ import {
 import type { Company, Contract, Preview, SignatureState } from './api';
 import './contracts.css';
 
+const resourceLabels = {
+  company: 'dados da locadora',
+  financial: 'pagamentos da locação',
+  versions: 'contratos emitidos',
+  state: 'situação da assinatura',
+} as const;
+type Resource = keyof typeof resourceLabels;
+type ContractData = {
+  company: Company;
+  financial: Payments;
+  versions: Contract[];
+  state: SignatureState;
+};
+
 export function ContractsSection({ quotation }: { quotation: Quotation }) {
   const { authenticated } = useContext(AuthContext);
   const [company, setCompany] = useState<Company | null>(null);
@@ -32,12 +46,17 @@ export function ContractsSection({ quotation }: { quotation: Quotation }) {
   const [state, setState] = useState<SignatureState | null>(null);
   const [versions, setVersions] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadErrors, setLoadErrors] = useState<
+    Partial<Record<Resource, string>>
+  >({});
+  const loadSequence = useRef(0);
+  const previewPayload = useRef<object | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [unknown, setUnknown] = useState(false);
+  const [actionsLocked, setActionsLocked] = useState(false);
   const [eventAddress, setEventAddress] = useState(emptyAddress);
-  const [conditions, setConditions] = useState<Record<string, string>>({});
   const [preview, setPreview] = useState<Preview | null>(null);
   const [confirmed, setConfirmed] = useState(false);
   const pending = useRef<object | null>(null);
@@ -59,40 +78,63 @@ export function ContractsSection({ quotation }: { quotation: Quotation }) {
     return [...result.entries()];
   }, [quotation.lines]);
   const load = useCallback(
-    (signal?: AbortSignal) => {
-      return Promise.all([
-        contractRequest<Company>('/parameters', undefined, signal),
-        contractRequest<Payments>(
-          `/quotations/${quotation.id}/payments`,
-          undefined,
-          signal,
-        ),
-        contractRequest<Contract[]>(
-          `/quotations/${quotation.id}/contracts`,
-          undefined,
-          signal,
-        ),
-        contractRequest<SignatureState>(
-          `/quotations/${quotation.id}/contracts/current-signature-state`,
-          undefined,
-          signal,
-        ),
-      ])
-        .then(([parameters, money, history, signature]) => {
-          if (!signal?.aborted) {
-            setCompany(parameters);
-            setError('');
-            setFinancial(money);
-            setVersions(history);
-            setState(signature);
+    async (signal?: AbortSignal, only?: Resource) => {
+      const sequence = ++loadSequence.current;
+      setLoading(true);
+      const paths: Record<Resource, string> = {
+        company: '/parameters',
+        financial: `/quotations/${quotation.id}/payments`,
+        versions: `/quotations/${quotation.id}/contracts`,
+        state: `/quotations/${quotation.id}/contracts/current-signature-state`,
+      };
+      const keys = only ? [only] : (Object.keys(paths) as Resource[]);
+      const loaded: Partial<ContractData> = {};
+      await Promise.all(
+        keys.map(async (key) => {
+          try {
+            const result = await contractRequest<
+              Company | Payments | Contract[] | SignatureState
+            >(paths[key], undefined, signal);
+            if (signal?.aborted || sequence !== loadSequence.current) return;
+            if (key === 'company') {
+              loaded.company = result as Company;
+              setCompany(loaded.company);
+            }
+            if (key === 'financial') {
+              loaded.financial = result as Payments;
+              setFinancial(loaded.financial);
+            }
+            if (key === 'versions') {
+              loaded.versions = result as Contract[];
+              setVersions(loaded.versions);
+            }
+            if (key === 'state') {
+              loaded.state = result as SignatureState;
+              setState(loaded.state);
+            }
+            setLoadErrors((previous) => {
+              const next = { ...previous };
+              delete next[key];
+              return next;
+            });
+          } catch (problem) {
+            if (signal?.aborted || sequence !== loadSequence.current) return;
+            if (key === 'company') setCompany(null);
+            if (key === 'financial') setFinancial(null);
+            if (key === 'versions') setVersions([]);
+            if (key === 'state') setState(null);
+            setLoadErrors((previous) => ({
+              ...previous,
+              [key]: readFeedback(problem),
+            }));
           }
-        })
-        .catch((problem: unknown) => {
-          if (!signal?.aborted) setError(readFeedback(problem));
-        })
-        .finally(() => {
-          if (!signal?.aborted) setLoading(false);
-        });
+        }),
+      );
+      if (!signal?.aborted && sequence === loadSequence.current)
+        setLoading(false);
+      return !signal?.aborted && sequence === loadSequence.current
+        ? loaded
+        : undefined;
     },
     [quotation.id],
   );
@@ -111,31 +153,55 @@ export function ContractsSection({ quotation }: { quotation: Quotation }) {
     setPreview(null);
     setPreviewUrl('');
     setConfirmed(false);
+    previewPayload.current = null;
   }
-  function payload() {
+  function payload(snapshot: ContractData) {
     return {
       expected_quotation_version: quotation.current_version,
-      expected_financial_version: financial?.financial_version ?? 0,
-      expected_company_version: company?.version ?? 0,
-      expected_rental_version: state?.rental_version ?? 0,
-      expected_contract_version: versions[0]?.current_version ?? 0,
+      expected_financial_version: snapshot.financial.financial_version,
+      expected_company_version: snapshot.company.version,
+      expected_rental_version: snapshot.state.rental_version,
+      expected_contract_version: snapshot.versions[0]?.current_version ?? 0,
       template_revision: 'pegue-e-monte-v0.4',
       event_address: eventAddress,
       items: products.map(([product_id]) => ({
         product_id,
-        condition: conditions[product_id] ?? null,
       })),
     };
   }
   async function prepare() {
+    if (
+      loading ||
+      busy ||
+      actionsLocked ||
+      unknown ||
+      Object.keys(loadErrors).length ||
+      !company ||
+      !financial ||
+      !state
+    )
+      return;
     setBusy(true);
     setError('');
     setNotice('');
     setConfirmed(false);
+    setPreview(null);
+    setPreviewUrl('');
     try {
+      // Payment/company may have changed while this mounted section was closed.
+      // Prepare from fresh responses, never from state captured before payment.
+      const fresh = await load();
+      if (
+        !fresh?.company ||
+        !fresh.financial ||
+        !fresh.state ||
+        !fresh.versions
+      )
+        return;
+      const snapshot = payload(fresh as ContractData);
       const result = await contractRequest<Preview>(
         `/quotations/${quotation.id}/contracts/preview`,
-        payload(),
+        snapshot,
       );
       const bytes = Uint8Array.from(atob(result.document), (character) =>
         character.charCodeAt(0),
@@ -144,6 +210,7 @@ export function ContractsSection({ quotation }: { quotation: Quotation }) {
         URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' })),
       );
       setPreview(result);
+      previewPayload.current = snapshot;
     } catch (problem) {
       setError(readFeedback(problem));
     } finally {
@@ -151,7 +218,20 @@ export function ContractsSection({ quotation }: { quotation: Quotation }) {
     }
   }
   async function issue() {
-    pending.current ??= { ...payload(), request_id: crypto.randomUUID() };
+    if (busy || actionsLocked) return;
+    if (
+      !pending.current &&
+      (!previewPayload.current ||
+        !confirmed ||
+        preview?.pending.length ||
+        loading ||
+        Object.keys(loadErrors).length)
+    )
+      return;
+    pending.current ??= {
+      ...previewPayload.current,
+      request_id: crypto.randomUUID(),
+    };
     setBusy(true);
     setError('');
     setNotice('');
@@ -181,24 +261,32 @@ export function ContractsSection({ quotation }: { quotation: Quotation }) {
   }
   return (
     <section className="contract-panel" aria-labelledby="contracts-title">
-      <span className="section-kicker">DOCUMENTOS PRIVADOS</span>
       <h3 id="contracts-title">Contratos</h3>
-      <p>
-        Prepare a versão Pegue e Monte para assinatura fora do sistema. Emissão,
-        entrega e assinatura não confirmam reserva nem movimentam dinheiro ou
-        estoque.
-      </p>
-      <p>
-        <Link to="/parametros">Configurar locadora e logo</Link> ·{' '}
-        <Link to={customerLink(quotation.customer_id)}>
-          Completar documentos do cliente
-        </Link>
-      </p>
+      <p>Confira os dados, visualize o documento e emita para assinatura.</p>
       {loading && <p role="status">Carregando contratos e versões…</p>}
       {error && (
         <p role="alert" className="auth-feedback">
           {error}
         </p>
+      )}
+      {(Object.entries(loadErrors) as [Resource, string][]).map(
+        ([key, message]) => (
+          <div key={key} className="auth-feedback" role="alert">
+            <p>
+              Não foi possível carregar {resourceLabels[key]}. {message}
+            </p>
+            <button
+              className="auth-retry"
+              disabled={loading || busy || unknown || actionsLocked}
+              onClick={() => {
+                invalidate();
+                void load(undefined, key);
+              }}
+            >
+              Tentar novamente: {resourceLabels[key]}
+            </button>
+          </div>
+        ),
       )}
       {notice && (
         <p role="status" ref={noticeRef} tabIndex={-1}>
@@ -207,7 +295,7 @@ export function ContractsSection({ quotation }: { quotation: Quotation }) {
       )}
       <button
         className="auth-retry"
-        disabled={loading || busy || unknown}
+        disabled={loading || busy || unknown || actionsLocked}
         onClick={() => {
           invalidate();
           setLoading(true);
@@ -215,7 +303,7 @@ export function ContractsSection({ quotation }: { quotation: Quotation }) {
           void load();
         }}
       >
-        Reconsultar contratos e parâmetros
+        Atualizar dados do contrato
       </button>
       {state && (
         <p className="contract-status">
@@ -228,15 +316,67 @@ export function ContractsSection({ quotation }: { quotation: Quotation }) {
                 : 'Assinatura vigente pendente.'}
         </p>
       )}
-      {company && financial && state && (
-        <>
+      {!loading && company?.pending.length ? (
+        <p className="auth-feedback">
+          Complete os dados da locadora para emitir.{' '}
+          <Link to="/parametros">Completar cadastro da locadora</Link>
+        </p>
+      ) : null}
+      <details className="contract-secondary">
+        <summary>Cadastros e opções</summary>
+        <p>
+          <Link to="/parametros">Configurar locadora e logo</Link> ·{' '}
+          <Link to={customerLink(quotation.customer_id)}>
+            Completar documentos do cliente
+          </Link>
+        </p>
+      </details>
+      {versions[0] && !loadErrors.versions && (
+        <div className="contract-current">
+          <h4>Contrato atual</h4>
+          <a
+            className="auth-button"
+            href={`/api${contractPath(versions[0])}/download`}
+          >
+            Baixar PDF do contrato
+          </a>
+          <ContractActions
+            compact
+            disabled={loading || Object.keys(loadErrors).length > 0}
+            onLockChange={setActionsLocked}
+            record={versions[0]}
+            currentVersion={versions[0].current_version}
+            onChanged={async () => {
+              await load();
+            }}
+          />
+        </div>
+      )}
+      <>
+        <details className="contract-editor" open={!versions.length}>
+          <summary>
+            {versions.length
+              ? 'Gerar nova versão do contrato'
+              : 'Dados para o contrato'}
+          </summary>
           <form
             onSubmit={(event) => {
               event.preventDefault();
               void prepare();
             }}
           >
-            <fieldset disabled={busy || unknown || loading}>
+            <fieldset
+              disabled={
+                busy ||
+                actionsLocked ||
+                unknown ||
+                loading ||
+                !company ||
+                !financial ||
+                !state ||
+                Object.keys(loadErrors).length > 0
+              }
+            >
               <legend>Preparar contrato</legend>
               <AddressFields
                 prefix="Endereço do evento"
@@ -247,104 +387,142 @@ export function ContractsSection({ quotation }: { quotation: Quotation }) {
                 }}
               />
               <p>
-                Fotos dos produtos são selecionadas do catálogo, priorizando a
-                foto principal. Todos os componentes e avulsos estão abaixo.
+                Cliente, itens, fotos, datas e valores vêm dos cadastros.
+                Preencha os dados específicos deste evento.
               </p>
-              {products.map(([id, item]) => (
-                <label key={id}>
-                  {item.quantity} × {item.name} — condição na saída
-                  <textarea
-                    maxLength={1000}
-                    value={conditions[id] ?? ''}
-                    onChange={(event) => {
-                      setConditions({
-                        ...conditions,
-                        [id]: event.target.value,
-                      });
-                      invalidate();
-                    }}
-                  />
-                </label>
-              ))}
               <button className="auth-button" type="submit">
-                {busy ? 'Compondo…' : 'Preparar prévia do contrato'}
+                {busy ? 'Preparando documento…' : 'Visualizar contrato'}
               </button>
             </fieldset>
           </form>
-          {preview && (
-            <div className="contract-pending">
-              <h4>Prévia em rascunho · versão {preview.number}</h4>
-              <a href={previewUrl} download={`rascunho-v${preview.number}.pdf`}>
-                Baixar prévia em rascunho
-              </a>
-              {preview.pending.length ? (
-                <>
-                  <p>Resolva as pendências para emitir:</p>
-                  <ul>
-                    {preview.pending.map((item) => (
-                      <li key={item.field}>{item.message}</li>
-                    ))}
-                  </ul>
-                </>
-              ) : (
-                <p>
-                  Dados completos para emissão final. Confira o PDF antes de
-                  confirmar.
-                </p>
-              )}
-              {preview.differences.length > 0 && (
-                <>
-                  <p>Mudanças em relação à versão anterior:</p>
-                  <ul>
-                    {preview.differences.map((item) => (
-                      <li key={item.field}>
-                        {item.field}
-                        <details>
-                          <summary>Comparar valores</summary>
-                          <pre>
-                            {JSON.stringify(
-                              { antes: item.before, depois: item.after },
-                              null,
-                              2,
-                            )}
-                          </pre>
-                        </details>
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
-              <label className="contract-checkbox">
-                <input
-                  type="checkbox"
-                  disabled={busy || unknown || preview.pending.length > 0}
-                  checked={confirmed}
-                  onChange={(event) => setConfirmed(event.target.checked)}
-                />
-                Conferi esta prévia e confirmo a emissão final
-              </label>
-              <button
-                className="auth-button"
+        </details>
+        {preview && (
+          <div className="contract-pending">
+            <h4>Prévia do contrato</h4>
+            <a href={previewUrl} download={`rascunho-v${preview.number}.pdf`}>
+              Baixar prévia em rascunho
+            </a>
+            {preview.pending.length ? (
+              <>
+                <p>Resolva as pendências para emitir:</p>
+                <ul>
+                  {preview.pending.map((item) => (
+                    <li key={item.field}>
+                      {item.message}{' '}
+                      {item.field.startsWith('company') ? (
+                        <Link to="/parametros">
+                          Corrigir cadastro da locadora
+                        </Link>
+                      ) : item.field.startsWith('customer') ? (
+                        <Link to={customerLink(quotation.customer_id)}>
+                          Corrigir cadastro do cliente
+                        </Link>
+                      ) : item.field.startsWith('items') &&
+                        item.field.includes('condition') ? (
+                        <button
+                          className="auth-retry"
+                          onClick={() => {
+                            const product = products.find(([id]) =>
+                              item.field.includes(id),
+                            );
+                            const textarea = document.getElementById(
+                              `contract-condition-${product?.[0]}`,
+                            );
+                            if (textarea) {
+                              const details = textarea.closest('details');
+                              if (details) details.open = true;
+                              const editor = textarea.closest(
+                                '.contract-editor',
+                              ) as HTMLDetailsElement | null;
+                              if (editor) editor.open = true;
+                              textarea.focus();
+                            }
+                          }}
+                        >
+                          Preencher condição do item
+                        </button>
+                      ) : item.field.startsWith('items') ? (
+                        <Link to="/catalogo">
+                          Ver fotos e cadastro do produto
+                        </Link>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <p>
+                Dados completos para emissão final. Confira o PDF antes de
+                confirmar.
+              </p>
+            )}
+            {preview.differences.length > 0 && (
+              <details className="contract-secondary">
+                <summary>Mudanças em relação ao contrato anterior</summary>
+                <ul>
+                  {preview.differences.map((item) => (
+                    <li key={item.field}>
+                      {item.field}
+                      <details>
+                        <summary>Comparar valores</summary>
+                        <pre>
+                          {JSON.stringify(
+                            { antes: item.before, depois: item.after },
+                            null,
+                            2,
+                          )}
+                        </pre>
+                      </details>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+            <label className="contract-checkbox">
+              <input
+                type="checkbox"
                 disabled={
-                  !confirmed || busy || unknown || preview.pending.length > 0
+                  busy ||
+                  unknown ||
+                  actionsLocked ||
+                  loading ||
+                  Object.keys(loadErrors).length > 0 ||
+                  preview.pending.length > 0
                 }
-                onClick={() => void issue()}
-              >
-                Emitir contrato final
-              </button>
-            </div>
-          )}
-          {unknown && (
+                checked={confirmed}
+                onChange={(event) => setConfirmed(event.target.checked)}
+              />
+              Conferi esta prévia e confirmo a emissão final
+            </label>
             <button
               className="auth-button"
-              disabled={busy}
+              disabled={
+                !confirmed ||
+                busy ||
+                unknown ||
+                actionsLocked ||
+                loading ||
+                Object.keys(loadErrors).length > 0 ||
+                preview.pending.length > 0
+              }
               onClick={() => void issue()}
             >
-              Repetir mesma emissão
+              Emitir contrato final
             </button>
-          )}
-          <h4>Histórico de contratos</h4>
-          {!versions.length && !loading && (
+          </div>
+        )}
+        {unknown && (
+          <button
+            className="auth-button"
+            disabled={busy}
+            onClick={() => void issue()}
+          >
+            Repetir mesma emissão
+          </button>
+        )}
+        <details className="contract-secondary" open={versions.length === 0}>
+          <summary>Contratos emitidos e histórico</summary>
+          {!versions.length && !loading && !loadErrors.versions && (
             <p>
               Nenhum contrato emitido. Você pode preparar o documento antes do
               pagamento do sinal.
@@ -369,16 +547,19 @@ export function ContractsSection({ quotation }: { quotation: Quotation }) {
                       ? 'Anexo aguardando conferência'
                       : 'Assinatura pendente'}
                 </p>
-                <p>
-                  Comercial v{record.quotation_version} · financeira v
-                  {record.financial_version} · locadora v
-                  {record.company_version}
-                </p>
                 <details>
-                  <summary>Autoria e instante da emissão</summary>
+                  <summary>Detalhes técnicos e autoria</summary>
                   <p>
-                    {record.actor_id} · {record.created_at}
+                    Comercial v{record.quotation_version} · financeira v
+                    {record.financial_version} · locadora v
+                    {record.company_version}
                   </p>
+                  <details>
+                    <summary>Autoria e instante da emissão</summary>
+                    <p>
+                      {record.actor_id} · {record.created_at}
+                    </p>
+                  </details>
                 </details>
                 <a href={`/api${contractPath(record)}/download`}>
                   Baixar PDF v{record.number}
@@ -423,16 +604,20 @@ export function ContractsSection({ quotation }: { quotation: Quotation }) {
                     </li>
                   ))}
                 </ul>
-                <ContractActions
-                  record={record}
-                  currentVersion={versions[0].current_version}
-                  onChanged={() => load()}
-                />
+                {record.number !== versions[0].number && (
+                  <ContractActions
+                    record={record}
+                    currentVersion={versions[0].current_version}
+                    onChanged={async () => {
+                      await load();
+                    }}
+                  />
+                )}
               </li>
             ))}
           </ul>
-        </>
-      )}
+        </details>
+      </>
     </section>
   );
 }

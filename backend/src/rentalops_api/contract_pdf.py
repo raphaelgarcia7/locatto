@@ -2,10 +2,10 @@
 
 import base64
 import io
-from datetime import datetime
+from datetime import date
+from decimal import Decimal
 from html import escape
 from typing import Any, cast
-from zoneinfo import ZoneInfo
 
 from reportlab.lib import colors  # type: ignore[import-untyped]
 from reportlab.lib.enums import TA_CENTER  # type: ignore[import-untyped]
@@ -28,13 +28,67 @@ from reportlab.platypus import (  # type: ignore[import-untyped]
 from rentalops_api.contract_contracts import ContractSnapshot, ImageSnapshot
 from rentalops_api.customer_contracts import Address
 
-INK = colors.HexColor("#203b38")
-PALE = colors.HexColor("#edf3ef")
-MUTED = colors.HexColor("#516760")
+INK = colors.HexColor("#173653")
+PALE = colors.HexColor("#eff7ff")
+MUTED = colors.HexColor("#536779")
 
 
 def address_text(address: Address) -> str:
     return ", ".join(str(value) for value in address.model_dump().values() if value)
+
+
+def currency(value: str) -> str:
+    return "R$ " + format(Decimal(value), ",.2f").translate(str.maketrans(",.", ".,"))
+
+
+def render_separation_checklist(commercial: dict[str, object]) -> bytes:
+    """Read-only preparation sheet from the persisted rental composition."""
+    target = io.BytesIO()
+    styles = getSampleStyleSheet()
+    rows: dict[str, tuple[str, int]] = {}
+    for line in cast(list[dict[str, object]], commercial["lines"]):
+        for item in cast(list[dict[str, object]], line["items"]):
+            key = str(item["product_id"])
+            name, quantity = rows.get(key, (str(item["name"]), 0))
+            rows[key] = (
+                name,
+                quantity + int(str(item["quantity"])) * int(str(line["quantity"])),
+            )
+    story: list[object] = [
+        Paragraph("Checklist de separação", styles["Title"]),
+        Paragraph(
+            f"Retirada: {escape(str(commercial.get('pickup_date', '')))} | "
+            f"Devolução: {escape(str(commercial.get('return_date', '')))}",
+            styles["Normal"],
+        ),
+        Spacer(1, 20),
+    ]
+    for name, quantity in rows.values():
+        box = Table([[""]], colWidths=[16], rowHeights=[16])
+        box.setStyle(TableStyle([("BOX", (0, 0), (-1, -1), 0.8, INK)]))
+        row = Table(
+            [[box, Paragraph(f"{quantity} × {escape(name)}", styles["BodyText"])]],
+            colWidths=[30, A4[0] - 130],
+        )
+        row.setStyle(
+            TableStyle(
+                [
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
+                ]
+            )
+        )
+        story.append(row)
+    SimpleDocTemplate(
+        target,
+        pagesize=A4,
+        leftMargin=44,
+        rightMargin=44,
+        topMargin=44,
+        bottomMargin=44,
+        invariant=1,
+    ).build(story)
+    return target.getvalue()
 
 
 def render_pdf(snapshot: ContractSnapshot, *, draft: bool) -> bytes:
@@ -93,6 +147,28 @@ def render_pdf(snapshot: ContractSnapshot, *, draft: bool) -> bytes:
         return Paragraph(escape(value).replace("\n", "<br/>"), styles[style])
 
     def field(label: str, value: str | None, height: int = 52) -> object:
+        if not label.startswith("ASSINATURA"):
+            row = Table(
+                [
+                    [
+                        paragraph(f"{label}:", "Label"),
+                        paragraph(value or "________________________________"),
+                    ]
+                ],
+                colWidths=[145, width - 145],
+                minRowHeights=[28],
+            )
+            row.setStyle(
+                TableStyle(
+                    [
+                        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+                    ]
+                )
+            )
+            return row
         block = Table(
             [[paragraph(label, "Label")], [paragraph(value or " ")]],
             colWidths=[width],
@@ -119,29 +195,30 @@ def render_pdf(snapshot: ContractSnapshot, *, draft: bool) -> bytes:
         rendered.drawHeight = rendered.imageHeight * scale
         return rendered
 
+    def checklist_item(name: str, quantity: int) -> object:
+        box = Table([[""]], colWidths=[16], rowHeights=[16])
+        box.setStyle(TableStyle([("BOX", (0, 0), (-1, -1), 0.8, INK)]))
+        row = Table(
+            [[box, paragraph(f"{quantity} × {name}")]], colWidths=[30, width - 30]
+        )
+        row.setStyle(
+            TableStyle(
+                [
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+                ]
+            )
+        )
+        return row
+
     if snapshot.logo:
         story.extend([image(snapshot.logo, 160, 65), Spacer(1, 14)])
     story.extend(
         [
-            paragraph(
-                snapshot.company.name or "Locadora - preencher", "SectionContract"
-            ),
-            paragraph("Contrato de locação de coisas móveis", "TitleContract"),
-            paragraph(
-                f"Pegue e Monte | Versão {snapshot.number} | "
-                f"{datetime.fromisoformat(snapshot.issued_at).astimezone(ZoneInfo('America/Sao_Paulo')).date().isoformat()}"
-            ),
-            field(
-                "LOCADOR - IDENTIFICAÇÃO / CONTATO",
-                " | ".join(
-                    value
-                    for value in [
-                        snapshot.company.identification,
-                        snapshot.company.contact,
-                    ]
-                    if value
-                ),
-            ),
+            paragraph("Contrato de locação de decorações", "TitleContract"),
+            field("LOCADOR", snapshot.company.name),
+            field("IDENTIFICAÇÃO", snapshot.company.identification),
+            field("CONTATO", snapshot.company.contact),
             field("ENDEREÇO DA LOCADORA", address_text(snapshot.company.address)),
             field("LOCATÁRIO - NOME COMPLETO", snapshot.customer_name),
             field(
@@ -163,29 +240,29 @@ def render_pdf(snapshot: ContractSnapshot, *, draft: bool) -> bytes:
     story.extend(
         [
             paragraph("Evento e agenda", "SectionContract"),
-            field("EVENTO", snapshot.event_date),
+            field(
+                "EVENTO", date.fromisoformat(snapshot.event_date).strftime("%d/%m/%Y")
+            ),
             field(
                 "RETIRADA PREVISTA / JANELA DE HORÁRIO",
-                f"{snapshot.pickup_date} | "
+                f"{date.fromisoformat(snapshot.pickup_date).strftime('%d/%m/%Y')} | "
                 f"{snapshot.pickup_time or 'Horário: a preencher'}",
             ),
             field(
                 "DEVOLUÇÃO PREVISTA / JANELA DE HORÁRIO",
-                f"{snapshot.return_date} | "
+                f"{date.fromisoformat(snapshot.return_date).strftime('%d/%m/%Y')} | "
                 f"{snapshot.return_time or 'Horário: a preencher'}",
             ),
             paragraph("Pagamento", "SectionContract"),
+            field("TOTAL", currency(snapshot.total)),
             field(
-                "VALORES DO ACORDO REGISTRADO",
-                f"Total R$ {snapshot.total} | Entrada R$ {snapshot.deposit} | "
-                f"Restante R$ {snapshot.balance}",
+                "ENTRADA PAGA",
+                currency(str(snapshot.financial.get("applied_deposit", "0.00"))),
             ),
             field(
-                "CONFERÊNCIA FINANCEIRA NA EMISSÃO",
-                f"Recebido líquido R$ {snapshot.received} | "
-                f"Saldo a pagar R$ {snapshot.remaining}",
+                "RESTANTE PAGO",
+                currency(str(snapshot.financial.get("applied_balance", "0.00"))),
             ),
-            field("FORMA ACORDADA / CARTÃO: NÚMERO DE PARCELAS (SE APLICÁVEL)", None),
         ]
     )
     # Only the approved clauses and responsibility text enter the instrument.
@@ -214,20 +291,10 @@ def render_pdf(snapshot: ContractSnapshot, *, draft: bool) -> bytes:
             ),
         ]
     )
-    lines = cast(list[dict[str, object]], snapshot.commercial.get("lines", []))
-    if lines:
-        story.append(paragraph("Composição acordada", "SectionContract"))
-        for line in lines:
-            story.append(
-                paragraph(
-                    f"{line['quantity']} × {line['name']} | "
-                    f"Valor unitário por locação R$ {line['unit_price']}"
-                )
-            )
-            for component in cast(list[dict[str, object]], line["items"]):
-                quantity = int(str(component["quantity"])) * int(str(line["quantity"]))
-                story.append(paragraph(f"Inclui {quantity} × {component['name']}"))
-        story.append(paragraph("Relação fotográfica consolidada", "SectionContract"))
+    story.append(paragraph("Checklist dos materiais", "SectionContract"))
+    for item in snapshot.items:
+        story.append(checklist_item(item.name, item.quantity))
+    story.append(paragraph("Fotos dos materiais", "SectionContract"))
     for item in snapshot.items:
         content = [paragraph(f"{item.quantity} × {item.name}", "SectionContract")]
         if item.photo:
@@ -237,10 +304,6 @@ def render_pdf(snapshot: ContractSnapshot, *, draft: bool) -> bytes:
         content.extend(
             [
                 Spacer(1, 10),
-                paragraph(
-                    "Condição: "
-                    f"{item.condition or 'Pendente - preencher antes da emissão final'}"
-                ),
                 Spacer(1, 16),
             ]
         )
@@ -276,15 +339,9 @@ def render_pdf(snapshot: ContractSnapshot, *, draft: bool) -> bytes:
             story.append(paragraph(text.strip()))
     story.append(paragraph("Relação de itens", "SectionContract"))
     for item in snapshot.items:
-        story.append(
-            paragraph(
-                f"{item.quantity} × {item.name} | "
-                f"{item.condition or 'Condição pendente'}"
-            )
-        )
+        story.append(checklist_item(item.name, item.quantity))
     story.extend(
         [
-            field("OBSERVAÇÕES / CONFERÊNCIA DOS MATERIAIS", None, 70),
             field("ASSINATURA DO LOCADOR (CNPJ)", None, 70),
             field("ASSINATURA DO LOCATÁRIO (CPF)", None, 70),
         ]
@@ -295,15 +352,6 @@ def render_pdf(snapshot: ContractSnapshot, *, draft: bool) -> bytes:
         canvas.saveState()
         canvas.setFillColor(MUTED)
         canvas.setFont("Helvetica", 8)
-        footer = f"Contrato v{snapshot.number} | {snapshot.company.name or 'Locadora'}"
-        # The full company field stays above; this duplicate must leave room
-        # for the page number even at the200-character company-name limit.
-        available = A4[0] - 88 - 24
-        if canvas.stringWidth(footer, "Helvetica", 8) > available:
-            while canvas.stringWidth(footer + "...", "Helvetica", 8) > available:
-                footer = footer[:-1]
-            footer += "..."
-        canvas.drawString(44, 27, footer)
         canvas.drawRightString(A4[0] - 44, 27, str(document.page))
         if draft:
             canvas.setFillColor(colors.HexColor("#8a3b22"))
@@ -319,7 +367,7 @@ def render_pdf(snapshot: ContractSnapshot, *, draft: bool) -> bytes:
         leftMargin=44,
         topMargin=45,
         bottomMargin=45,
-        title="Contrato de locação de coisas móveis",
+        title="Contrato de locação de decorações",
         author=snapshot.company.name or "",
         invariant=1,
         pageCompression=1,

@@ -238,9 +238,9 @@ class CustomerService:
         if payload.name:
             conditions.append(Customer.name.icontains(payload.name, autoescape=True))
         if payload.phone:
-            conditions.append(Customer.phone == payload.phone)
+            conditions.append(Customer.phone.contains(payload.phone, autoescape=True))
         if payload.cpf:
-            conditions.append(Customer.cpf == payload.cpf)
+            conditions.append(Customer.cpf.contains(payload.cpf, autoescape=True))
         with session_scope(self.factory) as session:
             total = session.scalar(
                 select(func.count()).select_from(Customer).where(*conditions)

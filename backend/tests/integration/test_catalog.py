@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from rentalops_api.auth import Identity
 from rentalops_api.catalog import CatalogService
 from rentalops_api.catalog_contracts import (
+    CategoryCreate,
     KitCreate,
     KitEdit,
     MaintenanceCommand,
@@ -71,6 +72,24 @@ def error(status, operation):
     assert caught.value.status == status
 
 
+def test_category_unicode_duplicates_are_serialized_independent_of_db_locale(catalog):
+    service, actor = catalog
+    barrier = Barrier(2)
+
+    def register(name):
+        barrier.wait(timeout=10)
+        try:
+            service.create_category(CategoryCreate(name=name), actor)
+            return 201
+        except CatalogError as problem:
+            return problem.status
+
+    with ThreadPoolExecutor(max_workers=2) as workers:
+        outcomes = list(workers.map(register, ["Painéis", "PAINE\u0301IS"]))
+    assert sorted(outcomes) == [201, 409]
+    assert service.list_categories("", 1, 25)["total"] == 1
+
+
 def test_incremental_catalog_upgrade_repeat_and_rollback_preserves_auth(
     isolated_engine,
 ):
@@ -116,6 +135,47 @@ def test_minimum_optionals_initial_movement_exact_money_and_independent_variants
     assert changed["total_quantity"] == 7 and changed["version"] == 2
     assert service.get("products", UUID(black["id"]))["total_quantity"] == 2
     assert create(catalog, "Estoque zero", 0)["apt_quantity"] == 0
+
+
+def test_category_migration_imports_legacy_names_and_rollback_keeps_products(
+    isolated_engine,
+):
+    with isolated_engine.begin() as connection:
+        command.upgrade(migration_config(connection), "0012_dashboard_indexes")
+    with Session(isolated_engine) as session:
+        user = User(email="category-migration@example.invalid")
+        session.add(user)
+        session.flush()
+        for name in ("Painéis", "painéis", ""):
+            session.add(
+                Product(
+                    name="Produto sintético",
+                    price="1.00",
+                    category=name,
+                    total_quantity=0,
+                    created_by=user.id,
+                    updated_by=user.id,
+                )
+            )
+        session.commit()
+    with isolated_engine.begin() as connection:
+        config = migration_config(connection)
+        command.upgrade(config, "head")
+        assert connection.scalar(text("SELECT count(*) FROM product_categories")) == 1
+        assert (
+            connection.scalar(
+                text("SELECT count(*) FROM products WHERE category IS NOT NULL")
+            )
+            == 2
+        )
+        assert (
+            compare_metadata(MigrationContext.configure(connection), Base.metadata)
+            == []
+        )
+        command.downgrade(config, "0012_dashboard_indexes")
+        assert connection.scalar(text("SELECT count(*) FROM products")) == 3
+        command.upgrade(config, "head")
+        assert connection.scalar(text("SELECT count(*) FROM product_categories")) == 1
 
 
 def test_stock_maintenance_partial_release_history_and_rollback(catalog):

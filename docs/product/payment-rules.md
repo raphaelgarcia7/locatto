@@ -4,6 +4,17 @@ Escopo da issue #12, revisão aprovada `2026-10-09T00:27:53Z`, body UTF-8 SHA-25
 `9b04436fa47de9b41421c7dcd6a00a89f382958281f108045fe2369fbcb20fda`.
 Estas regras não implementam reserva, saída, banco, cobrança ou transferência.
 
+## Simplificação autorizada diretamente em 2026-10-15
+
+O fluxo local oferece registro e aplicação revisados em uma única confirmação
+explícita (`/received-payments`). O comando inclui valor, origem/meio/data e valores
+destinados ao sinal e saldo. Usa a mesma transação, locks, validações e replay do
+financeiro; falha na distribuição desfaz também o novo recibo. Preserva aplicações
+anteriores e não distribui dinheiro antigo silenciosamente. Excedente permanece
+pendente; sinal insuficiente não é somado a outro recebimento para validar reserva.
+Não é conciliação implícita: o usuário vê e confirma o destino antes da gravação.
+Endpoints manuais anteriores continuam disponíveis para conferência e exceções.
+
 ## Receber, conferir e quitar são operações distintas
 
 Uma conta financeira pertence ao UUID do orçamento, não a uma revisão histórica

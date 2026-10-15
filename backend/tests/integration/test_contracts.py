@@ -179,6 +179,28 @@ def test_ctr01_progressive_optional_fields_before_signal_no_allocation(
         )
 
 
+def test_contract_issues_without_item_condition_but_keeps_required_photos(contracts):
+    service, actor, identifier, quotes = contracts
+    ready(contracts)
+    payload = issue_command(
+        contracts,
+        items=[{"product_id": str(quotes[2][key])} for key in ("arch", "vase")],
+    )
+    preview = service.preview(
+        identifier,
+        ContractPreview.model_validate(payload.model_dump(exclude={"request_id"})),
+    )
+    assert preview["pending"] == []
+    issued = service.issue(identifier, payload, actor)
+    document = service.download(UUID(issued["contract_id"]), 1)[0]
+    text = "\n".join(
+        page.extract_text() for page in PdfReader(io.BytesIO(document)).pages
+    )
+    assert "Condição:" not in text
+    assert "Entrada" not in text or "ENTRADA PAGA" in text
+    assert "R$ 0,00" in text
+
+
 def test_ctr02_missing_corrupt_photo_renderer_and_template_fail_closed(contracts):
     service, actor, identifier, quotes = contracts
     ready(contracts)
@@ -250,8 +272,11 @@ def test_ctr02_negotiated_custom_kit_and_loose_items_are_frozen(contracts):
     text = "\n".join(
         page.extract_text() for page in PdfReader(io.BytesIO(content)).pages
     )
-    assert "2 × Synthetic kit" in text and "R$ 100.01" in text
-    assert "Inclui 2 × Synthetic vase" in text and "5 × Synthetic vase" in text
+    assert "Synthetic kit" not in text
+    assert "2 × Synthetic arch" in text and "5 × Synthetic vase" in text
+    assert "R$ 230,02" in text
+    assert "Condição:" not in text and "Contrato v1" not in text
+    assert "Inclui" not in text
 
 
 def test_ctr03_snapshots_company_logo_photo_changes_preserve_bytes_and_new_signature(

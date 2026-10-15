@@ -1,5 +1,16 @@
 # Contratos privados — contracts-v2 / ROP-015
 
+Atualização humana direta em 2026-10-15 (refinamento local): título "Contrato de
+locação de decorações", rótulos/valores em linha, sem versão visível, conferência
+financeira ou forma acordada no quadro inicial. Exibir total e sinal/saldo
+efetivamente aplicados como "Entrada paga" e "Restante pago". Remover condição
+do item como campo/gate da emissão e observações de conferência nos anexos.
+Preservar as cláusulas e assinaturas aprovadas. Material/checklist agrega produtos
+dos kits e avulsos por produto, com caixas de marcação. Checklist de separação
+também disponível após confirmação, privado e somente leitura. Estes ajustes
+substituem os requisitos de apresentação/condição contraditórios abaixo; não
+reescrevem PDFs históricos nem certificam juridicamente a revisão.
+
 Implementa somente o plano humano da issue15, revisão
 `2026-10-10T22:13:33Z`, body SHA-256
 `9a1104344f2ffc028b80c00b8834f478a961b9458b10c3956bf21474da199262`.
