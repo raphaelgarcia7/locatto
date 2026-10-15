@@ -81,6 +81,24 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
+it('refreshes unchanged filters when the user submits search again', async () => {
+  render(
+    <MemoryRouter>
+      <QuotationsPage />
+    </MemoryRouter>,
+  );
+  await screen.findByRole('heading', {
+    name: 'Seu primeiro orçamento começa aqui',
+  });
+  const requests = fetchMock.mock.calls.length;
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Buscar locações' }),
+  );
+  await waitFor(() =>
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(requests),
+  );
+});
+
 it('keeps the exact saved lines by identity rather than accepting new catalog prices', () => {
   const draft = draftOf(record);
   expect(draft.lines).toEqual([

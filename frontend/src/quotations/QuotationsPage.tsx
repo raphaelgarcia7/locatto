@@ -172,6 +172,7 @@ export function QuotationsPage() {
             onSubmit={(event) => {
               event.preventDefault();
               setPage(1);
+              setRefresh((value) => value + 1);
             }}
           >
             <div className="catalog-form-grid">

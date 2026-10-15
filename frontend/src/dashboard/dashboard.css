@@ -157,7 +157,7 @@
   text-align: left;
   gap: 0.65rem;
   min-width: 0;
-  padding: 1.1rem;
+  padding: 16px;
   background: var(--metric-surface);
   color: var(--ink);
   border: 1px solid var(--line);
@@ -168,13 +168,14 @@
   box-shadow: 0 3px 12px #20324703;
 }
 .operations-metric-label {
+  overflow-wrap: anywhere;
   font-size: 0.82rem;
   font-weight: 600;
   min-height: 2.5em;
   min-width: 0;
 }
 .operations-queues strong {
-  font-size: 2rem;
+  font-size: clamp(1.5rem, 3vw, 2rem);
   line-height: 1;
   font-weight: 650;
   color: var(--metric-accent);
