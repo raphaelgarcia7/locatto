@@ -48,6 +48,106 @@ const record: Quotation = {
   actor_id: 'synthetic',
   session_id: 'synthetic',
 };
+
+it('shows a concise rental summary without IDs, source versions or duplicated product components', async () => {
+  const productId = '33333333-3333-4333-8333-333333333333';
+  const quotation: Quotation = {
+    ...record,
+    lines: [
+      {
+        id: 'line',
+        kind: 'product',
+        source_id: productId,
+        name: 'Painel romano',
+        quantity: 1,
+        unit_price: '30.00',
+        source_version: 2,
+        items: [
+          {
+            product_id: productId,
+            name: 'Painel romano',
+            quantity: 1,
+            source_version: 2,
+          },
+        ],
+      },
+    ],
+    capacity: [
+      {
+        product_id: productId,
+        name: 'Painel romano',
+        demand: 1,
+        apt: 1,
+        shortage: 0,
+      },
+    ],
+  };
+  const fetcher = vi.fn(async (url: string, options?: RequestInit) => {
+    expect(options?.method).not.toBe('POST');
+    if (url.includes('/rentals/')) return new Response('{}', { status: 404 });
+    return new Response(
+      JSON.stringify(
+        url.endsWith('/payments')
+          ? empty
+          : url.endsWith('/versions')
+            ? [quotation]
+            : page([]),
+      ),
+    );
+  });
+  vi.stubGlobal('fetch', fetcher);
+  render(
+    <MemoryRouter>
+      <QuotationDetail record={quotation} onEdit={vi.fn()} onClose={vi.fn()} />
+    </MemoryRouter>,
+  );
+  expect(
+    screen.getByRole('heading', { name: 'Detalhes da locação' }),
+  ).toBeVisible();
+  expect(
+    screen.queryByText(record.id, { exact: true }),
+  ).not.toBeInTheDocument();
+  expect(screen.queryByText(/fonte v/i)).not.toBeInTheDocument();
+  expect(
+    within(screen.getByRole('list', { name: 'Itens da locação' })).getAllByText(
+      'Painel romano',
+    ),
+  ).toHaveLength(1);
+  expect(
+    screen.getByText('1. Pagamento e confirmação').parentElement,
+  ).not.toHaveAttribute('open');
+  expect(screen.getByText('2. Contrato').parentElement).not.toHaveAttribute(
+    'open',
+  );
+  expect(
+    screen.getByText('Alterações e cancelamento').parentElement,
+  ).not.toHaveAttribute('open');
+  const user = userEvent.setup();
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Pagamento e confirmação',
+    }),
+  );
+  expect(
+    screen.getByText('1. Pagamento e confirmação').parentElement,
+  ).toHaveAttribute('open');
+  await user.click(
+    await screen.findByRole('button', { name: 'Registrar pagamento' }),
+  );
+  const amount = await screen.findByLabelText('Valor em reais');
+  await user.clear(amount);
+  await user.type(amount, '30,00');
+  await user.click(
+    screen.getByText('1. Pagamento e confirmação', { exact: true }),
+  );
+  await user.click(
+    screen.getByText('1. Pagamento e confirmação', { exact: true }),
+  );
+  expect(screen.getByLabelText('Valor em reais')).toHaveValue('30,00');
+  expect(
+    fetcher.mock.calls.every(([, options]) => options?.method !== 'POST'),
+  ).toBe(true);
+});
 const empty: Payments = {
   quotation_id: record.id,
   quotation_version: 1,
@@ -180,6 +280,9 @@ it.each(
         />
       </MemoryRouter>,
     );
+    await userEvent.click(
+      screen.getByText('1. Pagamento e confirmação', { exact: true }),
+    );
     const summary = within(
       screen.getByRole('region', { name: 'Prévia comercial do servidor' }),
     );
@@ -250,6 +353,9 @@ it.each(['confirmed', 'review', 'out', 'completed'] as const)(
         />
       </MemoryRouter>,
     );
+    await userEvent.click(
+      screen.getByText('1. Pagamento e confirmação', { exact: true }),
+    );
     const summary = within(
       screen.getByRole('region', { name: 'Prévia comercial do servidor' }),
     );
@@ -286,6 +392,9 @@ it('keeps the original estimates for a quotation without a rental', async () => 
       <QuotationDetail record={record} onEdit={vi.fn()} onClose={vi.fn()} />
     </MemoryRouter>,
   );
+  await userEvent.click(
+    screen.getByText('1. Pagamento e confirmação', { exact: true }),
+  );
   const summary = within(
     screen.getByRole('region', { name: 'Prévia comercial do servidor' }),
   );
@@ -295,7 +404,7 @@ it('keeps the original estimates for a quotation without a rental', async () => 
   expect(
     summary.getByText('Saldo previsto').nextElementSibling,
   ).toHaveTextContent('200,00');
-  await screen.findByText('Sinal não validado');
+  await screen.findByText(/Para reservar, o sinal é de R\$\s*200,00\./);
 });
 
 it.each([
@@ -358,21 +467,32 @@ it.each([
         <QuotationDetail record={record} onEdit={vi.fn()} onClose={vi.fn()} />
       </MemoryRouter>,
     );
+    await userEvent.click(
+      screen.getByText('1. Pagamento e confirmação', { exact: true }),
+    );
     const panel = within(
       screen.getByRole('region', { name: 'Financeiro deste orçamento' }),
     );
-    await panel.findByText('Sinal não validado');
+    await panel.findByText(/Para reservar, o sinal é de R\$\s*200,00\./);
+    await userEvent.click(
+      panel.getByText('Histórico financeiro', { exact: true }),
+    );
     expect(
       panel.getByText('Nenhuma movimentação financeira no histórico.'),
     ).toBeVisible();
     financial = paid; // Another attendant receives and reconciles while the detail stays open.
     await userEvent.click(
-      await screen.findByRole('button', { name: 'Consultar confirmação' }),
+      await screen.findByRole('button', {
+        name: 'Conferir disponibilidade para reservar',
+      }),
     );
-    await panel.findByText('Sinal validado em um único recebimento');
+    await panel.findByText('Sinal recebido. Você já pode confirmar a reserva.');
+    await userEvent.click(
+      panel.getByText('Histórico financeiro', { exact: true }),
+    );
     expect(
-      panel.getByText(/Versão comercial 1 · Financeiro 2 · Conferida 1/),
-    ).toBeVisible();
+      screen.getByRole('region', { name: 'Financeiro deste orçamento' }),
+    ).toHaveAttribute('data-financial-version', '2');
     expect(
       panel.getByText(/Recebimento registrado · financeiro 1/),
     ).toBeVisible();
@@ -386,15 +506,19 @@ it.each([
       panel.getByText('Recebido registrado').nextElementSibling,
     ).toHaveTextContent('200,00');
     await userEvent.click(
-      await screen.findByRole('button', { name: 'Confirmar reserva' }),
+      await screen.findByRole('button', {
+        name: 'Confirmar reserva e reservar itens',
+      }),
     );
     if (readFailure) {
       expect(await panel.findByRole('alert')).toHaveTextContent(
         'Não foi possível consultar o financeiro',
       );
-      expect(panel.queryByText('Sinal não validado')).not.toBeInTheDocument();
       expect(
-        panel.queryByText('Sinal validado em um único recebimento'),
+        panel.queryByText(/Para reservar, o sinal é de R\$\s*200,00\./),
+      ).not.toBeInTheDocument();
+      expect(
+        panel.queryByText('Sinal recebido. Você já pode confirmar a reserva.'),
       ).not.toBeInTheDocument();
       expect(
         panel.queryByText('Nenhuma movimentação financeira no histórico.'),
@@ -406,25 +530,29 @@ it.each([
     }
     if (unknown) {
       await screen.findByText(/Resultado desconhecido/);
-      expect(
-        screen.queryByText('Reserva confirmada · locação v1'),
-      ).not.toBeInTheDocument();
-      await panel.findByText('Sinal validado em um único recebimento');
+      expect(screen.queryByText('Reserva confirmada')).not.toBeInTheDocument();
+      await panel.findByText(
+        'Sinal recebido. Você já pode confirmar a reserva.',
+      );
       await userEvent.click(
         screen.getByRole('button', { name: 'Reconciliar a mesma confirmação' }),
       );
     }
-    await screen.findByText('Reserva confirmada · locação v1');
-    expect(screen.getByText('Validade comercial vigente')).toBeVisible();
+    await screen.findByText('Reserva confirmada');
+    expect(
+      screen.queryByText('Validade comercial vigente'),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByText('Validade vigente · não é reserva confirmada'),
     ).not.toBeInTheDocument();
     await waitFor(() =>
       expect(
-        panel.getByText('Sinal validado em um único recebimento'),
+        panel.getByText('Sinal recebido. Você já pode confirmar a reserva.'),
       ).toBeVisible(),
     );
-    expect(panel.queryByText('Sinal não validado')).not.toBeInTheDocument();
+    expect(
+      panel.queryByText(/Para reservar, o sinal é de R\$\s*200,00\./),
+    ).not.toBeInTheDocument();
     expect(payloads).toHaveLength(unknown ? 2 : 1);
     if (unknown) expect(payloads[1]).toBe(payloads[0]);
   },

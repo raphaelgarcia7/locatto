@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from rentalops_api.auth import Identity
 from rentalops_api.database import session_scope
 from rentalops_api.payment_contracts import (
+    AppliedReceiptCommand,
     CorrectionCommand,
     PaymentCommand,
     PaymentHistoryItem,
@@ -594,10 +595,10 @@ class PaymentService:
                     raise invalid(
                         "Registre somente recebimento ou devolução já realizados."
                     )
-                if operation in {"receipt", "correction"}:
+                if operation in {"receipt", "receipt_applied", "correction"}:
                     if not isinstance(payload, ReceiptCommand):
                         raise invalid("Comando de recebimento inválido.")
-                    if operation == "receipt":
+                    if operation in {"receipt", "receipt_applied"}:
                         receipt = Receipt(
                             id=uuid4(), quotation_id=identifier, revision=1
                         )
@@ -644,6 +645,47 @@ class PaymentService:
                     distribution = self._invalidate_coverage(
                         session, account, receipts, distribution
                     )
+                    if operation == "receipt_applied":
+                        if not isinstance(payload, AppliedReceiptCommand):
+                            raise invalid(
+                                "Informe a distribuição do pagamento recebido."
+                            )
+                        if (
+                            before["commercial_version_pending"]
+                            or account.requires_reconciliation
+                        ):
+                            raise invalid(
+                                "Confira os pagamentos existentes antes de "
+                                "registrar e aplicar outro."
+                            )
+                        # Preserve all existing origins. Validation and receipt share
+                        # the same locks, transaction, history and replay key.
+                        distribution = self._reconcile(
+                            session,
+                            account,
+                            offer,
+                            receipts,
+                            ReconciliationCommand.model_validate(
+                                {
+                                    **payload.model_dump(
+                                        include={
+                                            "request_id",
+                                            "expected_financial_version",
+                                            "expected_quotation_version",
+                                            "reason",
+                                        }
+                                    ),
+                                    "applications": [
+                                        *distribution,
+                                        {
+                                            "receipt_id": receipt.id,
+                                            "deposit": money(payload.deposit),
+                                            "balance": money(payload.balance),
+                                        },
+                                    ],
+                                }
+                            ),
+                        )
                 elif operation == "reconciliation" and isinstance(
                     payload, ReconciliationCommand
                 ):

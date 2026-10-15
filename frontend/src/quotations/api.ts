@@ -17,7 +17,7 @@ export type Dates = {
   pickup_date: string;
   event_date: string;
   return_date: string;
-  valid_until: string;
+  valid_until?: string;
   pickup_time: string | null;
   event_time: string | null;
   return_time: string | null;
@@ -89,9 +89,9 @@ export const dateLabels = {
   pickup_date: 'Retirada prevista',
   event_date: 'Data do evento',
   return_date: 'Devolução prevista',
-  valid_until: 'Validade comercial',
 } as const;
 export class QuotationError extends Error {
+  fieldErrors: Record<string, string>;
   status: number;
   code: string;
   capacity?: Offer['capacity'];
@@ -100,11 +100,13 @@ export class QuotationError extends Error {
     message: string,
     code = '',
     capacity?: Offer['capacity'],
+    fieldErrors: Record<string, string> = {},
   ) {
     super(message);
     this.status = status;
     this.code = code;
     this.capacity = capacity;
+    this.fieldErrors = fieldErrors;
   }
 }
 export async function quotationRequest<T>(
@@ -128,15 +130,46 @@ export async function quotationRequest<T>(
       code?: string;
       fields?: string[];
       capacity?: Offer['capacity'];
+      field_errors?: Record<string, string>;
     };
+    const supportedField = (key: string) =>
+      [
+        'customer_id',
+        ...Object.keys(dateLabels),
+        'pickup_time',
+        'event_time',
+        'return_time',
+        'lines',
+        'discount.value',
+        'discount.reason',
+        'reason',
+        'total',
+      ].includes(key) ||
+      /^lines\.\d+\.(quantity|unit_price|negotiation_reason|source_id|items(\.\d+\.quantity)?)$/.test(
+        key,
+      );
+    const fieldErrors = Object.fromEntries(
+      Object.entries(
+        data.field_errors ??
+          Object.fromEntries(
+            (data.fields ?? []).map((field) => [
+              field,
+              'Confira este campo antes de calcular novamente.',
+            ]),
+          ),
+      ).filter(
+        ([key, value]) => supportedField(key) && typeof value === 'string',
+      ),
+    );
     throw new QuotationError(
       response.status,
-      response.status === 422
-        ? 'Confira cliente, datas, itens, valores e motivos. Total mínimo R$ 0,01.'
+      response.status === 422 && data.code !== 'invalid_offer'
+        ? 'Revise os campos destacados antes de calcular novamente.'
         : (data.detail ??
             'Não foi possível concluir. Seu rascunho foi mantido.'),
       data.code,
       data.capacity,
+      fieldErrors,
     );
   }
   return (await response.json()) as T;

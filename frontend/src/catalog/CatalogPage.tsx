@@ -2,6 +2,7 @@ import { useContext, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { AuthContext } from '../authContext';
 import { StatePanel } from '../components/StatePanel';
+import { useDebouncedValue } from '../components/useDebouncedValue';
 import { catalogRequest, feedback, priceLabel, productRecord } from './api';
 import type {
   CatalogDetail,
@@ -13,11 +14,33 @@ import { RecordEditor } from './RecordEditor';
 import { RecordDetail } from './RecordDetail';
 import './catalog.css';
 
+function CatalogPhoto({ record }: { record: CatalogRecord }) {
+  const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
+  const photo = record.principal_photo_id;
+  return (
+    <div className="catalog-card-photo">
+      {photo && photo !== failedPhoto ? (
+        <img
+          src={`/api/photos/${photo}`}
+          alt={`Foto de ${record.name}`}
+          loading="lazy"
+          decoding="async"
+          width={320}
+          height={240}
+          onError={() => setFailedPhoto(photo)}
+        />
+      ) : (
+        <span>{photo ? 'Foto indisponível' : 'Sem foto'}</span>
+      )}
+    </div>
+  );
+}
+
 export function CatalogPage() {
   const { authenticated } = useContext(AuthContext);
   const [kind, setKind] = useState<Kind>('products');
   const [search, setSearch] = useState('');
-  const [query, setQuery] = useState('');
+  const query = useDebouncedValue(search.trim());
   const [page, setPage] = useState(1);
   const [refresh, setRefresh] = useState(0);
   const [data, setData] = useState<PageData<CatalogRecord> | null>(null);
@@ -145,7 +168,6 @@ export function CatalogPage() {
                     setKind(item);
                     setPage(1);
                     setSearch('');
-                    setQuery('');
                     setData(null);
                     setNotice('');
                   }}
@@ -173,7 +195,6 @@ export function CatalogPage() {
             onSubmit={(event) => {
               event.preventDefault();
               setPage(1);
-              setQuery(search.trim());
               setRefresh((value) => value + 1);
             }}
           >
@@ -182,7 +203,10 @@ export function CatalogPage() {
               <input
                 maxLength={200}
                 value={search}
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setPage(1);
+                }}
                 placeholder={
                   kind === 'products' ? 'Ex.: mesa branca' : 'Ex.: kit festa'
                 }
@@ -246,6 +270,7 @@ export function CatalogPage() {
               <ul className="catalog-grid">
                 {data.items.map((record) => (
                   <li key={record.id} className="catalog-card">
+                    <CatalogPhoto record={record} />
                     <div className="catalog-card-heading">
                       <span className="catalog-badge">
                         {record.is_active ? 'Ativo' : 'Inativo'}

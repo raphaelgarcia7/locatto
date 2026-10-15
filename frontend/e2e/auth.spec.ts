@@ -108,7 +108,7 @@ test('closed login is responsive, readable, keyboard accessible and has clear er
   await expect(button).toBeFocused();
   expect(
     await button.evaluate((element) => getComputedStyle(element).outlineWidth),
-  ).toBe('3px');
+  ).toBe('2px');
   await page.keyboard.press('Enter');
   await expect(page.getByRole('alert')).toContainText('Confira os dados');
   expect(

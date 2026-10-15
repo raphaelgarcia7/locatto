@@ -55,6 +55,20 @@ def create(customers, name="Synthetic A", phone="(11) 91234-5678", **fields):
     return service.create(CustomerCreate(name=name, phone=phone, **fields), actor)
 
 
+def test_live_search_accepts_partial_name_phone_and_document_without_business_writes(
+    customers,
+):
+    service, _ = customers
+    cpf = synthetic_cpf()
+    record = create(customers, name="Synthetic live match", cpf=cpf)
+    for query in [
+        CustomerSearch(name="live"),
+        CustomerSearch(phone="91234"),
+        CustomerSearch(cpf=cpf[:3]),
+    ]:
+        assert [row["id"] for row in service.search(query)["items"]] == [record["id"]]
+
+
 def conflict(code, operation):
     with pytest.raises(CustomerError) as caught:
         operation()
@@ -98,8 +112,10 @@ def test_customer_migration_head_incremental_repeat_and_rollback_preserves_catal
                 MigrationContext.configure(
                     session,
                     opts={
-                        "include_object": lambda *args: (
-                            not args[1].startswith(
+                        # Compare the 0005 baseline, excluding only additions
+                        # explicitly introduced by later migrations.
+                        "include_object": lambda obj, name, kind, *_: (
+                            not name.startswith(
                                 (
                                     "quotation",
                                     "payment",
@@ -109,10 +125,22 @@ def test_customer_migration_head_incremental_repeat_and_rollback_preserves_catal
                                     "handover",
                                     "return_",
                                     "incident_",
+                                    "product_categories",
                                 )
                             )
-                            if args[2] == "table"
-                            else True
+                            if kind == "table"
+                            else name
+                            not in {
+                                "fk_product_category",
+                                "fk_photo_kit",
+                                "ix_product_photos_kit_id",
+                                "uq_kit_principal_photo",
+                            }
+                            and not (
+                                kind == "column"
+                                and obj.table.name == "product_photos"
+                                and name in {"kit_id", "product_id"}
+                            )
                         )
                     },
                 ),

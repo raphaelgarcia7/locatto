@@ -26,6 +26,16 @@ test.beforeEach(async ({ page }) => {
       },
     });
   });
+  await page.route('**/api/operations/calendar?**', async (route) => {
+    await route.fulfill({
+      json: {
+        month: '2026-10',
+        days: [],
+        timezone: 'America/Sao_Paulo',
+        checked_at: '2026-10-10T12:00:00Z',
+      },
+    });
+  });
   await page.route('**/api/products?**', async (route) => {
     await route.fulfill({
       json: { items: [], total: 0, page: 1, page_size: 25 },
@@ -46,7 +56,7 @@ test.beforeEach(async ({ page }) => {
 const pages = [
   {
     path: '/',
-    title: 'Painel operacional',
+    title: 'Visão geral',
     label: 'home',
   },
   { path: '/catalogo', title: 'Catálogo', label: 'catalogo' },
@@ -125,7 +135,7 @@ test('navigation works with history, refresh and return links', async ({
   page,
 }) => {
   await page.goto('/');
-  await page.getByRole('link', { name: 'Abrir Catálogo' }).click();
+  await page.getByRole('link', { name: 'Catálogo', exact: true }).click();
   await expect(page).toHaveURL('/catalogo');
   await expect(page.getByRole('main')).toBeFocused();
   await page
@@ -157,7 +167,7 @@ test('keyboard skip link, navigation and route focus remain usable', async ({
 }, testInfo) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1 })).toContainText(
-    'Painel operacional',
+    'Visão geral',
   );
   await page.keyboard.press('Tab');
   const skip = page.getByRole('link', { name: 'Pular para o conteúdo' });
@@ -169,7 +179,7 @@ test('keyboard skip link, navigation and route focus remain usable', async ({
   await expect(
     page.getByRole('button', { name: 'Atualizar painel' }),
   ).toBeFocused();
-  await page.getByRole('link', { name: 'Abrir Catálogo' }).focus();
+  await page.getByRole('link', { name: 'Catálogo', exact: true }).focus();
   await page.keyboard.press('Enter');
   await expect(
     page.getByRole('heading', { level: 1, name: 'Catálogo' }),
@@ -181,7 +191,7 @@ test('keyboard skip link, navigation and route focus remain usable', async ({
   await expect(back).toBeInViewport();
   expect(
     await back.evaluate((element) => getComputedStyle(element).outlineWidth),
-  ).toBe('3px');
+  ).toBe('2px');
   await page.screenshot({
     path: `test-results/evidence/${testInfo.project.name}-keyboard-focus.png`,
     fullPage: true,
@@ -212,12 +222,12 @@ test('reduced motion disables decorative animation and transitions', async ({
   await expect(
     page.getByRole('button', { name: 'Atualizar painel' }),
   ).toHaveCSS('animation-name', 'none');
-  await expect(page.locator('.module-card').first()).toHaveCSS(
+  await expect(page.locator('.operations-metric').first()).toHaveCSS(
     'transition-duration',
     '0s',
   );
   await expect(
-    page.getByRole('link', { name: 'Abrir Locações' }),
+    page.getByRole('link', { name: 'Locações', exact: true }),
   ).toBeVisible();
 });
 

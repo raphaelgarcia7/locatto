@@ -58,6 +58,14 @@ class Application(CatalogPayload):
     balance: PaymentMoney
 
 
+class AppliedReceiptCommand(ReceiptCommand):
+    """Explicit receipt and its reviewed allocation, committed atomically."""
+
+    deposit: PaymentMoney
+    balance: PaymentMoney
+    reason: Reason
+
+
 class ReconciliationCommand(PaymentCommand):
     applications: list[Application] = Field(max_length=1000)
     reason: Reason

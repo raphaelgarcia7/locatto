@@ -1,52 +1,58 @@
-import { useContext, useEffect, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { useDebouncedValue } from '../components/useDebouncedValue';
+import { SearchPicker } from '../components/SearchPicker';
 import { AuthContext } from '../authContext';
 import { customerRequest } from '../customers/api';
 import type { CustomerPageData } from '../customers/api';
 import { OperationList } from './OperationList';
 import { OperationsCalendar } from './OperationsCalendar';
-import {
-  addDays,
-  dateLabel,
-  localToday,
-  operationRequest,
-  queueLabels,
-} from './api';
-import type { Calendar, Day, Filters, Queue, Upcoming } from './api';
+import { dateLabel, localToday, operationRequest, queueLabels } from './api';
+import type { Calendar, Day, Filters, Queue } from './api';
+import { calendarMonths } from './calendar';
+import type { CalendarView } from './calendar';
 import '../catalog/catalog.css';
 import './dashboard.css';
 
+const emptyFilters: Filters = {
+  operational_state: '',
+  financial_pending: '',
+  customer_id: '',
+};
+const metricHints: Record<Queue, string> = {
+  pickup: 'Kits para preparar',
+  return: 'Materiais para conferir',
+  overdue: 'Devoluções em atraso',
+  debt: 'Saldos para acompanhar',
+  occurrence: 'Atenção da equipe',
+};
+
 export function DashboardPage() {
   const { authenticated } = useContext(AuthContext);
-  const initial = localToday();
-  const [date, setDate] = useState(initial);
-  const [month, setMonth] = useState(initial.slice(0, 7));
-  const [period, setPeriod] = useState({
-    from: initial,
-    to: addDays(initial, 29),
-  });
-  const [range, setRange] = useState(period);
-  const [filters, setFilters] = useState<Filters>({
-    operational_state: '',
-    financial_pending: '',
-    customer_id: '',
-  });
+  const today = localToday();
+  const [date, setDate] = useState(today);
+  const [anchor, setAnchor] = useState(today);
+  const [calendarView, setCalendarView] = useState<CalendarView>('month');
+  const [filters, setFilters] = useState<Filters>(emptyFilters);
   const [applied, setApplied] = useState(filters);
-  const [view, setView] = useState<'day' | 'agenda'>('day');
   const [queue, setQueue] = useState<Queue>('pickup');
   const [page, setPage] = useState(1);
   const [day, setDay] = useState<Day | null>(null);
-  const [calendar, setCalendar] = useState<Calendar | null>(null);
-  const [upcoming, setUpcoming] = useState<Upcoming | null>(null);
+  const [calendar, setCalendar] = useState<Calendar[]>([]);
   const [loading, setLoading] = useState(true);
+  const [calendarLoading, setCalendarLoading] = useState(true);
   const [error, setError] = useState('');
+  const [calendarError, setCalendarError] = useState('');
   const [refresh, setRefresh] = useState(0);
   const [settled, setSettled] = useState(0);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search);
+  const customerSequence = useRef(0);
   const [customers, setCustomers] = useState<CustomerPageData | null>(null);
   const [searching, setSearching] = useState(false);
   const [customerError, setCustomerError] = useState('');
   const focus = useRef<HTMLHeadingElement>(null);
-  const restoreFocus = useRef<string | null>(null);
+  const restoreFocus = useRef(false);
+
   useEffect(() => {
     if (!authenticated) return;
     const controller = new AbortController();
@@ -56,33 +62,14 @@ export function DashboardPage() {
         setError('');
       }
     });
-    const load =
-      view === 'day'
-        ? operationRequest<Day>(
-            'day',
-            { ...applied, date, queue, page },
-            controller.signal,
-          ).then((value) => {
-            if (!controller.signal.aborted) setDay(value);
-          })
-        : Promise.all([
-            operationRequest<Calendar>(
-              'calendar',
-              { ...applied, month },
-              controller.signal,
-            ),
-            operationRequest<Upcoming>(
-              'upcoming',
-              { ...applied, ...range, page },
-              controller.signal,
-            ),
-          ]).then(([nextCalendar, nextUpcoming]) => {
-            if (!controller.signal.aborted) {
-              setCalendar(nextCalendar);
-              setUpcoming(nextUpcoming);
-            }
-          });
-    void load
+    void operationRequest<Day>(
+      'day',
+      { ...applied, date, queue, page },
+      controller.signal,
+    )
+      .then((value) => {
+        if (!controller.signal.aborted) setDay(value);
+      })
       .catch((problem: unknown) => {
         if (!controller.signal.aborted)
           setError(
@@ -98,311 +85,287 @@ export function DashboardPage() {
         }
       });
     return () => controller.abort();
-  }, [authenticated, date, month, range, view, applied, queue, page, refresh]);
+  }, [authenticated, date, applied, queue, page, refresh]);
+
+  useEffect(() => {
+    if (!authenticated) return;
+    const controller = new AbortController();
+    queueMicrotask(() => {
+      if (!controller.signal.aborted) {
+        setCalendarLoading(true);
+        setCalendarError('');
+      }
+    });
+    void Promise.all(
+      calendarMonths(anchor, calendarView).map((month) =>
+        operationRequest<Calendar>(
+          'calendar',
+          { ...applied, month },
+          controller.signal,
+        ),
+      ),
+    )
+      .then((value) => {
+        if (!controller.signal.aborted) setCalendar(value);
+      })
+      .catch((problem: unknown) => {
+        if (!controller.signal.aborted)
+          setCalendarError(
+            problem instanceof Error
+              ? problem.message
+              : 'Não foi possível carregar o calendário.',
+          );
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setCalendarLoading(false);
+      });
+    return () => controller.abort();
+  }, [authenticated, anchor, calendarView, applied, refresh]);
+
   useEffect(() => {
     const update = () => setRefresh((value) => value + 1);
     window.addEventListener('focus', update);
     return () => window.removeEventListener('focus', update);
   }, []);
+
   useEffect(() => {
     if (!loading && restoreFocus.current) {
-      const target = error
+      (error
         ? focus.current
-        : document.getElementById(restoreFocus.current);
-      target?.focus();
-      restoreFocus.current = null;
+        : document.getElementById('operations-list-title')
+      )?.focus();
+      restoreFocus.current = false;
     }
   }, [loading, error, settled]);
-  function selectPage(next: number) {
-    restoreFocus.current = 'operations-list-title';
-    setPage(next);
-  }
-  function selectDay(next: string) {
-    setDate(next);
-    setQueue(
-      calendar?.days.find((day) => day.date === next)?.pickup
-        ? 'pickup'
-        : 'return',
-    );
-    setView('day');
+
+  function selectQueue(nextQueue: Queue, nextDate = date) {
+    if (!loading && nextDate === date && nextQueue === queue && page === 1) {
+      (error
+        ? focus.current
+        : document.getElementById('operations-list-title')
+      )?.focus();
+      restoreFocus.current = false;
+    } else restoreFocus.current = true;
+    setDate(nextDate);
+    setQueue(nextQueue);
     setPage(1);
-    queueMicrotask(() => focus.current?.focus());
   }
-  async function searchCustomers() {
-    setSearching(true);
-    setCustomerError('');
-    try {
-      setCustomers(
-        await customerRequest<CustomerPageData>('/search', 'POST', {
-          name: search,
-          page: 1,
-          page_size: 50,
-        }),
-      );
-    } catch {
-      setCustomerError('Não foi possível pesquisar clientes. Tente novamente.');
-    } finally {
-      setSearching(false);
-    }
+
+  function selectDay(next: string) {
+    const count = calendar
+      .flatMap((month) => month.days)
+      .find((day) => day.date === next);
+    selectQueue(count?.pickup || !count?.returns ? 'pickup' : 'return', next);
   }
-  const checked =
-    loading || error
-      ? null
-      : view === 'day'
-        ? day?.checked_at
-        : upcoming?.checked_at;
+
+  const searchCustomers = useCallback(
+    async (query: string, signal?: AbortSignal) => {
+      const sequence = ++customerSequence.current;
+      setSearching(true);
+      setCustomerError('');
+      try {
+        const result = await customerRequest<CustomerPageData>(
+          '/search',
+          'POST',
+          {
+            name: query,
+            page: 1,
+            page_size: 50,
+          },
+          signal,
+        );
+        if (!signal?.aborted && sequence === customerSequence.current)
+          setCustomers(result);
+      } catch {
+        if (!signal?.aborted && sequence === customerSequence.current)
+          setCustomerError(
+            'Não foi possível pesquisar clientes. Tente novamente.',
+          );
+      } finally {
+        if (!signal?.aborted && sequence === customerSequence.current)
+          setSearching(false);
+      }
+    },
+    [],
+  );
+  useEffect(() => {
+    if (!authenticated || !debouncedSearch.trim()) return;
+    const controller = new AbortController();
+    queueMicrotask(() => {
+      if (!controller.signal.aborted)
+        void searchCustomers(debouncedSearch, controller.signal);
+    });
+    return () => controller.abort();
+  }, [authenticated, debouncedSearch, searchCustomers]);
+
+  const filtered = Object.values(applied).some(Boolean);
   return (
     <div className="catalog-workspace operations-workspace">
-      <header className="page-heading">
-        <span className="section-kicker">SUA LOCADORA · PEGUE E MONTE</span>
-        <h1 ref={focus} tabIndex={-1}>
-          Painel operacional
-        </h1>
-        <p>
-          Prepare as retiradas, acompanhe os retornos e resolva as pendências da
-          equipe.
-        </p>
-      </header>
-      <div className="operations-topline">
-        <p>Fuso: America/Sao_Paulo · Hoje {dateLabel(initial)}</p>
+      <header className="operations-page-heading">
+        <div>
+          <h1 ref={focus} tabIndex={-1}>
+            Visão geral
+          </h1>
+          <p>Sua operação, do preparo à devolução.</p>
+        </div>
         <button
           className="auth-retry"
-          disabled={loading}
+          disabled={loading || calendarLoading}
           onClick={() => setRefresh((value) => value + 1)}
         >
           Atualizar painel
         </button>
+      </header>
+
+      <div className="operations-summary-heading">
+        <h2>
+          {date === today
+            ? 'Hoje na operação'
+            : `Operação de ${dateLabel(date)}`}
+        </h2>
+        <span>
+          {dateLabel(date)}
+          {filtered ? ' · Com filtros' : ''}
+        </span>
       </div>
-      <p className="catalog-help">
-        {checked
-          ? `Consulta de ${new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' }).format(new Date(checked))}. `
-          : ''}
-        Consulta informativa. Não reserva estoque nem confirma disponibilidade.
-        Orçamentos não entram na agenda confirmada.
-      </p>
-      <form
-        className="catalog-panel operations-filters"
-        onSubmit={(event) => {
-          event.preventDefault();
-          setApplied(filters);
-          setPage(1);
-        }}
-      >
-        <div className="catalog-form-grid">
-          <label>
-            Estado operacional
-            <select
-              value={filters.operational_state}
-              onChange={(event) =>
-                setFilters({
-                  ...filters,
-                  operational_state: event.target.value,
-                })
-              }
-            >
-              <option value="">Todos</option>
-              <option value="confirmed">Reserva confirmada</option>
-              <option value="out">Materiais em uso</option>
-              <option value="completed">Locação concluída</option>
-              <option value="review">Locação em revisão</option>
-              <option value="cancelled">Locação cancelada</option>
-            </select>
-          </label>
-          <label>
-            Situação financeira
-            <select
-              value={filters.financial_pending}
-              onChange={(event) =>
-                setFilters({
-                  ...filters,
-                  financial_pending: event.target.value,
-                })
-              }
-            >
-              <option value="">Todas</option>
-              <option value="true">Com pendência</option>
-              <option value="false">Sem pendência</option>
-            </select>
-          </label>
-          <label>
-            Nome do cliente
-            <input
-              autoComplete="off"
-              value={search}
-              maxLength={200}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          </label>
-        </div>
-        <div className="catalog-actions">
+      <div className="operations-queues" aria-label="Filas operacionais">
+        {(Object.keys(queueLabels) as Queue[]).map((kind) => (
           <button
             type="button"
-            className="auth-retry"
-            disabled={!search.trim() || searching}
-            onClick={() => void searchCustomers()}
+            className={`operations-metric operations-metric--${kind}${queue === kind ? ' is-selected' : ''}`}
+            key={kind}
+            aria-pressed={queue === kind}
+            aria-label={`${queueLabels[kind]} ${loading || error ? '—' : (day?.queues[kind].total ?? '—')}`}
+            onClick={() => selectQueue(kind)}
           >
-            {searching ? 'Buscando clientes…' : 'Pesquisar cliente'}
+            <span className="operations-metric-label">{queueLabels[kind]}</span>
+            <strong>
+              {loading || error ? '—' : (day?.queues[kind].total ?? '—')}
+            </strong>
+            <span className="operations-metric-hint">{metricHints[kind]}</span>
           </button>
-          <button type="submit" className="auth-button">
-            Aplicar filtros
-          </button>
-          <button
-            type="button"
-            className="catalog-back"
-            onClick={() => {
-              const cleared = {
-                operational_state: '',
-                financial_pending: '',
-                customer_id: '',
-              };
-              setFilters(cleared);
-              setApplied(cleared);
-              setSearch('');
-              setCustomers(null);
-              setPage(1);
-            }}
-          >
-            Limpar filtros
-          </button>
-        </div>
-        {customerError && <p role="alert">{customerError}</p>}
-        {customers && (
-          <label>
-            Cliente pesquisado
-            <select
-              value={filters.customer_id}
-              onChange={(event) =>
-                setFilters({ ...filters, customer_id: event.target.value })
-              }
-            >
-              <option value="">Todos os clientes</option>
-              {customers.items.map((customer) => (
-                <option key={customer.id} value={customer.id}>
-                  {customer.name} · {customer.id.slice(0, 8)}
-                </option>
-              ))}
-            </select>
-            <span>
-              {customers.total > customers.items.length
-                ? 'Refine o nome para encontrar outros clientes.'
-                : `${customers.total} cliente(s) encontrado(s).`}
-            </span>
-          </label>
-        )}
-      </form>
-      <div className="operations-view" aria-label="Visões operacionais">
-        <button
-          className="auth-retry"
-          aria-pressed={view === 'day'}
-          onClick={() => {
-            setView('day');
-            setPage(1);
-          }}
-        >
-          Filas do dia
-        </button>
-        <button
-          className="auth-retry"
-          aria-pressed={view === 'agenda'}
-          onClick={() => {
-            setView('agenda');
-            setPage(1);
-          }}
-        >
-          Calendário e próximas
-        </button>
+        ))}
       </div>
-      {view === 'day' ? (
-        <>
-          <label className="operations-date">
-            Dia consultado
-            <input
-              type="date"
-              value={date}
-              onChange={(event) => {
-                if (event.target.value) {
-                  setDate(event.target.value);
-                  setPage(1);
-                }
-              }}
-            />
-          </label>
-          <div className="operations-queues" aria-label="Filas operacionais">
-            {(Object.keys(queueLabels) as Queue[]).map((kind) => (
-              <button
-                className={queue === kind ? 'is-selected' : ''}
-                key={kind}
-                aria-pressed={queue === kind}
-                aria-label={`${queueLabels[kind]} ${loading || error ? '—' : (day?.queues[kind].total ?? '—')}`}
-                onClick={() => {
-                  setQueue(kind);
-                  setPage(1);
-                }}
-              >
-                <span>{queueLabels[kind]}</span>
-                <strong>
-                  {loading || error ? '—' : (day?.queues[kind].total ?? '—')}
-                </strong>
-              </button>
-            ))}
-          </div>
-          <p className="catalog-help">
-            Retiradas e devoluções usam o dia escolhido. Atrasados até essa
-            data, dívidas e ocorrências abertas continuam nas pendências,
-            inclusive dívida de locação concluída.
-          </p>
-        </>
-      ) : (
+
+      <details className="operations-filter-disclosure">
+        <summary>Filtrar operação{filtered ? ' · filtros ativos' : ''}</summary>
         <form
-          className="catalog-panel operations-period"
+          className="operations-filters"
           onSubmit={(event) => {
             event.preventDefault();
-            setRange(period);
+            setApplied({ ...filters });
             setPage(1);
           }}
         >
-          <h2>Lista das próximas retiradas e devoluções</h2>
-          <p>
-            Inicialmente 30 dias. Escolha um período explícito de até 90 dias.
-          </p>
           <div className="catalog-form-grid">
             <label>
-              De
-              <input
-                type="date"
-                required
-                value={period.from}
+              Estado operacional
+              <select
+                value={filters.operational_state}
                 onChange={(event) =>
-                  setPeriod({ ...period, from: event.target.value })
+                  setFilters({
+                    ...filters,
+                    operational_state: event.target.value,
+                  })
                 }
-              />
+              >
+                <option value="">Todos</option>
+                <option value="confirmed">Reserva confirmada</option>
+                <option value="out">Materiais em uso</option>
+                <option value="completed">Locação concluída</option>
+                <option value="review">Locação em revisão</option>
+                <option value="cancelled">Locação cancelada</option>
+              </select>
             </label>
             <label>
-              Até
-              <input
-                type="date"
-                required
-                value={period.to}
+              Situação financeira
+              <select
+                value={filters.financial_pending}
                 onChange={(event) =>
-                  setPeriod({ ...period, to: event.target.value })
+                  setFilters({
+                    ...filters,
+                    financial_pending: event.target.value,
+                  })
                 }
-              />
+              >
+                <option value="">Todas</option>
+                <option value="true">Com pendência</option>
+                <option value="false">Sem pendência</option>
+              </select>
             </label>
-            <label>
-              Mês do calendário
-              <input
-                type="month"
-                required
-                value={month}
-                onChange={(event) => {
-                  if (event.target.value) setMonth(event.target.value);
-                }}
-              />
-            </label>
+            <SearchPicker
+              label="Nome do cliente"
+              query={search}
+              options={(customers?.items ?? []).map((customer) => ({
+                id: customer.id,
+                label: customer.name,
+              }))}
+              onQueryChange={(value) => {
+                setSearch(value);
+                setFilters({ ...filters, customer_id: '' });
+              }}
+              onSelect={(id, label) => {
+                setSearch(label);
+                setFilters({ ...filters, customer_id: id });
+              }}
+            />
           </div>
-          <button className="auth-retry">Aplicar período</button>
+          <div className="catalog-actions">
+            <button
+              type="button"
+              className="auth-retry"
+              disabled={!search.trim() || searching}
+              onClick={() => void searchCustomers(search)}
+            >
+              {searching ? 'Buscando clientes…' : 'Pesquisar cliente'}
+            </button>
+            <button type="submit" className="auth-button">
+              Aplicar filtros
+            </button>
+            <button
+              type="button"
+              className="auth-retry operations-clear"
+              onClick={() => {
+                setFilters(emptyFilters);
+                setApplied(emptyFilters);
+                setSearch('');
+                setCustomers(null);
+                setPage(1);
+              }}
+            >
+              Limpar filtros
+            </button>
+          </div>
+          {customerError && <p role="alert">{customerError}</p>}
+          {customers && (
+            <label>
+              <span>
+                {customers.total > customers.items.length
+                  ? 'Refine o nome para encontrar outros clientes.'
+                  : `${customers.total} cliente(s) encontrado(s).`}
+              </span>
+            </label>
+          )}
         </form>
-      )}
+      </details>
+
+      <OperationsCalendar
+        data={calendar}
+        anchor={anchor}
+        selected={date}
+        view={calendarView}
+        loading={calendarLoading}
+        error={calendarError}
+        onSelect={selectDay}
+        onNavigate={setAnchor}
+        onViewChange={(next) => {
+          if (next === 'week' && date.slice(0, 7) === anchor.slice(0, 7))
+            setAnchor(date);
+          setCalendarView(next);
+        }}
+        onRetry={() => setRefresh((value) => value + 1)}
+      />
+
       {loading ? (
         <p className="operations-empty" role="status">
           Consultando operação…
@@ -419,29 +382,15 @@ export function DashboardPage() {
             Tentar novamente
           </button>
         </div>
-      ) : view === 'day' && day ? (
+      ) : day ? (
         <OperationList
           data={day.queues[queue]}
           label={queueLabels[queue]}
-          onPage={selectPage}
+          onPage={(next) => {
+            restoreFocus.current = true;
+            setPage(next);
+          }}
         />
-      ) : calendar && upcoming ? (
-        <>
-          <OperationsCalendar
-            data={calendar}
-            selected={date}
-            onSelect={selectDay}
-            onMonth={(next) => {
-              restoreFocus.current = 'calendar-title';
-              setMonth(next);
-            }}
-          />
-          <OperationList
-            data={upcoming}
-            label="Próximas retiradas e devoluções"
-            onPage={selectPage}
-          />
-        </>
       ) : null}
     </div>
   );

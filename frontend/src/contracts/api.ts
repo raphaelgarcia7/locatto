@@ -112,7 +112,9 @@ export async function contractRequest<T>(
     };
     throw new ContractError(
       response.status,
-      data.detail ?? 'Não foi possível concluir. Seus campos foram mantidos.',
+      typeof data.detail === 'string'
+        ? data.detail
+        : 'Confira os campos obrigatórios. Seus campos foram mantidos.',
     );
   }
   return (await response.json()) as T;

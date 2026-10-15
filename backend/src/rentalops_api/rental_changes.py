@@ -15,7 +15,7 @@ from rentalops_api.capacity import outstanding_demand
 from rentalops_api.catalog_models import Product
 from rentalops_api.database import session_scope
 from rentalops_api.payment_contracts import ReconciliationCommand
-from rentalops_api.quotation_contracts import SAO_PAULO, QuotationDraft, validity_state
+from rentalops_api.quotation_contracts import SAO_PAULO, QuotationDraft
 from rentalops_api.quotation_models import Quotation, QuotationVersion
 from rentalops_api.quotations import QuotationService
 from rentalops_api.rental_contracts import (
@@ -179,11 +179,12 @@ class RentalChangeService(RentalService):
             )
         if rental is None or rental.state != "out":
             today = self.clock().astimezone(SAO_PAULO).date()
-            if draft.pickup_date < today or draft.valid_until < today:
+            if draft.pickup_date < today:
                 raise RentalError(
                     422,
-                    "expired",
-                    "Revise a validade e as datas atuais antes de continuar.",
+                    "pickup_passed",
+                    "A retirada prevista já passou. "
+                    "Revise as datas antes de continuar.",
                 )
         proposal = QuotationService(self.factory, self.clock)._resolve(
             session,
@@ -326,16 +327,11 @@ class RentalChangeService(RentalService):
                             "Confira explicitamente preços e aplicações "
                             "financeiras da revisão.",
                         )
-                    if (rental and rental.state != "cancelled") or (
-                        not rental
-                        and not validity_state(old_offer.valid_until, self.clock())[
-                            "expired"
-                        ]
-                    ):
+                    if not rental or rental.state != "cancelled":
                         raise RentalError(
                             409,
                             "invalid_state",
-                            "Retome somente locação cancelada ou orçamento vencido. "
+                            "Retome somente uma locação cancelada. "
                             "Concluída exige nova proposta.",
                         )
                 elif rental is None:

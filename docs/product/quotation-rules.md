@@ -14,3 +14,10 @@ Complemento versionado restrito ao plano humano `quotations-v1`, issue #10, revi
 - Cliente é vinculado por UUID existente, sem duplicar CPF/RG/endereço neste módulo. Sessão real fornece ator/sessão. Auditoria contém somente IDs, UTC, revisão/operação e nomes de campos. Contatos/documentos/notas e conteúdo comercial não entram em logs ou traces.
 
 R08-INACT é aplicado aqui. R10-OVERLAP permanece em #11, que deverá considerar alocações simultâneas reais por período e consumir o guard de validade/revisão. Pagamentos #12, confirmação #11, alterações #13, contrato #15, recebimento #14, IA #17 e implantação continuam fora desta entrega.
+# Atualização humana de 2026-10-15
+
+A validade comercial foi retirada por solicitação direta: propostas não expiram
+pelo antigo prazo e não exigem renovação por isso. O campo legado valid_until é
+opcional no comando e não aparece na interface. Datas de retirada/evento/devolução,
+checagem fresca de estoque, sinal obrigatório e proteção de versão permanecem.
+Isto substitui somente as regras históricas de validade comercial anteriores.

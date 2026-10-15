@@ -1,3 +1,4 @@
+import { openFinancialDetails, openRentalWorkflow } from './rental-workflow';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 import type { Page, TestInfo } from '@playwright/test';
@@ -41,7 +42,7 @@ async function setup(page: Page) {
     .fill('synthetic payment browser phrase');
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(
-    page.getByRole('button', { name: 'Novo orçamento' }),
+    page.getByRole('button', { name: 'Nova locação' }),
   ).toBeVisible();
   const suffix = randomUUID().slice(0, 8);
   const customer = await post(
@@ -83,6 +84,7 @@ async function setup(page: Page) {
     201,
   );
   await page.goto(`/locacoes?orcamento=${quote.id}`);
+  await openRentalWorkflow(page);
   await expect(
     page.getByRole('heading', { name: 'Financeiro deste orçamento' }),
   ).toBeVisible();
@@ -151,9 +153,10 @@ async function confirm(page: Page) {
   await button.press('Enter');
   await expect(
     section(page).getByText(
-      'Registro financeiro salvo. Isso não confirma reserva nem aloca estoque.',
+      /Pagamento registrado\.|Validação registrada\.|Alteração financeira registrada\./,
     ),
   ).toBeVisible();
+  await openFinancialDetails(page);
 }
 
 test('manual receipt, substitute reconciliation, correction, refund and private proof', async ({
@@ -175,7 +178,7 @@ test('manual receipt, substitute reconciliation, correction, refund and private 
     0,
   );
   await expect(
-    section(page).getByText('Sinal não validado', { exact: true }),
+    section(page).getByText(/Para reservar, o sinal é de/, { exact: true }),
   ).toBeVisible();
   await section(page)
     .getByRole('button', { name: 'Conciliar distribuição completa' })
@@ -192,9 +195,12 @@ test('manual receipt, substitute reconciliation, correction, refund and private 
   await visual(page, info, 'reconciliation');
   await confirm(page);
   await expect(
-    section(page).getByText('Sinal validado em um único recebimento', {
-      exact: true,
-    }),
+    section(page).getByText(
+      'Sinal recebido. Você já pode confirmar a reserva.',
+      {
+        exact: true,
+      },
+    ),
   ).toBeVisible();
   await visual(page, info, 'deposit-validated');
   await section(page)
@@ -206,7 +212,7 @@ test('manual receipt, substitute reconciliation, correction, refund and private 
     .fill('Synthetic correction preserving original');
   await confirm(page);
   await expect(
-    section(page).getByText('Sinal não validado', { exact: true }),
+    section(page).getByText(/Para reservar, o sinal é de/, { exact: true }),
   ).toBeVisible();
   await section(page)
     .getByRole('button', {
@@ -271,6 +277,7 @@ test('manual receipt, substitute reconciliation, correction, refund and private 
     .getByRole('link', { name: /^Orçamento / })
     .first()
     .click();
+  await openRentalWorkflow(page);
   await expect(
     page.getByRole('heading', { name: 'Financeiro deste orçamento' }),
   ).toBeVisible();
@@ -319,16 +326,15 @@ test('unknown commit replays same request and stale version preserves the form',
   await section(page)
     .getByRole('button', { name: 'Repetir a mesma operação' })
     .click();
-  await expect(
-    section(page).getByText(/Registro financeiro salvo/),
-  ).toBeVisible();
+  await expect(section(page).getByText(/Pagamento registrado\./)).toBeVisible();
+  await openFinancialDetails(page);
   expect(bodies).toHaveLength(2);
   expect(bodies[0]).toBe(bodies[1]);
+  await expect(section(page)).toHaveAttribute('data-financial-version', '2');
   await expect(
-    section(page).getByText(/Versão comercial 1 · Financeiro 2 · Conferida 1/),
-  ).toBeVisible();
-  await expect(
-    section(page).getByText('Sinal validado em um único recebimento'),
+    section(page).getByText(
+      'Sinal recebido. Você já pode confirmar a reserva.',
+    ),
   ).toBeVisible();
   await expect(
     section(page).getByText(/Conciliação substituída · financeiro 2/),

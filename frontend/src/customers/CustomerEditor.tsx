@@ -140,9 +140,7 @@ export function CustomerEditor({
     >
       <div className="catalog-panel-heading">
         <div>
-          <span className="section-kicker">
-            CADASTRO PROGRESSIVO · PESSOA FÍSICA
-          </span>
+          <span className="section-kicker">CADASTRO</span>
           <h2 id="customer-editor-heading" tabIndex={-1} ref={heading}>
             {initial ? `Editar ${initial.name}` : 'Novo cliente'}
           </h2>

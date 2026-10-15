@@ -37,10 +37,12 @@ export function ConfirmationSection({
   quotation,
   onConfirmed,
   onFinancialRefresh,
+  guided = false,
 }: {
   quotation: Quotation;
   onConfirmed: () => void;
   onFinancialRefresh?: () => void;
+  guided?: boolean;
 }) {
   const [rental, setRental] = useState<Rental | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -179,11 +181,12 @@ export function ConfirmationSection({
       className="catalog-section"
       aria-labelledby="rental-confirmation-title"
     >
-      <h3 id="rental-confirmation-title">Reserva e estoque do período</h3>
+      <h3 id="rental-confirmation-title" tabIndex={-1}>
+        {guided ? '2. Confirmar a reserva' : 'Reserva e estoque do período'}
+      </h3>
       <p>
-        Recebimento, conciliação e confirmação são ações separadas. A
-        confirmação revalida o sinal e o estoque; a prévia não garante
-        disponibilidade.
+        Confira o sinal e a disponibilidade antes de confirmar. A confirmação
+        reserva os produtos para as datas combinadas.
       </p>
       {loading && <p role="status">Consultando locação…</p>}
       <div ref={feedback} tabIndex={-1}>
@@ -216,14 +219,20 @@ export function ConfirmationSection({
       {rental && rental.state !== 'review' ? (
         <>
           <p>
-            <strong>
-              {rentalStateLabel[rental.state]} · locação v{rental.version}
-            </strong>
+            <strong>{rentalStateLabel[rental.state]}</strong>
           </p>
-          <p className="quotation-id">Locação {rental.id}</p>
+          {['confirmed', 'out', 'completed'].includes(rental.state) && (
+            <p>
+              <a
+                className="auth-button"
+                href={`/api/rentals/${rental.id}/checklist/download`}
+              >
+                Baixar checklist de separação
+              </a>
+            </p>
+          )}
           <p>
-            Proposta v{rental.quotation_version} · financeiro v
-            {rental.financial_version} · conferência{' '}
+            Última conferência:{' '}
             {new Date(rental.checked_at).toLocaleString('pt-BR', {
               timeZone: 'America/Sao_Paulo',
             })}
@@ -247,8 +256,7 @@ export function ConfirmationSection({
           <ul className="catalog-history">
             {rental.pending.map((item) => (
               <li key={item.id}>
-                {item.kind === 'inventory' ? 'Estoque' : 'Financeiro'} · origem{' '}
-                {item.source} · versão {item.source_version}
+                {item.kind === 'inventory' ? 'Estoque' : 'Financeiro'}
                 {item.resolved
                   ? ' · resolvida pela confirmação'
                   : ' · pendente'}
@@ -388,11 +396,14 @@ export function ConfirmationSection({
             <p>Nenhuma reserva confirmada para este orçamento.</p>
           )}
           <button
+            id="prepare-reservation"
             className="auth-retry"
             disabled={busy || loading || unknown}
             onClick={() => void prepare()}
           >
-            Consultar confirmação
+            {guided
+              ? 'Conferir disponibilidade para reservar'
+              : 'Consultar confirmação'}
           </button>
           {preview && (
             <>
@@ -401,8 +412,13 @@ export function ConfirmationSection({
                   {preview.deposit_valid
                     ? 'Sinal validado'
                     : 'Sinal ainda não validado'}{' '}
-                  · proposta v{preview.quotation_version} · financeiro v
-                  {preview.financial_version}
+                  {!guided && (
+                    <>
+                      {' '}
+                      · proposta v{preview.quotation_version} · financeiro v
+                      {preview.financial_version}
+                    </>
+                  )}
                 </strong>
               </p>
               <ul className="quotation-capacity">
@@ -440,7 +456,9 @@ export function ConfirmationSection({
                 ? 'Confirmando…'
                 : unknown
                   ? 'Reconciliar a mesma confirmação'
-                  : 'Confirmar reserva'}
+                  : guided
+                    ? 'Confirmar reserva e reservar itens'
+                    : 'Confirmar reserva'}
             </button>
           )}
         </>

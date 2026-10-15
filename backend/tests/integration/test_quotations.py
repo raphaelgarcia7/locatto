@@ -150,9 +150,10 @@ def test_migration_head_constraints_metadata_repeat_rollback(isolated_engine):
         command.upgrade(config, "head")
         assert (
             connection.scalar(text("SELECT version_num FROM alembic_version"))
-            == "0012_dashboard_indexes"
+            == "0014_kit_photos"
         )
         assert set(inspect(connection).get_table_names()) == previous | {
+            "product_categories",
             "quotations",
             "quotation_versions",
             "quotation_lines",
@@ -424,10 +425,8 @@ def test_database_immutability_money_quantity_fk_and_guard(quotations):
         )
     assert service.guard_current_validity(UUID(saved["id"]), 1)["state"] == "current"
     service.clock = lambda: datetime(2026, 10, 10, 3, tzinfo=UTC)
-    with pytest.raises(QuotationError) as error:
-        service.guard_current_validity(UUID(saved["id"]), 1)
-    assert error.value.code == "expired"
-    assert service.search(QuotationSearch(state="expired"))["total"] == 1
+    assert service.guard_current_validity(UUID(saved["id"]), 1)["expired"] is False
+    assert service.search(QuotationSearch(state="expired"))["total"] == 0
     renewed = revision(quotations, saved, valid_until="2026-10-10")
     updated, _ = service.write(
         command_for(service, renewed, reason="Synthetic validity renewal"),
@@ -435,7 +434,7 @@ def test_database_immutability_money_quantity_fk_and_guard(quotations):
         UUID(saved["id"]),
     )
     assert updated["state"] == "current"
-    assert service.get(UUID(saved["id"]), 1)["expired"] is True
+    assert service.get(UUID(saved["id"]), 1)["expired"] is False
 
 
 def test_capacity_refresh_retained_commercial_fields_and_limits(quotations):
@@ -498,6 +497,13 @@ def test_search_stable_order_pagination_filters_and_client_binding(quotations):
     )
     assert service.search(QuotationSearch(quotation_id=UUID(all_ids[0])))["total"] == 1
     assert service.search(QuotationSearch(customer_id=uuid4()))["items"] == []
+    assert (
+        service.search(QuotationSearch(customer_name="QUOTATION customer"))["total"]
+        == 26
+    )
+    assert service.search(QuotationSearch(customer_name="not registered"))["total"] == 0
+    assert service.search(QuotationSearch(customer_name="%"))["total"] == 0
+    assert service.search(QuotationSearch(customer_name="_"))["total"] == 0
     with service.factory.begin() as session:
         other = Customer(
             name="Synthetic different customer",

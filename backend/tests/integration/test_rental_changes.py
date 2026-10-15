@@ -380,7 +380,7 @@ def test_chg04_refunded_money_cannot_reappear_two_small_sources_do_not_make_sign
     assert service.get(UUID(original["id"]))["allocations"] == []
 
 
-def test_chg04_expired_quotation_review_without_new_receipts(changes):
+def test_old_commercial_date_does_not_create_a_resumption_requirement(changes):
     service, payments = changes
     service.clock = lambda: datetime(2026, 10, 10, 12, tzinfo=UTC)
     preview = preview_input(changes, None, valid_until="2026-10-10")
@@ -395,12 +395,12 @@ def test_chg04_expired_quotation_review_without_new_receipts(changes):
             "request_id": str(uuid4()),
         }
     )
-    resumed, _ = service.command(
-        payments[2], "resume", payload, payments[1], by_quotation=True
-    )
-    assert resumed["state"] == "review" and resumed["allocations"] == []
-    assert resumed["quotation_id"] == str(payments[2])
-    assert resumed["current_financial"]["receipts"] == []
+    before = payments[0].get(payments[2])
+    with pytest.raises(RentalError) as error:
+        service.command(payments[2], "resume", payload, payments[1], by_quotation=True)
+    assert error.value.code == "invalid_state"
+    assert payments[0].get(payments[2]) == before
+    assert payments[3][0].get(payments[2])["expired"] is False
 
 
 def test_chg06_correction_preserves_commitment_signature_revision_and_history(changes):

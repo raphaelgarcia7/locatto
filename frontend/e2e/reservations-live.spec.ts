@@ -1,3 +1,4 @@
+import { openRentalWorkflow } from './rental-workflow';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 import type { Page, TestInfo } from '@playwright/test';
@@ -36,7 +37,7 @@ async function setup(page: Page) {
     .fill('synthetic reservation browser phrase');
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(
-    page.getByRole('button', { name: 'Novo orçamento' }),
+    page.getByRole('button', { name: 'Nova locação' }),
   ).toBeVisible();
   const suffix = randomUUID().slice(0, 8);
   const customer = await post(
@@ -74,27 +75,28 @@ async function setup(page: Page) {
     201,
   );
   await page.goto(`/locacoes?orcamento=${quote.id}`);
+  await openRentalWorkflow(page);
   await expect(
-    section(page).getByRole('button', { name: 'Consultar confirmação' }),
+    section(page).getByRole('button', {
+      name: 'Conferir disponibilidade para reservar',
+    }),
   ).toBeEnabled();
   return { quote, product, customer };
 }
 function section(page: Page) {
-  return page.getByRole('region', { name: 'Reserva e estoque do período' });
+  return page.getByRole('region', { name: '2. Confirmar a reserva' });
 }
 async function financialPaid(page: Page) {
   const panel = page.getByRole('region', {
     name: 'Financeiro deste orçamento',
   });
   await expect(
-    panel.getByText('Sinal validado em um único recebimento'),
+    panel.getByText('Sinal recebido. Você já pode confirmar a reserva.'),
   ).toBeVisible();
   await expect(
     panel.getByText('Recebido registrado').locator('..'),
   ).toContainText('200,00');
-  await expect(
-    panel.getByText(/Versão comercial 1 · Financeiro 2 · Conferida 1/),
-  ).toBeVisible();
+  await expect(panel).toHaveAttribute('data-financial-version', '2');
   await expect(
     panel.getByText(/Recebimento registrado · financeiro 1/),
   ).toBeVisible();
@@ -199,15 +201,15 @@ test('confirmation requires payment and explicit action; unknown result reuses t
   await visual(page, info, 'read-error');
   await page.unroute(`**/api/rentals/by-quotation/${quote.id}`);
   await section(page)
-    .getByRole('button', { name: 'Consultar confirmação' })
+    .getByRole('button', { name: 'Conferir disponibilidade para reservar' })
     .click();
   await expect(section(page).getByRole('alert')).toHaveCount(0);
   await section(page)
-    .getByRole('button', { name: 'Consultar confirmação' })
+    .getByRole('button', { name: 'Conferir disponibilidade para reservar' })
     .click();
   await expect(
     section(page).getByRole('button', {
-      name: 'Confirmar reserva',
+      name: 'Confirmar reserva e reservar itens',
       exact: true,
     }),
   ).toBeDisabled();
@@ -215,7 +217,7 @@ test('confirmation requires payment and explicit action; unknown result reuses t
   const finance = page.getByRole('region', {
     name: 'Financeiro deste orçamento',
   });
-  await expect(finance.getByText('Sinal não validado')).toBeVisible();
+  await expect(finance.getByText(/Para reservar, o sinal é de/)).toBeVisible();
   await expect(
     finance.getByText('Nenhuma movimentação financeira no histórico.'),
   ).toBeVisible();
@@ -232,15 +234,15 @@ test('confirmation requires payment and explicit action; unknown result reuses t
     },
   );
   await section(page)
-    .getByRole('button', { name: 'Consultar confirmação' })
+    .getByRole('button', { name: 'Conferir disponibilidade para reservar' })
     .click();
   const confirm = section(page).getByRole('button', {
-    name: 'Confirmar reserva',
+    name: 'Confirmar reserva e reservar itens',
     exact: true,
   });
   await expect(confirm).toBeFocused();
   await expect(finance.getByText('Consultando financeiro…')).toBeVisible();
-  await expect(finance.getByText('Sinal não validado')).toHaveCount(0);
+  await expect(finance.getByText(/Para reservar, o sinal é de/)).toHaveCount(0);
   await visual(page, info, 'financial-loading');
   const financeLoaded = page.waitForResponse(
     (response) =>
@@ -279,18 +281,20 @@ test('confirmation requires payment and explicit action; unknown result reuses t
     'Resultado desconhecido',
   );
   await expect(
-    section(page).getByText('Reserva confirmada · locação v1'),
+    section(page).getByText('Reserva confirmada', { exact: true }),
   ).toHaveCount(0);
   await expect(
     section(page).getByText('Nenhuma reserva confirmada para este orçamento.'),
   ).toHaveCount(0);
   await expect(
-    section(page).getByRole('button', { name: 'Consultar confirmação' }),
+    section(page).getByRole('button', {
+      name: 'Conferir disponibilidade para reservar',
+    }),
   ).toBeDisabled();
   await expect(finance.getByRole('alert')).toBeVisible();
-  await expect(finance.getByText('Sinal não validado')).toHaveCount(0);
+  await expect(finance.getByText(/Para reservar, o sinal é de/)).toHaveCount(0);
   await expect(
-    finance.getByText('Sinal validado em um único recebimento'),
+    finance.getByText('Sinal recebido. Você já pode confirmar a reserva.'),
   ).toHaveCount(0);
   await visual(page, info, 'financial-read-error');
   await page.unroute(`**/api/quotations/${quote.id}/payments/history`);
@@ -303,15 +307,15 @@ test('confirmation requires payment and explicit action; unknown result reuses t
     .getByRole('button', { name: 'Reconciliar a mesma confirmação' })
     .click();
   await expect(
-    section(page).getByText('Reserva confirmada · locação v1'),
+    section(page).getByText('Reserva confirmada', { exact: true }),
   ).toBeVisible();
   expect(payloads).toHaveLength(2);
   expect(payloads[0]).toBe(payloads[1]);
   await expect(
-    page.getByRole('button', { name: 'Criar nova revisão', exact: true }),
-  ).toBeDisabled();
+    page.getByRole('button', { name: 'Editar proposta', exact: true }),
+  ).toHaveCount(0);
   await financialPaid(page);
-  await expect(page.getByText('Validade comercial vigente')).toBeVisible();
+  await expect(page.getByText('Validade comercial vigente')).toHaveCount(0);
   await expect(
     page.getByText('Validade vigente · não é reserva confirmada'),
   ).toHaveCount(0);
@@ -336,11 +340,11 @@ test('fresh capacity conflict, preserved money, inventory and financial issues a
   const { quote, product, customer } = await setup(page);
   const receipt = await paid(page, quote.id);
   await section(page)
-    .getByRole('button', { name: 'Consultar confirmação' })
+    .getByRole('button', { name: 'Conferir disponibilidade para reservar' })
     .click();
   await expect(
     section(page).getByRole('button', {
-      name: 'Confirmar reserva',
+      name: 'Confirmar reserva e reservar itens',
       exact: true,
     }),
   ).toBeEnabled();
@@ -350,7 +354,10 @@ test('fresh capacity conflict, preserved money, inventory and financial issues a
     reason: 'Synthetic sudden damage',
   });
   await section(page)
-    .getByRole('button', { name: 'Confirmar reserva', exact: true })
+    .getByRole('button', {
+      name: 'Confirmar reserva e reservar itens',
+      exact: true,
+    })
     .click();
   await expect(section(page).getByRole('alert')).toContainText(
     'Capacidade insuficiente',
@@ -371,13 +378,16 @@ test('fresh capacity conflict, preserved money, inventory and financial issues a
     },
   );
   await section(page)
-    .getByRole('button', { name: 'Consultar confirmação' })
+    .getByRole('button', { name: 'Conferir disponibilidade para reservar' })
     .click();
   await section(page)
-    .getByRole('button', { name: 'Confirmar reserva', exact: true })
+    .getByRole('button', {
+      name: 'Confirmar reserva e reservar itens',
+      exact: true,
+    })
     .press('Enter');
   await expect(
-    section(page).getByText('Reserva confirmada · locação v1'),
+    section(page).getByText('Reserva confirmada', { exact: true }),
   ).toBeVisible();
   const overlappingDraft = {
     customer_id: customer.id,
@@ -405,13 +415,15 @@ test('fresh capacity conflict, preserved money, inventory and financial issues a
     201,
   );
   await page.goto(`/locacoes?orcamento=${overlapping.id}`);
+  await openRentalWorkflow(page);
   await expect(
     page.getByText('Disponível no período 0 · pico comprometido 1'),
   ).toBeVisible();
   await visual(page, info, 'allocation-aware-quotation');
   await page.goto(`/locacoes?orcamento=${quote.id}`);
+  await openRentalWorkflow(page);
   await expect(
-    section(page).getByText('Reserva confirmada · locação v1'),
+    section(page).getByText('Reserva confirmada', { exact: true }),
   ).toBeVisible();
   await post(page, `products/${product.id}/maintenance`, {
     expected_version: 3,

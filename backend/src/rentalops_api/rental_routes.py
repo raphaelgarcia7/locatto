@@ -1,13 +1,14 @@
 """Private, versioned confirmation and operational reads."""
 
 from collections.abc import Iterator
-from typing import Annotated
+from typing import Annotated, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Response
 
 from rentalops_api.auth_routes import CurrentIdentity, trusted_origin
 from rentalops_api.config import DatabaseSettings
+from rentalops_api.contract_pdf import render_separation_checklist
 from rentalops_api.customer_routes import private_response
 from rentalops_api.database import build_engine, build_session_factory
 from rentalops_api.quotation_routes import body_only
@@ -25,6 +26,7 @@ from rentalops_api.rental_contracts import (
     RentalView,
     ResumptionCommand,
 )
+from rentalops_api.rentals import RentalError
 
 router = APIRouter(tags=["Rentals"], dependencies=[Depends(private_response)])
 
@@ -97,6 +99,29 @@ def history(
     page_size: Annotated[int, Query(ge=1, le=100)] = 50,
 ) -> dict[str, object]:
     return service.history(identifier, page, page_size)
+
+
+@router.get("/rentals/{identifier}/checklist/download")
+def checklist(
+    identifier: UUID, identity: CurrentIdentity, service: Service
+) -> Response:
+    rental = service.get(identifier)
+    if rental["state"] not in {"confirmed", "out", "completed"}:
+        raise RentalError(
+            409, "not_confirmed", "Confirme a locação para gerar o checklist."
+        )
+    document = render_separation_checklist(
+        cast(dict[str, object], rental["commercial_snapshot"])
+    )
+    return Response(
+        document,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": 'attachment; filename="checklist-separacao.pdf"',
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 @router.post(

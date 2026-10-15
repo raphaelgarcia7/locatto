@@ -52,10 +52,6 @@
   max-width: 100%;
   white-space: normal;
 }
-.contract-panel :focus-visible {
-  outline: 3px solid #397553;
-  outline-offset: 3px;
-}
 .contract-logo {
   display: block;
   max-width: 220px;
@@ -102,4 +98,26 @@
     transition: none;
     animation: none;
   }
+}
+.contract-secondary,
+.contract-editor {
+  margin-block: 1rem;
+  padding-block: 0.5rem;
+  border-bottom: 1px solid var(--line);
+}
+.contract-secondary > summary,
+.contract-editor > summary {
+  cursor: pointer;
+  min-height: 44px;
+  padding-block: 0.75rem;
+}
+.contract-current {
+  padding: 1rem;
+  margin-block: 1rem;
+  border-radius: 12px;
+  background: var(--primary-soft);
+}
+.contract-current > a {
+  display: inline-block;
+  margin-bottom: 1rem;
 }

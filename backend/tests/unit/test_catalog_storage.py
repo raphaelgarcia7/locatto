@@ -71,6 +71,31 @@ def test_byte_and_decoded_pixel_limits_before_storage(tmp_path):
 
 
 @pytest.mark.parametrize(
+    "image_format,mime",
+    [("JPEG", "image/jpeg"), ("PNG", "image/png"), ("WEBP", "image/webp")],
+)
+def test_new_photos_are_bounded_for_fast_gallery_and_contracts(image_format, mime):
+    data, actual_format = normalize_image(
+        synthetic_image(image_format, size=(3200, 2000), exif=True), mime
+    )
+    assert actual_format == image_format
+    with Image.open(io.BytesIO(data)) as picture:
+        assert picture.size == (1600, 1000)
+        assert not picture.getexif()
+
+
+def test_photo_orientation_is_applied_before_metadata_is_removed():
+    source = io.BytesIO()
+    image = Image.new("RGB", (40, 20), "blue")
+    exif = Image.Exif()
+    exif[274] = 6
+    image.save(source, format="JPEG", exif=exif)
+    data, _ = normalize_image(source.getvalue(), "image/jpeg")
+    with Image.open(io.BytesIO(data)) as picture:
+        assert picture.size == (20, 40) and not picture.getexif()
+
+
+@pytest.mark.parametrize(
     "key",
     [
         "../outside.png",

@@ -2,6 +2,7 @@ import { useContext, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { AuthContext } from '../authContext';
 import { StatePanel } from '../components/StatePanel';
+import { useDebouncedValue } from '../components/useDebouncedValue';
 import { customerFeedback, customerRequest } from './api';
 import type { CustomerDetail as Detail, CustomerPageData } from './api';
 import { CustomerDetail } from './CustomerDetail';
@@ -18,7 +19,8 @@ export function CustomersPage() {
   const [data, setData] = useState<CustomerPageData | null>(null);
   const [search, setSearch] = useState('');
   const [kind, setKind] = useState<'name' | 'phone' | 'cpf'>('name');
-  const [query, setQuery] = useState({ name: '' });
+  const liveSearch = useDebouncedValue(search.trim());
+  const query = { name: '', [kind]: liveSearch };
   const [page, setPage] = useState(1);
   const [refresh, setRefresh] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -38,7 +40,7 @@ export function CustomersPage() {
     void customerRequest<CustomerPageData>(
       '/search',
       'POST',
-      { ...query, page },
+      { name: '', ...(liveSearch ? { [kind]: liveSearch } : {}), page },
       controller.signal,
     )
       .then((result) => {
@@ -51,7 +53,7 @@ export function CustomersPage() {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [authenticated, query, page, refresh]);
+  }, [authenticated, kind, liveSearch, page, refresh]);
   useEffect(() => {
     if (
       !authenticated ||
@@ -161,7 +163,6 @@ export function CustomersPage() {
             onSubmit={(event) => {
               event.preventDefault();
               setPage(1);
-              setQuery({ name: '', [kind]: search.trim() });
               setRefresh((value) => value + 1);
             }}
           >
@@ -187,7 +188,10 @@ export function CustomersPage() {
                 maxLength={kind === 'name' ? 200 : 50}
                 type={kind === 'phone' ? 'tel' : 'text'}
                 value={search}
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setPage(1);
+                }}
               />
             </label>
             <button className="auth-retry" disabled={opening}>

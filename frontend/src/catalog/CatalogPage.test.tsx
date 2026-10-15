@@ -59,6 +59,48 @@ function view() {
 }
 
 describe('catalog interface', () => {
+  it('shows principal photos for products and kits with a safe failure fallback', async () => {
+    fetchMock.mockImplementation((url: string) =>
+      Promise.resolve(
+        response({
+          ...empty,
+          total: 2,
+          items: [
+            {
+              ...product,
+              name: url.includes('kits') ? 'Kit festa' : product.name,
+              principal_photo_id: 'photo-1',
+              items: [],
+              needs_review: false,
+            },
+            {
+              ...product,
+              id: 'no-photo',
+              name: 'Sem imagem',
+              principal_photo_id: null,
+            },
+          ],
+        }),
+      ),
+    );
+    view();
+    const image = await screen.findByRole('img', {
+      name: `Foto de ${product.name}`,
+    });
+    expect(image).toHaveAttribute('src', '/api/photos/photo-1');
+    expect(image).toHaveAttribute('loading', 'lazy');
+    expect(screen.getByText('Sem foto')).toBeVisible();
+    fireEvent.error(image);
+    expect(screen.getByText('Foto indisponível')).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Kits' }));
+    expect(
+      await screen.findByRole('heading', { name: 'Kit festa' }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('img', { name: 'Foto de Kit festa' }),
+    ).toBeVisible();
+  });
+
   it('shows loading, empty and retryable connection error', async () => {
     let finish: (value: unknown) => void = () => {};
     fetchMock.mockImplementationOnce(

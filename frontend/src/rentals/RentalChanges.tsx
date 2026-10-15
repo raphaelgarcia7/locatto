@@ -256,7 +256,7 @@ export function RentalChanges({
           </dl>
         </>
       )}
-      {!loading && readKnown && !rental && !quotation.expired && (
+      {!loading && readKnown && !rental && (
         <p>
           As alterações da reserva ficam disponíveis após confirmação. O
           orçamento atual pode receber uma nova revisão comercial.
@@ -278,8 +278,7 @@ export function RentalChanges({
             Alterar locação
           </button>
         )}
-        {(rental?.state === 'cancelled' ||
-          (readKnown && !rental && quotation.expired)) && (
+        {rental?.state === 'cancelled' && (
           <button
             className="auth-button"
             disabled={busy || unknown}

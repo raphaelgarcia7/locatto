@@ -19,6 +19,8 @@ beforeEach(() => {
       ok: true,
       status: 200,
       json: async () => ({
+        month: '2026-10',
+        days: [],
         items: [],
         total: 0,
         page: 1,
@@ -39,24 +41,26 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('workspace routing', () => {
-  it('offers operational dashboard and functional home links', () => {
+  it('keeps the overview focused on the dashboard and modules in the navigation', () => {
     renderRoute();
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-      'Painel operacional',
+      'Visão geral',
     );
-    expect(
-      screen.getByRole('link', { name: 'Abrir Catálogo' }),
-    ).toHaveAttribute('href', '/catalogo');
-    expect(
-      screen.getByRole('link', { name: 'Abrir Clientes' }),
-    ).toHaveAttribute('href', '/clientes');
-    expect(
-      screen.getByRole('link', { name: 'Abrir Locações' }),
-    ).toHaveAttribute('href', '/locacoes');
-    expect(screen.getByText('Abrir orçamentos')).toBeVisible();
-    expect(screen.getByText('Abrir clientes')).toBeVisible();
-    expect(screen.getByText('Abrir acervo')).toBeVisible();
-    expect(screen.getByText(/Consulta informativa/)).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Catálogo' })).toHaveAttribute(
+      'href',
+      '/catalogo',
+    );
+    expect(screen.getByRole('link', { name: 'Clientes' })).toHaveAttribute(
+      'href',
+      '/clientes',
+    );
+    expect(screen.getByRole('link', { name: 'Locações' })).toHaveAttribute(
+      'href',
+      '/locacoes',
+    );
+    expect(screen.queryByText('Áreas da locadora')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mês' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Semana' })).toBeVisible();
   });
 
   it.each([
@@ -88,10 +92,10 @@ describe('workspace routing', () => {
     },
   );
 
-  it('updates page title and moves focus to content after card navigation', async () => {
+  it('updates page title and moves focus to content after navigation', async () => {
     const user = userEvent.setup();
     renderRoute();
-    await user.click(screen.getByRole('link', { name: 'Abrir Clientes' }));
+    await user.click(screen.getByRole('link', { name: 'Clientes' }));
     expect(screen.getByRole('main', { name: 'Clientes' })).toHaveFocus();
     expect(document.title).toBe('Clientes · RentalOps');
     await user.click(
@@ -130,7 +134,7 @@ describe('workspace routing', () => {
         screen.getByRole('link', { name: 'Voltar à visão geral' }),
       );
       expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-        'Painel operacional',
+        'Visão geral',
       );
     },
   );

@@ -91,7 +91,11 @@ test('catalog loading, error, empty, validation and keyboard remain usable', asy
     await page
       .getByLabel('Descrição', { exact: true })
       .evaluate((element) => getComputedStyle(element).outlineWidth),
-  ).toBe('3px');
+  ).toBe('0px');
+  await expect(page.getByLabel('Descrição', { exact: true })).not.toHaveCSS(
+    'box-shadow',
+    'none',
+  );
   await page.emulateMedia({ reducedMotion: 'reduce' });
   expect(
     await page.evaluate(

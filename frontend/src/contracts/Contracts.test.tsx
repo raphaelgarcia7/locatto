@@ -143,6 +143,168 @@ const quotation = {
   ],
 } as Quotation;
 
+it('identifies a failed contract dependency, retries only that read and retains filled fields', async () => {
+  const user = userEvent.setup();
+  let failCompany = false;
+  const fetcher = vi.fn(async (url: string) => {
+    if (url.endsWith('/parameters'))
+      return failCompany ? reply({}, 503) : reply(company);
+    if (url.endsWith('/payments')) return reply({ financial_version: 3 });
+    if (url.endsWith('/current-signature-state'))
+      return reply({
+        rental_version: 0,
+        contract: null,
+        ready_for_pickup: false,
+      });
+    return reply([]);
+  });
+  vi.stubGlobal('fetch', fetcher);
+  render(
+    <MemoryRouter>
+      <ContractsSection quotation={quotation} />
+    </MemoryRouter>,
+  );
+  await waitFor(() =>
+    expect(
+      screen.getByRole('button', { name: 'Visualizar contrato' }),
+    ).toBeEnabled(),
+  );
+  await user.type(screen.getByLabelText('Rua'), 'Rua sintética');
+  failCompany = true;
+  await user.click(
+    screen.getByRole('button', { name: 'Atualizar dados do contrato' }),
+  );
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'Não foi possível carregar dados da locadora',
+  );
+  expect(screen.getByLabelText('Rua')).toHaveValue('Rua sintética');
+  expect(
+    screen.getByRole('button', { name: 'Visualizar contrato' }),
+  ).toBeDisabled();
+  const count = fetcher.mock.calls.length;
+  failCompany = false;
+  await user.click(
+    screen.getByRole('button', { name: 'Tentar novamente: dados da locadora' }),
+  );
+  await waitFor(() =>
+    expect(
+      screen.getByRole('button', { name: 'Visualizar contrato' }),
+    ).toBeEnabled(),
+  );
+  expect(fetcher.mock.calls.slice(count).map(([url]) => url)).toEqual([
+    '/api/parameters',
+  ]);
+  expect(screen.getByLabelText('Rua')).toHaveValue('Rua sintética');
+  expect(screen.queryByLabelText(/condição na saída/)).not.toBeInTheDocument();
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+});
+
+it('does not misrepresent unavailable contract history as no contracts or permit issuance', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string) => {
+      if (url.endsWith('/parameters')) return reply(company);
+      if (url.endsWith('/payments')) return reply({ financial_version: 0 });
+      if (url.endsWith('/current-signature-state'))
+        return reply({
+          rental_version: 0,
+          contract: null,
+          ready_for_pickup: false,
+        });
+      return reply({}, 503);
+    }),
+  );
+  render(
+    <MemoryRouter>
+      <ContractsSection quotation={quotation} />
+    </MemoryRouter>,
+  );
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'Não foi possível carregar contratos emitidos',
+  );
+  expect(screen.queryByText(/Nenhum contrato emitido/)).not.toBeInTheDocument();
+  expect(
+    screen.getByRole('button', { name: 'Visualizar contrato' }),
+  ).toBeDisabled();
+});
+
+it('prepares from fresh payment facts after a receipt and freezes the reviewed issuance across a lost response', async () => {
+  const user = userEvent.setup();
+  vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:synthetic');
+  vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+  let financialVersion = 0;
+  const previews: Record<string, unknown>[] = [];
+  const bodies: string[] = [];
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.endsWith('/parameters')) return reply(company);
+      if (url.endsWith('/payments'))
+        return reply({ financial_version: financialVersion });
+      if (url.endsWith('/current-signature-state'))
+        return reply({
+          rental_version: 0,
+          contract: null,
+          ready_for_pickup: false,
+        });
+      if (url.endsWith('/preview')) {
+        previews.push(JSON.parse(String(init?.body)));
+        return reply({
+          document: btoa('%PDF-fixture'),
+          number: 1,
+          pending: [],
+          differences: [],
+        });
+      }
+      if (init?.method === 'POST') {
+        bodies.push(String(init.body));
+        if (bodies.length === 1)
+          throw new TypeError('Synthetic lost acknowledgement');
+        return reply({});
+      }
+      return reply([]);
+    }),
+  );
+  render(
+    <MemoryRouter>
+      <ContractsSection quotation={quotation} />
+    </MemoryRouter>,
+  );
+  await waitFor(() =>
+    expect(
+      screen.getByRole('button', { name: 'Visualizar contrato' }),
+    ).toBeEnabled(),
+  );
+  financialVersion = 1; // A payment was recorded after the closed contract section mounted.
+  await user.click(screen.getByRole('button', { name: 'Visualizar contrato' }));
+  await screen.findByText(
+    'Dados completos para emissão final. Confira o PDF antes de confirmar.',
+  );
+  expect(previews[0]).toMatchObject({ expected_financial_version: 1 });
+  await user.click(
+    screen.getByRole('checkbox', {
+      name: 'Conferi esta prévia e confirmo a emissão final',
+    }),
+  );
+  financialVersion = 2; // Never silently replace the reviewed snapshot during replay.
+  await user.click(
+    screen.getByRole('button', { name: 'Emitir contrato final' }),
+  );
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'Resultado desconhecido',
+  );
+  expect(screen.getByLabelText('Rua')).toBeDisabled();
+  await user.click(
+    screen.getByRole('button', { name: 'Repetir mesma emissão' }),
+  );
+  await screen.findByText(/Contrato emitido/);
+  expect(bodies).toHaveLength(2);
+  expect(bodies[0]).toBe(bodies[1]);
+  expect(JSON.parse(bodies[0])).toMatchObject({
+    expected_financial_version: 1,
+  });
+});
+
 it('keeps final issuance disabled while preview has product/company pending fields', async () => {
   vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:synthetic');
   vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
@@ -180,11 +342,9 @@ it('keeps final issuance disabled while preview has product/company pending fiel
   await screen.findByText(
     'Nenhum contrato emitido. Você pode preparar o documento antes do pagamento do sinal.',
   );
-  expect(
-    screen.getByLabelText('6 × Produto sintético — condição na saída'),
-  ).toBeVisible();
+  expect(screen.queryByLabelText(/condição na saída/)).not.toBeInTheDocument();
   await userEvent.click(
-    screen.getByRole('button', { name: 'Preparar prévia do contrato' }),
+    screen.getByRole('button', { name: 'Visualizar contrato' }),
   );
   await screen.findByText('Foto do produto pendente no catálogo.');
   expect(

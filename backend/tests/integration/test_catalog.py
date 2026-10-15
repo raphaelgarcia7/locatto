@@ -118,6 +118,47 @@ def test_minimum_optionals_initial_movement_exact_money_and_independent_variants
     assert create(catalog, "Estoque zero", 0)["apt_quantity"] == 0
 
 
+def test_category_migration_imports_legacy_names_and_rollback_keeps_products(
+    isolated_engine,
+):
+    with isolated_engine.begin() as connection:
+        command.upgrade(migration_config(connection), "0012_dashboard_indexes")
+    with Session(isolated_engine) as session:
+        user = User(email="category-migration@example.invalid")
+        session.add(user)
+        session.flush()
+        for name in ("Painéis", "painéis", ""):
+            session.add(
+                Product(
+                    name="Produto sintético",
+                    price="1.00",
+                    category=name,
+                    total_quantity=0,
+                    created_by=user.id,
+                    updated_by=user.id,
+                )
+            )
+        session.commit()
+    with isolated_engine.begin() as connection:
+        config = migration_config(connection)
+        command.upgrade(config, "head")
+        assert connection.scalar(text("SELECT count(*) FROM product_categories")) == 1
+        assert (
+            connection.scalar(
+                text("SELECT count(*) FROM products WHERE category IS NOT NULL")
+            )
+            == 2
+        )
+        assert (
+            compare_metadata(MigrationContext.configure(connection), Base.metadata)
+            == []
+        )
+        command.downgrade(config, "0012_dashboard_indexes")
+        assert connection.scalar(text("SELECT count(*) FROM products")) == 3
+        command.upgrade(config, "head")
+        assert connection.scalar(text("SELECT count(*) FROM product_categories")) == 1
+
+
 def test_stock_maintenance_partial_release_history_and_rollback(catalog):
     service, actor = catalog
     product = create(catalog)

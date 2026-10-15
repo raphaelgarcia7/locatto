@@ -12,6 +12,7 @@ from rentalops_api.config import DatabaseSettings
 from rentalops_api.customer_routes import private_response
 from rentalops_api.database import build_engine, build_session_factory
 from rentalops_api.payment_contracts import (
+    AppliedReceiptCommand,
     CorrectionCommand,
     PaymentCommand,
     PaymentHistoryPage,
@@ -69,6 +70,16 @@ def receipt(
     service: Service,
 ) -> dict[str, object]:
     return service.write(quotation_id, "receipt", payload, identity)[0]
+
+
+@router.post("/received-payments", response_model=PaymentView, dependencies=mutation)
+def received_payment(
+    quotation_id: UUID,
+    payload: AppliedReceiptCommand,
+    identity: CurrentIdentity,
+    service: Service,
+) -> dict[str, object]:
+    return service.write(quotation_id, "receipt_applied", payload, identity)[0]
 
 
 @router.post(

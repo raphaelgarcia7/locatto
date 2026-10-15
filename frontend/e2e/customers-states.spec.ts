@@ -99,7 +99,11 @@ test('customers loading, empty, errors, keyboard, validation and reduced motion'
     await page
       .getByLabel('CPF', { exact: true })
       .evaluate((element) => getComputedStyle(element).outlineWidth),
-  ).toBe('3px');
+  ).toBe('0px');
+  await expect(page.getByLabel('CPF', { exact: true })).not.toHaveCSS(
+    'box-shadow',
+    'none',
+  );
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await visual('keyboard-validation');
   await page.getByRole('button', { name: 'Cancelar', exact: true }).click();

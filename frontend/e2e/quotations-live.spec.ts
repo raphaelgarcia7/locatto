@@ -1,4 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
+import { openRentalWorkflow } from './rental-workflow';
 import { expect, test } from '@playwright/test';
 import type { Page, TestInfo } from '@playwright/test';
 import { randomInt, randomUUID } from 'node:crypto';
@@ -30,7 +31,7 @@ async function login(page: Page) {
     .fill('synthetic quotation browser phrase');
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(
-    page.getByRole('button', { name: 'Novo orçamento' }),
+    page.getByRole('button', { name: 'Nova locação' }),
   ).toBeVisible();
   return account;
 }
@@ -101,16 +102,12 @@ async function visual(page: Page, info: TestInfo, phase: string) {
   });
 }
 async function fillBase(page: Page, seeded: Awaited<ReturnType<typeof seed>>) {
-  await page.getByRole('button', { name: 'Novo orçamento' }).click();
+  await page.getByRole('button', { name: 'Nova locação' }).click();
   await expect(
-    page.getByRole('heading', { name: 'Novo orçamento' }),
+    page.getByRole('heading', { name: 'Nova locação' }),
   ).toBeFocused();
-  await page
-    .getByLabel('Buscar cliente por nome', { exact: true })
-    .fill(seeded.name);
-  await page
-    .getByLabel('Cliente', { exact: true })
-    .selectOption(String(seeded.customer.id));
+  await page.getByLabel('Cliente', { exact: true }).fill(seeded.name);
+  await page.getByRole('option', { name: seeded.name, exact: true }).click();
   await page
     .getByLabel('Retirada prevista', { exact: true })
     .fill('2026-10-10');
@@ -118,16 +115,13 @@ async function fillBase(page: Page, seeded: Awaited<ReturnType<typeof seed>>) {
   await page
     .getByLabel('Devolução prevista', { exact: true })
     .fill('2026-10-13');
-  await page
-    .getByLabel('Validade comercial', { exact: true })
-    .fill('2026-10-09');
   await page.getByLabel('Horário da retirada (opcional)').fill('10:00');
   await page
-    .getByLabel('Buscar no catálogo', { exact: true })
+    .getByLabel('Item do catálogo', { exact: true })
     .fill(seeded.suffix);
   await page
-    .getByLabel('Item do catálogo', { exact: true })
-    .selectOption(String(seeded.kit.id));
+    .locator(`[role=option][data-record-id="${seeded.kit.id}"]`)
+    .click();
   await page
     .getByRole('button', { name: 'Adicionar item', exact: true })
     .click();
@@ -140,7 +134,10 @@ async function fillBase(page: Page, seeded: Awaited<ReturnType<typeof seed>>) {
     .selectOption('product');
   await page
     .getByLabel('Item do catálogo', { exact: true })
-    .selectOption(String(seeded.vase.id));
+    .fill(seeded.suffix);
+  await page
+    .locator(`[role=option][data-record-id="${seeded.vase.id}"]`)
+    .click();
   await page
     .getByRole('button', { name: 'Adicionar item', exact: true })
     .click();
@@ -163,7 +160,9 @@ test('real quotation agreement, custom composition, revisions, expiration, confl
   await page
     .getByRole('button', { name: 'Calcular prévia', exact: true })
     .click();
-  await expect(page.getByText('Demanda 5 · Apto 4')).toBeVisible();
+  await expect(
+    page.getByText('Necessários 5 · Em condições de uso 4'),
+  ).toBeVisible();
   await expect(page.getByText('Faltam 1 · pendência comercial')).toBeVisible();
   await expect(
     page
@@ -196,7 +195,9 @@ test('real quotation agreement, custom composition, revisions, expiration, confl
   await page
     .getByRole('button', { name: 'Calcular prévia', exact: true })
     .click();
-  await expect(page.getByText('Demanda 7 · Apto 4')).toBeVisible();
+  await expect(
+    page.getByText('Necessários 7 · Em condições de uso 4'),
+  ).toBeVisible();
   await visual(page, info, 'customized');
   // Commit succeeded but the response was lost: replay must reconcile the same request ID.
   let requestId = '';
@@ -239,6 +240,7 @@ test('real quotation agreement, custom composition, revisions, expiration, confl
     ),
   ).toBeVisible();
   const id = new URL(page.url()).searchParams.get('orcamento')!;
+  await openRentalWorkflow(page);
   const saved = (await (
     await page.request.get(`/api/quotations/${id}`)
   ).json()) as {
@@ -277,14 +279,15 @@ test('real quotation agreement, custom composition, revisions, expiration, confl
       'O estoque cadastral mudou desde a última consulta. Os valores e a composição acordados foram preservados.',
     ),
   ).toBeVisible();
-  await page.getByRole('link', { name: 'Abrir cliente vinculado' }).click();
+  await page.getByRole('link', { name: 'Ver cadastro do cliente' }).click();
   await expect(
     page.getByRole('heading', { name: 'Orçamentos deste cliente' }),
   ).toBeVisible();
   await page
     .getByRole('link', { name: new RegExp(`Orçamento ${id.slice(0, 8)}`) })
     .click();
-  await page.getByRole('button', { name: 'Criar nova revisão' }).click();
+  await openRentalWorkflow(page);
+  await page.getByRole('button', { name: 'Editar proposta' }).click();
   await page
     .getByLabel('Motivo da nova revisão', { exact: true })
     .fill('Synthetic preserved negotiation');
@@ -292,9 +295,11 @@ test('real quotation agreement, custom composition, revisions, expiration, confl
     .getByRole('button', { name: 'Calcular prévia', exact: true })
     .click();
   await page.getByRole('button', { name: 'Salvar nova revisão' }).click();
-  await expect(
-    page.getByText('ORÇAMENTO · REVISÃO 2', { exact: true }),
-  ).toBeVisible();
+  await expect(page.locator('.quotation-detail')).toHaveAttribute(
+    'data-quotation-version',
+    '2',
+  );
+  await openRentalWorkflow(page);
   expect(
     (
       (await (
@@ -302,7 +307,8 @@ test('real quotation agreement, custom composition, revisions, expiration, confl
       ).json()) as { total: string }
     ).total,
   ).toBe(saved.total);
-  await page.getByRole('button', { name: 'Criar nova revisão' }).click();
+  await openRentalWorkflow(page);
+  await page.getByRole('button', { name: 'Editar proposta' }).click();
   await page
     .getByLabel('Motivo da nova revisão', { exact: true })
     .fill('Synthetic retained local draft');
@@ -355,9 +361,6 @@ test('real quotation agreement, custom composition, revisions, expiration, confl
     .getByLabel('Motivo do preço / composição')
     .fill('Synthetic price preserved after comparing current revision');
   await page
-    .getByLabel('Validade comercial', { exact: true })
-    .fill('2026-10-01');
-  await page
     .getByLabel('Motivo da nova revisão', { exact: true })
     .fill('Synthetic historical expired agreement');
   await page
@@ -367,14 +370,15 @@ test('real quotation agreement, custom composition, revisions, expiration, confl
     page.getByText('Vencido · requer nova revisão antes de fechar'),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Salvar nova revisão' }).click();
-  await expect(
-    page.getByText('ORÇAMENTO · REVISÃO 4', { exact: true }),
-  ).toBeVisible();
+  await expect(page.locator('.quotation-detail')).toHaveAttribute(
+    'data-quotation-version',
+    '4',
+  );
+  await openRentalWorkflow(page);
   await visual(page, info, 'expired');
-  await page.getByRole('button', { name: 'Criar nova revisão' }).click();
-  await page
-    .getByLabel('Validade comercial', { exact: true })
-    .fill('2026-10-09');
+  await openRentalWorkflow(page);
+  await page.getByRole('button', { name: 'Editar proposta' }).click();
+
   await page
     .getByLabel('Motivo da nova revisão', { exact: true })
     .fill('Synthetic renewal after human review');
@@ -407,9 +411,11 @@ test('real quotation agreement, custom composition, revisions, expiration, confl
     .getByRole('button', { name: 'Calcular prévia', exact: true })
     .click();
   await page.getByRole('button', { name: 'Salvar nova revisão' }).click();
-  await expect(
-    page.getByText('ORÇAMENTO · REVISÃO 5', { exact: true }),
-  ).toBeVisible();
+  await expect(page.locator('.quotation-detail')).toHaveAttribute(
+    'data-quotation-version',
+    '5',
+  );
+  await openRentalWorkflow(page);
   await visual(page, info, 'renewed');
   const catalogKit = (await (
     await page.request.get(`/api/kits/${seeded.kit.id}`)
@@ -434,7 +440,8 @@ test('real quotation agreement, custom composition, revisions, expiration, confl
       })
     ).status(),
   ).toBe(200);
-  await page.getByRole('button', { name: 'Criar nova revisão' }).click();
+  await openRentalWorkflow(page);
+  await page.getByRole('button', { name: 'Editar proposta' }).click();
   await page
     .getByRole('region', { name: 'Linha 1', exact: true })
     .getByRole('button', { name: 'Usar valores atuais do catálogo' })
@@ -451,9 +458,11 @@ test('real quotation agreement, custom composition, revisions, expiration, confl
       .getByText('R$ 432,00', { exact: true }),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Salvar nova revisão' }).click();
-  await expect(
-    page.getByText('ORÇAMENTO · REVISÃO 6', { exact: true }),
-  ).toBeVisible();
+  await expect(page.locator('.quotation-detail')).toHaveAttribute(
+    'data-quotation-version',
+    '6',
+  );
+  await openRentalWorkflow(page);
   expect(
     (
       (await (await page.request.get(`/api/quotations/${id}`)).json()) as {
@@ -513,18 +522,16 @@ test('quotation loading, empty, error retry, keyboard and reduced motion', async
     page.getByRole('heading', { name: 'Seu primeiro orçamento começa aqui' }),
   ).toBeVisible();
   await visual(page, info, 'empty');
-  await page.getByRole('button', { name: 'Novo orçamento' }).focus();
+  await page.getByRole('button', { name: 'Nova locação' }).focus();
   await page.keyboard.press('Enter');
   await expect(
-    page.getByRole('heading', { name: 'Novo orçamento' }),
+    page.getByRole('heading', { name: 'Nova locação' }),
   ).toBeFocused();
   await page.keyboard.press('Tab');
-  await expect(
-    page.getByLabel('Buscar cliente por nome', { exact: true }),
-  ).toBeFocused();
+  await expect(page.getByLabel('Cliente', { exact: true })).toBeFocused();
   expect(
     await page
-      .getByLabel('Buscar cliente por nome', { exact: true })
+      .getByLabel('Cliente', { exact: true })
       .evaluate((element) => getComputedStyle(element).outlineStyle),
   ).not.toBe('none');
   expect(
@@ -535,6 +542,6 @@ test('quotation loading, empty, error retry, keyboard and reduced motion', async
   await visual(page, info, 'keyboard');
   await page.getByRole('button', { name: 'Cancelar edição' }).click();
   await expect(
-    page.getByRole('button', { name: 'Novo orçamento' }),
+    page.getByRole('button', { name: 'Nova locação' }),
   ).toBeFocused();
 });

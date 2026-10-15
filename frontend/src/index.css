@@ -1,15 +1,19 @@
 :root {
   font-family: 'Segoe UI', system-ui, sans-serif;
-  color: #202b25;
-  background: #f6f7f4;
+  color: #203247;
+  background: #f4f8fc;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --ink: #202b25;
-  --muted: #56635a;
-  --line: #dce3d7;
-  --green: #456f58;
-  --green-dark: #264834;
-  --cream: #f6f7f4;
+  --ink: #203247;
+  --muted: #5b6d80;
+  --line: #dbe6f0;
+  --primary: #2678b8;
+  --primary-dark: #1c5c91;
+  --primary-soft: #e8f4ff;
+  --focus-ring: #84a7c5;
+  --red: #b8403d;
+  --red-dark: #963330;
+  --cream: #f4f8fc;
   --surface: #ffffff;
   --radius: 16px;
   --space: 8px;
@@ -20,7 +24,7 @@
   place-items: center;
   padding: clamp(16px, 4vw, 48px);
   background:
-    radial-gradient(ellipse at 75% 20%, #e7efdf, transparent 60%), var(--cream);
+    radial-gradient(ellipse at 75% 20%, #e3f1ff, transparent 60%), var(--cream);
 }
 .auth-card {
   width: min(100%, 480px);
@@ -54,7 +58,7 @@
   min-height: 48px;
   padding: 12px;
   font: inherit;
-  border: 1px solid #7b8c7e;
+  border: 1px solid #8196aa;
   border-radius: 10px;
   background: var(--surface);
   color: var(--ink);
@@ -75,7 +79,7 @@
   white-space: normal;
   min-height: 48px;
   padding: 12px 16px;
-  border: 1px solid var(--green);
+  border: 1px solid var(--primary);
   border-radius: 10px;
   font: inherit;
   font-weight: 600;
@@ -83,11 +87,28 @@
 }
 .auth-button {
   color: white;
-  background: var(--green-dark);
+  background: var(--primary);
+  box-shadow: 0 3px 8px #1c5c9118;
 }
 .auth-retry {
-  color: var(--green-dark);
-  background: var(--surface);
+  color: var(--primary-dark);
+  background: var(--primary-soft);
+}
+.auth-button:hover:not(:disabled) {
+  background: var(--primary-dark);
+  border-color: var(--primary-dark);
+}
+.auth-retry:hover:not(:disabled) {
+  background: #d8ebfc;
+}
+.auth-danger {
+  color: #fff;
+  border-color: var(--red);
+  background: var(--red);
+}
+.auth-danger:hover:not(:disabled) {
+  background: var(--red-dark);
+  border-color: var(--red-dark);
 }
 .auth-card .auth-retry {
   margin-top: 16px;
@@ -99,7 +120,7 @@
 }
 .auth-feedback {
   padding: 12px 16px;
-  background: #edf3e9;
+  background: #e8f4ff;
   border: 1px solid var(--line);
   border-radius: 10px;
   overflow-wrap: anywhere;
@@ -131,8 +152,17 @@ svg {
   flex-shrink: 0;
 }
 :focus-visible {
-  outline: 3px solid var(--green-dark);
-  outline-offset: 4px;
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+:focus:not(:focus-visible),
+[tabindex='-1']:focus {
+  outline: none;
+}
+:root :is(input, select, textarea):focus {
+  outline: none;
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 2px #2678b814;
 }
 .skip-link {
   position: fixed;
@@ -142,19 +172,19 @@ svg {
   padding: 12px 16px;
   border-radius: 8px;
   color: white;
-  background: var(--green-dark);
+  background: var(--primary-dark);
   transform: translateY(-150%);
   opacity: 0;
 }
 .skip-link:focus {
   transform: translateY(0);
   opacity: 1;
-  outline-color: #b5d49c;
+  outline-color: #b8dbf7;
 }
 .app-shell {
   min-height: 100svh;
   background:
-    radial-gradient(ellipse at 74% 13%, #e7efdf66, transparent 33%),
+    radial-gradient(ellipse at 74% 13%, #e3f1ff66, transparent 33%),
     var(--cream);
 }
 .sidebar {
@@ -166,7 +196,7 @@ svg {
   flex-direction: column;
   padding: 32px 20px 20px;
   border-right: 1px solid var(--line);
-  background: #fbfcf9;
+  background: #ffffff;
 }
 .brand {
   max-width: 100%;
@@ -183,21 +213,14 @@ svg {
   overflow-wrap: anywhere;
 }
 .brand strong {
-  color: var(--green-dark);
+  color: var(--primary-dark);
   font-size: 23px;
   font-weight: 800;
   letter-spacing: -1px;
   line-height: 1.1;
 }
 .brand strong span {
-  color: var(--green);
-}
-.brand small {
-  margin-top: 5px;
-  color: var(--muted);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.8px;
+  color: var(--primary);
 }
 .brand-mark {
   width: 38px;
@@ -208,12 +231,12 @@ svg {
   gap: 3px;
   padding: 8px;
   border-radius: 12px;
-  background: var(--green-dark);
+  background: var(--primary);
 }
 .brand-mark span {
   width: 5px;
   border-radius: 5px 5px 2px 2px;
-  background: #d6e7d3;
+  background: #e8f5ff;
 }
 .brand-mark span:nth-child(1) {
   height: 10px;
@@ -249,48 +272,13 @@ svg {
   transition: background 0.15s ease;
 }
 .nav-item:hover {
-  background: #f0f4ec;
-  color: var(--green-dark);
+  background: #eaf3fb;
+  color: var(--primary-dark);
 }
 .nav-item.active {
-  color: var(--green-dark);
-  background: #e8f0e3;
-  box-shadow: inset 3px 0 var(--green);
-}
-.nav-index {
-  width: 20px;
-  color: var(--green);
-  font-size: 12px;
-}
-.sidebar-bottom {
-  margin-top: auto;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-}
-.workspace-avatar {
-  width: 36px;
-  height: 36px;
-  display: grid;
-  place-items: center;
-  border-radius: 10px;
-  color: white;
-  background: var(--green);
-  font-weight: 700;
-}
-.sidebar-bottom div {
-  display: grid;
-  gap: 3px;
-}
-.sidebar-bottom strong {
-  font-size: 14px;
-}
-.sidebar-bottom small {
-  color: var(--muted);
-  font-size: 12px;
+  color: #fff;
+  background: var(--primary);
+  box-shadow: 0 4px 12px #1c5c9120;
 }
 .main-content {
   margin-left: 240px;
@@ -333,9 +321,6 @@ svg {
   margin: 0 auto;
   padding: 40px clamp(24px, 4vw, 64px) 24px;
 }
-.page-content:focus {
-  outline-offset: -5px;
-}
 .welcome-section {
   min-height: 324px;
   position: relative;
@@ -355,7 +340,7 @@ svg {
 }
 .eyebrow,
 .section-kicker {
-  color: var(--green);
+  color: var(--primary);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 1.2px;
@@ -368,7 +353,7 @@ svg {
   letter-spacing: -1.8px;
 }
 .welcome-copy h1 em {
-  color: var(--green);
+  color: var(--primary);
   font-style: normal;
 }
 .welcome-copy p {
@@ -518,7 +503,7 @@ svg {
     box-shadow 0.15s ease;
 }
 .module-card:hover {
-  border-color: var(--green);
+  border-color: var(--primary);
   box-shadow: 0 8px 24px #2c3f2d0d;
 }
 .module-card__top {
@@ -533,8 +518,8 @@ svg {
   display: grid;
   place-items: center;
   border-radius: 12px;
-  color: var(--green);
-  background: #edf3e9;
+  color: var(--primary);
+  background: #e8f4ff;
 }
 .module-number {
   color: var(--muted);
@@ -561,7 +546,7 @@ svg {
   margin-top: auto;
   padding-top: 14px;
   border-top: 1px solid var(--line);
-  color: var(--green);
+  color: var(--primary);
   font-size: 13px;
 }
 .assistant-banner {
@@ -628,8 +613,8 @@ svg {
   display: grid;
   place-items: center;
   border-radius: 24px;
-  color: var(--green);
-  background: #edf3e9;
+  color: var(--primary);
+  background: #e8f4ff;
 }
 .state-panel h2 {
   margin: 24px 0 12px;
@@ -650,15 +635,15 @@ svg {
   gap: 12px;
   margin-top: 28px;
   padding: 12px 16px;
-  border: 1px solid var(--green);
+  border: 1px solid var(--primary);
   border-radius: 10px;
-  color: var(--green-dark);
+  color: var(--primary-dark);
   font-size: 15px;
   font-weight: 600;
   text-decoration: none;
 }
 .text-link:hover {
-  background: #edf3e9;
+  background: #e8f4ff;
 }
 .page-footer {
   display: flex;
@@ -704,8 +689,7 @@ svg {
     width: fit-content;
     padding: 0;
   }
-  .sidebar-label,
-  .sidebar-bottom {
+  .sidebar-label {
     display: none;
   }
   .main-nav {

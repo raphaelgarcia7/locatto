@@ -1,3 +1,4 @@
+import { openRentalWorkflow } from './rental-workflow';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 import type { Page, TestInfo } from '@playwright/test';
@@ -101,7 +102,7 @@ async function seed(page: Page) {
     .fill('synthetic custody browser phrase');
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(
-    page.getByRole('button', { name: 'Novo orçamento' }),
+    page.getByRole('button', { name: 'Nova locação' }),
   ).toBeVisible();
   const company = await (await page.request.get('/api/parameters')).json();
   const parameters = await post(page, 'parameters', {
@@ -281,6 +282,7 @@ test('RET01–07 real custody, partial return replay, maintenance close with deb
   const fixture = await seed(page);
   const { rental, quotation, product, contract, customer } = fixture;
   await page.goto(`/locacoes?orcamento=${quotation.id}`);
+  await openRentalWorkflow(page);
   const region = section(page);
   await expect(region.getByText(/Assinatura vigente pendente/)).toBeVisible();
   await expect(
@@ -526,6 +528,7 @@ test('RET01–07 real custody, partial return replay, maintenance close with deb
     }),
   );
   await page.goto(`/locacoes?orcamento=${quotation.id}`);
+  await openRentalWorkflow(page);
   await expect(section(page).getByRole('alert')).toBeVisible();
   await visual(page, info, 'read-error');
   await page.unroute(`**/api/rentals/${rental.id}/operations`);
@@ -611,6 +614,7 @@ test('RET05 reviews exact repair, replacement and delay agreement types before r
     ],
   });
   await page.goto(`/locacoes?orcamento=${quotation.id}`);
+  await openRentalWorkflow(page);
   const region = section(page);
   const incident = region.locator('.custody-incident').filter({
     has: page.getByRole('heading', {

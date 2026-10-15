@@ -414,8 +414,6 @@ class ContractService:
             for pid, (name, quantity) in sorted(demand.items()):
                 entry = inputs.get(pid)
                 condition = entry.condition if entry else None
-                if not condition:
-                    missing(f"items.{pid}.condition", f"Informe a condição de {name}.")
                 query = select(ProductPhoto).where(
                     ProductPhoto.product_id == pid, ProductPhoto.is_attached.is_(True)
                 )

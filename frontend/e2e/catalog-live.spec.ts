@@ -341,6 +341,6 @@ test('real catalog: stale edit retains draft; keyboard focus and photo gallery c
     await page
       .getByRole('button', { name: 'Voltar à lista' })
       .evaluate((element) => getComputedStyle(element).outlineWidth),
-  ).toBe('3px');
+  ).toBe('2px');
   await visual(page, info, 'keyboard-gallery');
 });
