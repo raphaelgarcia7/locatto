@@ -295,6 +295,9 @@
 }
 .operations-calendar-legend {
   display: flex;
+  flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
   gap: 1rem;
   font-size: 0.78rem;
   color: var(--muted);
