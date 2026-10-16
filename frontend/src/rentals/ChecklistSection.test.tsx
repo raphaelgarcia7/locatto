@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { ChecklistSection, type Checklist } from './ChecklistSection';
+import { checklistComplete } from './checklistState';
 
 const initial: Checklist = {
   version: 0,
@@ -38,7 +39,15 @@ it('adds free operational extras, checks products and persists for the team befo
     }),
   );
   const user = userEvent.setup();
-  render(<ChecklistSection rentalId="rental" />);
+  const onCompleted = vi.fn();
+  const onStateChange = vi.fn();
+  render(
+    <ChecklistSection
+      rentalId="rental"
+      onCompleted={onCompleted}
+      onStateChange={onStateChange}
+    />,
+  );
   await screen.findByText('2 × Painel romano');
   await user.type(
     screen.getByLabelText('Adicionar acessório ou lembrete'),
@@ -48,12 +57,16 @@ it('adds free operational extras, checks products and persists for the team befo
   await user.click(screen.getByRole('checkbox', { name: '10 pregadores' }));
   await user.click(screen.getByRole('checkbox', { name: '2 × Painel romano' }));
   expect(screen.getByText(/2 de 2 itens separados/)).toBeVisible();
+  expect(onCompleted).not.toHaveBeenCalled();
+  expect(onStateChange).toHaveBeenLastCalledWith(false);
   expect(
     screen.queryByRole('link', { name: 'Imprimir / baixar checklist' }),
   ).not.toBeInTheDocument();
-  await user.click(screen.getByRole('button', { name: 'Salvar checklist' }));
-  await screen.findByText('Checklist salvo para a equipe.');
+  await user.click(screen.getByRole('button', { name: 'Salvar preparação' }));
+  await screen.findByText(/Preparação concluída|Progresso salvo/);
   expect(bodies).toHaveLength(1);
+  expect(onCompleted).toHaveBeenCalledOnce();
+  expect(onStateChange).toHaveBeenLastCalledWith(true);
   expect(bodies[0]).toMatchObject({
     expected_version: 0,
     expected_rental_version: 1,
@@ -64,6 +77,24 @@ it('adds free operational extras, checks products and persists for the team befo
   expect(
     screen.getByRole('link', { name: 'Imprimir / baixar checklist' }),
   ).toHaveAttribute('href', '/api/rentals/rental/checklist/download');
+});
+
+it('requires a saved, current checklist with every product and extra checked', () => {
+  const complete = {
+    ...initial,
+    version: 1,
+    products: initial.products.map((item) => ({ ...item, checked: true })),
+  };
+  expect(checklistComplete(complete)).toBe(true);
+  expect(checklistComplete({ ...complete, version: 0 })).toBe(false);
+  expect(checklistComplete({ ...complete, needs_recheck: true })).toBe(false);
+  expect(checklistComplete({ ...complete, products: [] })).toBe(false);
+  expect(
+    checklistComplete({
+      ...complete,
+      extras: [{ id: 'extra', label: 'Pregadores', checked: false }],
+    }),
+  ).toBe(false);
 });
 
 it('recovers a lost acknowledgement with the same frozen command and blocks edits', async () => {
@@ -83,13 +114,13 @@ it('recovers a lost acknowledgement with the same frozen command and blocks edit
   await user.click(
     await screen.findByRole('checkbox', { name: '2 × Painel romano' }),
   );
-  await user.click(screen.getByRole('button', { name: 'Salvar checklist' }));
+  await user.click(screen.getByRole('button', { name: 'Salvar preparação' }));
   await screen.findByRole('alert');
   expect(screen.getByRole('checkbox')).toBeDisabled();
   await user.click(
     screen.getByRole('button', { name: 'Recuperar salvamento' }),
   );
-  await screen.findByText('Checklist salvo para a equipe.');
+  await screen.findByText(/Preparação concluída|Progresso salvo/);
   expect(bodies).toHaveLength(2);
   expect(bodies[1]).toBe(bodies[0]);
 });
@@ -111,13 +142,13 @@ it('shows stale-save conflicts without overwriting the other preparer and allows
   const user = userEvent.setup();
   render(<ChecklistSection rentalId="rental" />);
   await user.click(await screen.findByRole('checkbox'));
-  await user.click(screen.getByRole('button', { name: 'Salvar checklist' }));
+  await user.click(screen.getByRole('button', { name: 'Salvar preparação' }));
   await screen.findByRole('alert');
   await user.click(
     screen.getByRole('button', { name: 'Recarregar checklist' }),
   );
   await waitFor(() => expect(screen.getByRole('checkbox')).not.toBeChecked());
   expect(
-    screen.getByRole('button', { name: 'Salvar checklist' }),
+    screen.getByRole('button', { name: 'Salvar progresso' }),
   ).toBeDisabled();
 });

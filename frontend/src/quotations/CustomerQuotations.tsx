@@ -53,20 +53,14 @@ export function CustomerQuotations({ customerId }: { customerId: string }) {
             {data.items.map((item) => (
               <li key={item.id}>
                 <Link to={quotationLink(item.id)}>
-                  Orçamento {item.id.slice(0, 8)} · revisão {item.version}
+                  Orçamento · evento{' '}
+                  {item.event_date.split('-').reverse().join('/')}
                 </Link>
-                <p>
-                  {priceLabel(item.total)} ·{' '}
-                  {item.expired
-                    ? 'Vencido · requer revisão'
-                    : 'Validade vigente'}{' '}
-                  · evento {item.event_date}
-                </p>
+                <p>{priceLabel(item.total)}</p>
                 {item.stock_pending && <p>Pendência de estoque cadastral</p>}
                 {item.rental ? (
                   <p>
-                    {rentalStateLabel[item.rental.state]} · locação v
-                    {item.rental.version}
+                    {rentalStateLabel[item.rental.state]}
                     {item.rental.inventory_pending
                       ? ' · pendência de estoque'
                       : ''}

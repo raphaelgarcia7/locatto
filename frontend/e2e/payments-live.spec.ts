@@ -42,7 +42,7 @@ async function setup(page: Page) {
     .fill('synthetic payment browser phrase');
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(
-    page.getByRole('button', { name: 'Nova locação' }),
+    page.getByRole('heading', { name: 'Nova locação', exact: true }),
   ).toBeVisible();
   const suffix = randomUUID().slice(0, 8);
   const customer = await post(

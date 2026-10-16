@@ -150,7 +150,7 @@ def test_migration_head_constraints_metadata_repeat_rollback(isolated_engine):
         command.upgrade(config, "head")
         assert (
             connection.scalar(text("SELECT version_num FROM alembic_version"))
-            == "0015_rental_checklists"
+            == "0016_optional_contracts"
         )
         assert set(inspect(connection).get_table_names()) == previous | {
             "product_categories",

@@ -6,15 +6,19 @@ import type { Page } from '@playwright/test';
 export async function openRentalWorkflow(page: Page) {
   await expect(page.locator('.quotation-detail')).toBeVisible();
   for (const title of [
-    'Pagamento',
-    'Preparação · contrato e checklist',
-    'Retirada e devolução',
-    'Reservar com sinal já registrado',
-    'Histórico da reserva',
-    'Alterações e cancelamento',
-    'Consulta de estoque e histórico',
+    /^Pagamento/,
+    /^Preparação/,
+    /^Contrato · gerar/,
+    /^(Retirada|Devolução)/,
+    /^Mais opções · histórico/,
+    /^Mais opções · autorização/,
+    /^Faltou item ou houve avaria/,
+    /^Reservar com sinal já registrado/,
+    /^Histórico da reserva/,
+    /^Alterações e cancelamento/,
+    /^Consulta de estoque e histórico/,
   ]) {
-    const summary = page.getByText(title, { exact: true });
+    const summary = page.locator('summary').filter({ hasText: title }).first();
     if (!(await summary.count())) continue;
     if (
       !(await summary

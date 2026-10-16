@@ -237,7 +237,7 @@ class RentalChangeService(RentalService):
                 "expected_rental_version": rental.version if rental else 0,
                 "expected_quotation_version": header.current_version,
                 "expected_financial_version": financial["financial_version"],
-                "requires_new_signature": True,
+                "requires_new_signature": False,
                 "readonly": True,
             }
 

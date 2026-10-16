@@ -113,3 +113,30 @@
 .payments-section .catalog-form > fieldset > label {
   margin-bottom: 0;
 }
+.payment-milestones {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  gap: 1rem;
+  margin-block: 1rem;
+}
+.payment-milestone {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.payment-milestone--done {
+  background: var(--success-soft);
+  border-color: #9acdb7;
+  color: var(--success);
+}
+.payment-due {
+  padding: 0.9rem 1rem;
+  border-radius: 10px;
+  color: var(--warning);
+  background: var(--warning-soft);
+}

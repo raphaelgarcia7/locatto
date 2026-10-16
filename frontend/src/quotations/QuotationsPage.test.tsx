@@ -81,22 +81,30 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-it('refreshes unchanged filters when the user submits search again', async () => {
+it('opens the new rental editor directly without a quotation search or technical fields', async () => {
   render(
     <MemoryRouter>
       <QuotationsPage />
     </MemoryRouter>,
   );
-  await screen.findByRole('heading', {
-    name: 'Seu primeiro orçamento começa aqui',
-  });
-  const requests = fetchMock.mock.calls.length;
-  await userEvent.click(
-    screen.getByRole('button', { name: 'Buscar locações' }),
-  );
-  await waitFor(() =>
-    expect(fetchMock.mock.calls.length).toBeGreaterThan(requests),
-  );
+  expect(
+    await screen.findByRole('heading', { name: 'Nova locação' }),
+  ).toBeVisible();
+  expect(screen.getByRole('combobox', { name: 'Cliente' })).toBeVisible();
+  expect(
+    screen.queryByRole('button', { name: 'Nova locação' }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('button', { name: 'Buscar locações' }),
+  ).not.toBeInTheDocument();
+  expect(screen.queryByLabelText('ID do cliente')).not.toBeInTheDocument();
+  expect(screen.queryByLabelText('ID do orçamento')).not.toBeInTheDocument();
+  expect(
+    fetchMock.mock.calls.filter(([url]) => url === '/api/quotations/search'),
+  ).toHaveLength(0);
+  expect(
+    screen.getByRole('link', { name: 'Consultar orçamentos por cliente' }),
+  ).toHaveAttribute('href', '/clientes');
 });
 
 it('keeps the exact saved lines by identity rather than accepting new catalog prices', () => {
@@ -112,49 +120,6 @@ it('keeps the exact saved lines by identity rather than accepting new catalog pr
   expect(draft.expected_version).toBe(1);
   expect(draft.pickup_time).toBe('10:00');
   expect('total' in draft).toBe(false);
-});
-
-it('posts private search filters in the body and displays error retry and empty', async () => {
-  fetchMock.mockResolvedValueOnce(
-    response({ detail: 'Serviço indisponível.' }, 503),
-  );
-  render(
-    <MemoryRouter>
-      <QuotationsPage />
-    </MemoryRouter>,
-  );
-  expect(await screen.findByRole('alert')).toHaveTextContent(
-    'Serviço indisponível.',
-  );
-  await userEvent.click(
-    screen.getByRole('button', { name: 'Tentar novamente' }),
-  );
-  expect(
-    await screen.findByRole('heading', {
-      name: 'Seu primeiro orçamento começa aqui',
-    }),
-  ).toBeVisible();
-  await userEvent.type(
-    screen.getByLabelText('Nome do cliente'),
-    'Cliente Sintético',
-  );
-  expect(screen.queryByLabelText('ID do cliente')).not.toBeInTheDocument();
-  expect(screen.queryByLabelText('ID do orçamento')).not.toBeInTheDocument();
-  await userEvent.click(
-    screen.getByRole('button', { name: 'Buscar locações' }),
-  );
-  await waitFor(() =>
-    expect(
-      fetchMock.mock.calls.some(
-        ([url, options]) =>
-          url === '/api/quotations/search' &&
-          JSON.parse(options.body).customer_name === 'Cliente Sintético',
-      ),
-    ).toBe(true),
-  );
-  expect(
-    fetchMock.mock.calls.every(([url]) => !String(url).includes('Cliente')),
-  ).toBe(true);
 });
 
 it('reconciles an uncertain revision with the identical key/body and no false success', async () => {

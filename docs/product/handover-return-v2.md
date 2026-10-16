@@ -1,5 +1,9 @@
 # Custódia, recebimento real e ocorrências — handover-return-v2
 
+Atualização humana 16/10/2026: contrato e assinatura são opcionais. As antigas
+exigências documentais abaixo são históricas e foram substituídas pela
+[política de contrato opcional](optional-contracts.md). As demais validações permanecem.
+
 Escopo implementado da ROP-014. Base humana: plano consolidado v1 de 2026-10-08 e
 complemento explicitamente aprovado em 2026-10-11. Issue #14 atualizada em
 2026-10-11T19:10:48Z, body UTF-8 SHA-256

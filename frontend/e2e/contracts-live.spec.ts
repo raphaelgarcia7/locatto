@@ -570,7 +570,9 @@ test('issued versions, missing photos, lost acknowledgement, delivery and manual
     }),
   ).toBeVisible();
   await expect(
-    section(page).getByText('Assinatura vigente pendente.'),
+    section(page).getByText(
+      'Sem assinatura registrada. Isso não bloqueia as operações.',
+    ),
   ).toBeVisible();
   const historical = await page.request.get(
     `/api/contracts/${first.contract_id}/versions/1/download`,

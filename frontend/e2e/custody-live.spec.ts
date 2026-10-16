@@ -78,22 +78,24 @@ async function post(page: Page, path: string, data: object, status = 200) {
   expect(response.status(), path).toBe(status);
   return response.json();
 }
-async function seed(page: Page) {
+async function seed(
+  page: Page,
+  backendOrigin = process.env.RENTALOPS_TEST_CONTROL_ORIGIN ??
+    'http://127.0.0.1:8000',
+  skipContract = false,
+) {
   const setup = await page.request.post(
-    'http://127.0.0.1:8000/__test/setup?isolated=true',
+    `${backendOrigin}/__test/setup?isolated=true`,
   );
   expect(setup.status()).toBe(200);
   const account = await setup.json();
-  const access = await page.request.post(
-    'http://127.0.0.1:8000/auth/password/set',
-    {
-      headers: { Origin: origin },
-      data: {
-        token: account.token,
-        password: 'synthetic custody browser phrase',
-      },
+  const access = await page.request.post(`${backendOrigin}/auth/password/set`, {
+    headers: { Origin: origin },
+    data: {
+      token: account.token,
+      password: 'synthetic custody browser phrase',
     },
-  );
+  });
   expect(access.status()).toBe(204);
   await page.goto('/locacoes');
   await page.getByLabel('E-mail', { exact: true }).fill(account.email);
@@ -102,7 +104,7 @@ async function seed(page: Page) {
     .fill('synthetic custody browser phrase');
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(
-    page.getByRole('button', { name: 'Nova locação' }),
+    page.getByRole('heading', { name: 'Nova locação', exact: true }),
   ).toBeVisible();
   const company = await (await page.request.get('/api/parameters')).json();
   const parameters = await post(page, 'parameters', {
@@ -193,6 +195,8 @@ async function seed(page: Page) {
     },
     201,
   );
+  if (skipContract)
+    return { quotation, rental, product, customer, contract: null };
   const contract = await post(page, `quotations/${quotation.id}/contracts`, {
     request_id: randomUUID(),
     expected_quotation_version: 1,
@@ -213,6 +217,181 @@ function section(page: Page) {
     exact: true,
   });
 }
+
+test('pickup layout: aligned update action and clearly marked warnings', async ({
+  page,
+}, info) => {
+  const { quotation } = await seed(page);
+  await page.goto(`/locacoes?orcamento=${quotation.id}`);
+  await page.getByRole('button', { name: 'Retirada', exact: true }).click();
+  const custody = page.getByRole('region', { name: 'Conferência da locação' });
+  const heading = custody.getByRole('heading', {
+    name: 'Confirmar retirada',
+    exact: true,
+  });
+  const refresh = custody.getByRole('button', {
+    name: 'Atualizar conferência',
+  });
+  await expect(heading).toBeVisible();
+  await expect(refresh).toBeVisible();
+  const titleBounds = (await heading.boundingBox())!;
+  expect(titleBounds.height).toBeLessThan(80);
+  const refreshBounds = (await refresh.boundingBox())!;
+  const rowBounds = (await custody
+    .locator('.custody-step-heading')
+    .boundingBox())!;
+  expect(refreshBounds.x).toBeGreaterThan(titleBounds.x + titleBounds.width);
+  expect(
+    Math.abs(
+      refreshBounds.x + refreshBounds.width - rowBounds.x - rowBounds.width,
+    ),
+  ).toBeLessThanOrEqual(1);
+  expect(
+    Math.abs(
+      titleBounds.y +
+        titleBounds.height / 2 -
+        refreshBounds.y -
+        refreshBounds.height / 2,
+    ),
+  ).toBeLessThanOrEqual(1);
+  const warning = custody
+    .locator('.auth-feedback')
+    .filter({ hasText: 'Contrato opcional.' });
+  const action = warning.getByRole('button', { name: 'Conferir contrato' });
+  await expect(action).toHaveCSS('display', 'block');
+  await expect(action).toHaveCSS('margin-top', '5px');
+  await expect(warning).toBeVisible();
+  for (const alert of await custody.locator('.operational-warning').all()) {
+    expect(
+      await alert.evaluate(
+        (element) => getComputedStyle(element, '::before').content,
+      ),
+    ).toBe('"!"');
+  }
+  await expect(custody.getByText(/Há saldo pendente/)).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await custody.screenshot({
+    path: info.outputPath('pickup-warnings-layout.png'),
+  });
+  await action.focus();
+  await page.keyboard.press('Enter');
+  await expect(
+    page.getByRole('region', { name: 'Contratos', exact: true }),
+  ).toBeVisible();
+});
+
+test('guided rental: remaining payment, saved preparation, named pickup and checked return', async ({
+  page,
+}, info) => {
+  const { quotation, rental, product } = await seed(
+    page,
+    process.env.RENTALOPS_TEST_CONTROL_ORIGIN,
+    true,
+  );
+  await page.goto(`/locacoes?orcamento=${quotation.id}`);
+  const paymentPanel = page
+    .locator('.quotation-detail > details')
+    .filter({ has: page.locator('summary').filter({ hasText: /^Pagamento/ }) })
+    .first();
+  await paymentPanel.locator(':scope > summary').click();
+  const payment = page.getByRole('region', { name: 'Pagamentos da locação' });
+  await expect(
+    payment.getByText('✓ Sinal pago', { exact: true }),
+  ).toBeVisible();
+  await expect(payment.getByText(/Pendência financeira:/)).toContainText(
+    '200,00',
+  );
+  await payment
+    .getByRole('button', { name: 'Restante pago', exact: true })
+    .click();
+  await expect(payment.getByLabel('Valor em reais')).toHaveValue('200.00');
+  await payment
+    .getByRole('button', { name: 'Confirmar pagamento recebido', exact: true })
+    .click();
+  await expect(
+    payment.getByText('✓ Restante pago', { exact: true }),
+  ).toBeVisible();
+  await expect(payment.getByText(/Pendência financeira:/)).toHaveCount(0);
+  await payment.screenshot({ path: info.outputPath('payment-complete.png') });
+  await page.getByRole('button', { name: 'Preparação', exact: true }).click();
+  const checklist = page.getByRole('region', {
+    name: 'Checklist de separação',
+  });
+  await checklist
+    .getByLabel('Adicionar acessório ou lembrete')
+    .fill('Pregadores sintéticos');
+  await checklist.getByRole('button', { name: 'Adicionar extra' }).click();
+  await checklist
+    .getByRole('checkbox', { name: 'Pregadores sintéticos' })
+    .check();
+  await expect(
+    checklist.getByRole('button', { name: 'Salvar progresso' }),
+  ).toBeVisible();
+  await checklist
+    .getByRole('checkbox', { name: `10 × ${product.name}` })
+    .check();
+  await checklist.screenshot({
+    path: info.outputPath('preparation-ready-to-save.png'),
+  });
+  await checklist.getByRole('button', { name: 'Salvar preparação' }).click();
+  const custody = page.getByRole('region', { name: 'Conferência da locação' });
+  await expect(custody).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Preparação concluído' }),
+  ).toBeVisible();
+  await expect(
+    custody.getByRole('button', { name: 'Confirmar retirada', exact: true }),
+  ).toBeEnabled();
+  await expect(custody.getByText(/Contrato opcional/)).toBeVisible();
+  await custody.getByLabel('Nome de quem retira').fill('Pessoa sintética');
+  await expect(
+    custody.getByRole('button', { name: 'Confirmar retirada', exact: true }),
+  ).toBeEnabled();
+  await custody.screenshot({ path: info.outputPath('pickup-ready.png') });
+  await custody
+    .getByRole('button', { name: 'Confirmar retirada', exact: true })
+    .click();
+  await expect(page.locator('.quotation-state')).toHaveText('Materiais em uso');
+  const productReturn = custody.getByRole('checkbox', {
+    name: `10 × ${product.name}`,
+  });
+  await productReturn.check();
+  await expect(
+    custody.getByRole('button', { name: 'Confirmar devolução e concluir' }),
+  ).toBeDisabled();
+  await custody
+    .getByRole('checkbox', { name: 'Pregadores sintéticos' })
+    .check();
+  await custody.screenshot({ path: info.outputPath('return-checklist.png') });
+  const access = await new AxeBuilder({ page }).analyze();
+  expect(access.violations).toEqual([]);
+  await custody
+    .getByRole('button', { name: 'Confirmar devolução e concluir' })
+    .focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.quotation-state')).toHaveText(
+    'Locação concluída',
+  );
+  const operations = await get(page, `/api/rentals/${rental.id}/operations`);
+  expect(operations.state).toBe('completed');
+  expect(operations.lines[0].received).toBe(10);
+  expect(operations.lines[0].outstanding).toBe(0);
+  expect(operations.financial.remaining).toBe('0.00');
+  expect(operations.handover.reason).toContain('Pessoa sintética');
+  expect(operations.returns[0].observation).toContain('Pregadores sintéticos');
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page
+    .locator('.quotation-detail')
+    .screenshot({ path: info.outputPath('rental-complete.png') });
+});
 async function visual(page: Page, info: TestInfo, name: string) {
   const region = section(page);
   expect(
@@ -284,7 +463,9 @@ test('RET01–07 real custody, partial return replay, maintenance close with deb
   await page.goto(`/locacoes?orcamento=${quotation.id}`);
   await openRentalWorkflow(page);
   const region = section(page);
-  await expect(region.getByText(/Assinatura vigente pendente/)).toBeVisible();
+  await expect(
+    region.getByText(/Contrato e assinatura opcionais/),
+  ).toBeVisible();
   await expect(
     region.getByRole('button', { name: 'Preparar prévia da saída' }),
   ).toBeDisabled();

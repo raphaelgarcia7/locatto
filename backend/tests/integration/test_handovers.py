@@ -409,7 +409,7 @@ def test_ret03_real_calendar_next_day_early_weekend_holiday_month_year_and_timez
         assert available(custody, row["product_id"], next_day) == row["quantity"]
 
 
-def test_ret01_missing_contract_and_earlier_signature_never_bypass_financial_exception(
+def test_ret01_optional_contract_preserves_financial_integral_and_version_guards(
     custody,
 ):
     service, actor, identifier, contracts, changes = custody
@@ -443,11 +443,11 @@ def test_ret01_missing_contract_and_earlier_signature_never_bypass_financial_exc
         service.execute(identifier, "handover", stale, actor)
     assert error.value.code == "version_conflict"
     pending = stale.model_copy(update={"expected_contract_version": 2})
-    with pytest.raises(RentalError) as error:
-        service.execute(identifier, "handover", pending, actor)
-    assert error.value.code == "signature_required"
-    assert service.get_operations(identifier)["handover"] is None
-    # A separate confirmed business record without any series fails the same gate.
+    state, _ = service.execute(identifier, "handover", pending, actor)
+    assert state["state"] == "out"
+    assert state["handover"]["contract_version"] == 2
+    assert state["contract"]["signed"] is False
+    # A separate confirmed business record can operate without any series.
     from .test_payments import allocation, reconcile
     from .test_payments import receive as money_receive
     from .test_quotations import create
@@ -476,9 +476,52 @@ def test_ret01_missing_contract_and_earlier_signature_never_bypass_financial_exc
         ],
         balance_exception="Exceção",
     )
-    with pytest.raises(RentalError) as error:
-        service.execute(no_contract[2], "handover", body, actor)
-    assert error.value.code == "signature_required"
+    state, _ = service.execute(no_contract[2], "handover", body, actor)
+    assert state["state"] == "out"
+    assert state["handover"]["contract_id"] is None
+    assert state["handover"]["contract_version"] is None
+    incident = state["incidents"][0]
+    payload = command(
+        no_contract,
+        FinancialAgreementCommand,
+        kind="delay",
+        quantity=1,
+        amount="5.00",
+        agreed=True,
+    )
+    result, _ = service.execute(
+        no_contract[2], "agreement", payload, actor, UUID(incident["id"])
+    )
+    assert result["agreements"][0]["contract_id"] is None
+    assert result["agreements"][0]["contract_version"] is None
+    returned, _ = receive(
+        no_contract,
+        [
+            {
+                "product_id": row["product_id"],
+                "quantity": row["outstanding"],
+                "condition": "fit",
+            }
+            for row in result["lines"]
+            if row["outstanding"] > 0
+        ],
+    )
+    assert returned[0]["can_close"]
+    closed, _ = service.execute(no_contract[2], "close", command(no_contract), actor)
+    assert closed["state"] == "completed"
+    assert closed["financial"]["extra_agreed"] == "5.00"
+    from alembic import command as migrations
+
+    from ..conftest import migration_config
+
+    with (
+        service.factory() as db,
+        pytest.raises(RuntimeError, match="Preserve operations without contracts"),
+    ):
+        migrations.downgrade(
+            migration_config(db.connection()), "0015_rental_checklists"
+        )
+    assert service.get_operations(no_contract[2])["state"] == "completed"
 
 
 def test_ret06_unknown_commit_ack_replay_and_v2_maintenance_close_rollback(custody):

@@ -19,11 +19,10 @@ export function GuidedPayment({
   reserveWithDeposit?: boolean;
   editing?: boolean;
 }) {
-  const unpaid =
-    BigInt(data.total.replace('.', '')) -
-    BigInt(data.net_received.replace('.', ''));
-  const outstanding = unpaid > 0n ? unpaid : 0n;
-  const outstandingAmount = `${outstanding / 100n}.${String(outstanding % 100n).padStart(2, '0')}`;
+  const outstanding = BigInt(data.remaining.replace('.', ''));
+  const canReceive =
+    BigInt(data.net_received.replace('.', '')) <
+    BigInt(data.total.replace('.', ''));
   return (
     <div className="payment-guide">
       <h4>Resumo do pagamento</h4>
@@ -38,7 +37,7 @@ export function GuidedPayment({
         </div>
         <div>
           <dt>Falta pagar</dt>
-          <dd>{priceLabel(outstandingAmount)}</dd>
+          <dd>{priceLabel(data.remaining)}</dd>
         </div>
       </dl>
       <p
@@ -54,36 +53,84 @@ export function GuidedPayment({
             ? onNext
               ? 'Sinal recebido. Confirme a reserva para garantir os itens.'
               : 'Sinal recebido. Registre o restante quando o cliente pagar.'
-            : `Para reservar, o sinal é de ${priceLabel(data.estimated_deposit)}.`}
+            : reserveWithDeposit
+              ? 'Marque o sinal como pago após receber. Vamos conferir o estoque e confirmar a reserva.'
+              : `Sinal previsto: ${priceLabel(data.estimated_deposit)}.`}
       </p>
       {data.pending !== '0.00' && data.pending !== data.excess && (
-        <p role="status">
+        <p role="status" className="operational-warning">
           Há {priceLabel(data.pending)} já recebido(s) para conferir. Não
           registre esse dinheiro novamente.
         </p>
       )}
       {data.excess !== '0.00' && (
-        <p role="status">
+        <p role="status" className="operational-warning">
           Excedente de {priceLabel(data.excess)} para decisão da equipe, sem
           devolução automática.
         </p>
       )}
+      <div className="payment-milestones">
+        <div
+          className={
+            data.deposit_validated
+              ? 'payment-milestone payment-milestone--done'
+              : 'payment-milestone'
+          }
+        >
+          <strong>Sinal · {priceLabel(data.estimated_deposit)}</strong>
+          <span>
+            {data.deposit_validated ? '✓ Sinal pago' : 'Aguardando pagamento'}
+          </span>
+          {!editing &&
+            canReceive &&
+            !data.deposit_validated &&
+            !data.fully_paid && (
+              <button
+                className="auth-button"
+                disabled={disabled}
+                onClick={() => onReceive('deposit')}
+              >
+                Sinal pago
+              </button>
+            )}
+        </div>
+        <div
+          className={
+            data.fully_paid
+              ? 'payment-milestone payment-milestone--done'
+              : 'payment-milestone'
+          }
+        >
+          <strong>Restante</strong>
+          <span>
+            {data.fully_paid
+              ? '✓ Restante pago'
+              : data.deposit_validated
+                ? `Pendente · ${priceLabel(data.remaining)}`
+                : `Após o sinal · ${priceLabel(data.balance_remaining)}`}
+          </span>
+          {!editing &&
+            data.deposit_validated &&
+            canReceive &&
+            !data.fully_paid &&
+            outstanding > 0n && (
+              <button
+                className="auth-button"
+                disabled={disabled}
+                onClick={() => onReceive('balance')}
+              >
+                Restante pago
+              </button>
+            )}
+        </div>
+      </div>
+      {!data.fully_paid && outstanding > 0n && (
+        <p className="payment-due">
+          Pendência financeira: {priceLabel(data.remaining)}. Registre somente
+          quando o cliente pagar.
+        </p>
+      )}
       <div className="catalog-actions">
-        {!editing && !data.fully_paid && outstanding > 0n && (
-          <button
-            className="auth-button"
-            disabled={disabled}
-            onClick={() =>
-              onReceive(data.deposit_validated ? 'balance' : 'deposit')
-            }
-          >
-            {data.deposit_validated
-              ? 'Registrar restante'
-              : reserveWithDeposit
-                ? 'Registrar sinal e reservar'
-                : 'Registrar pagamento'}
-          </button>
-        )}
         {!editing && data.deposit_validated && onNext && (
           <button className="auth-button" disabled={disabled} onClick={onNext}>
             Confirmar reserva

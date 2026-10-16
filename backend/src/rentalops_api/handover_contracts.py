@@ -133,8 +133,8 @@ class HandoverView(EventView):
     lines: list[SnapshotLineView]
     third_party: ThirdParty | None
     balance_exception: str | None
-    contract_id: UUID
-    contract_version: int
+    contract_id: UUID | None
+    contract_version: int | None
 
 
 class ReturnView(EventView):
@@ -156,8 +156,8 @@ class AgreementView(EventView):
     kind: Literal["repair", "replacement", "delay"]
     amount: str
     financial_version: int
-    contract_id: UUID
-    contract_version: int
+    contract_id: UUID | None
+    contract_version: int | None
 
 
 class ForecastView(EventView):

@@ -108,9 +108,11 @@ function reason(form: FormData) {
 export function CustodySection({
   quotation,
   onChanged,
+  onPendingChange,
 }: {
   quotation: Quotation;
   onChanged: () => void;
+  onPendingChange?: (pending: boolean) => void;
 }) {
   const id = quotation.rental?.id;
   const [data, setData] = useState<Custody | null>(null);
@@ -128,6 +130,9 @@ export function CustodySection({
   const flight = useRef(false);
   const feedback = useRef<HTMLDivElement>(null);
   const approval = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    onPendingChange?.(busy || Boolean(pending));
+  }, [busy, pending, onPendingChange]);
   useEffect(() => {
     if (!id) return;
     const controller = new AbortController();
@@ -248,9 +253,9 @@ export function CustodySection({
     >
       <h3 id="custody-title">Retirada, devolução e ocorrências</h3>
       <p>
-        Confira produtos completos. A assinatura vigente é obrigatória para a
-        saída. Recebidos aptos ficam disponíveis no dia seguinte em São Paulo;
-        manutenção exige liberação explícita.
+        Confira produtos completos. Contrato e assinatura são opcionais e não
+        bloqueiam a saída. Recebidos aptos ficam disponíveis no dia seguinte em
+        São Paulo; manutenção exige liberação explícita.
       </p>
       {loading && <p role="status">Carregando conferência…</p>}
       {!id && (
@@ -346,7 +351,7 @@ export function CustodySection({
                 <p>
                   {data.contract.ready_for_pickup
                     ? 'Contrato vigente assinado e conferido.'
-                    : 'Assinatura vigente pendente. Registre e confira na seção Contratos antes da saída.'}
+                    : 'Contrato e assinatura opcionais. A retirada pode seguir sem documento.'}
                 </p>
                 {data.lines.map((line) => (
                   <label key={line.product_id}>
@@ -400,7 +405,6 @@ export function CustodySection({
                 <button
                   className="auth-button"
                   disabled={
-                    !data.contract.ready_for_pickup ||
                     !data.financial.deposit_validated ||
                     (data.financial.remaining !== '0.00' && !exception)
                   }

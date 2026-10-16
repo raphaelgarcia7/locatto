@@ -1,6 +1,6 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, useNavigate } from 'react-router';
+import { MemoryRouter, useLocation, useNavigate } from 'react-router';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { QuotationsPage } from './QuotationsPage';
 
@@ -8,6 +8,7 @@ const first = '11111111-1111-4111-8111-111111111111';
 const second = '22222222-2222-4222-8222-222222222222';
 const quotation = {
   id: first,
+  customer_id: '33333333-3333-4333-8333-333333333333',
   version: 1,
   total: '100.01',
   event_date: '2026-10-11',
@@ -86,8 +87,14 @@ afterEach(() => vi.unstubAllGlobals());
 
 function Navigation() {
   const navigate = useNavigate();
+  const location = useLocation();
   return (
     <>
+      <p data-testid="location">
+        {location.pathname}
+        {location.search}
+      </p>
+      <button onClick={() => void navigate('/locacoes')}>New route</button>
       <button onClick={() => void navigate(`/locacoes?orcamento=${second}`)}>
         Second route
       </button>
@@ -108,144 +115,118 @@ function renderPage(route = '/locacoes') {
   );
 }
 
-it('does not search a hidden list for direct UUID, edit or saved revision; closing reads fresh', async () => {
-  renderPage(`/locacoes?orcamento=${first}`);
-  expect(
-    await screen.findByRole('heading', { name: `Detail ${first}` }),
-  ).toBeVisible();
+it('creates directly, saves without a hidden list read, edits and returns to the customer', async () => {
+  renderPage();
+  await screen.findByRole('heading', { name: 'Editor' });
   expect(searches()).toHaveLength(0);
+  await userEvent.click(screen.getByRole('button', { name: 'Save selected' }));
+  await screen.findByRole('heading', { name: `Detail ${first}` });
+  expect(fetchMock).not.toHaveBeenCalled();
   await userEvent.click(screen.getByRole('button', { name: 'Edit selected' }));
-  expect(await screen.findByRole('heading', { name: 'Editor' })).toBeVisible();
-  expect(searches()).toHaveLength(0);
+  await screen.findByRole('heading', { name: 'Editor' });
   await userEvent.click(screen.getByRole('button', { name: 'Save selected' }));
-  expect(await screen.findByText('Version 2')).toBeVisible();
+  await screen.findByText('Version 2');
+  await userEvent.click(screen.getByRole('button', { name: 'Close selected' }));
+  expect(screen.getByTestId('location')).toHaveTextContent(
+    '/clientes?cliente=33333333-3333-4333-8333-333333333333',
+  );
   expect(searches()).toHaveLength(0);
-  await userEvent.click(screen.getByRole('button', { name: 'Close selected' }));
-  expect(await screen.findByText('51 orçamento(s) · página 1')).toBeVisible();
-  expect(searches()).toHaveLength(1);
 });
 
-it('preserves list filters and pagination through selection and refreshes the list on return', async () => {
-  renderPage();
-  await screen.findByText('51 orçamento(s) · página 1');
-  await userEvent.type(
-    screen.getByLabelText('Nome do cliente'),
-    'Cliente Azul',
-  );
-  await userEvent.click(
-    screen.getByRole('button', { name: 'Buscar locações' }),
-  );
-  await waitFor(() => expect(searches()).toHaveLength(2));
-  await userEvent.click(screen.getByRole('button', { name: 'Próxima página' }));
-  await screen.findByText('51 orçamento(s) · página 2');
-  expect(searches()).toHaveLength(3);
-  await userEvent.click(screen.getByRole('link', { name: 'Abrir orçamento' }));
+it('returns from editing to the same detail and cancels a new rental to the overview', async () => {
+  renderPage(`/locacoes?orcamento=${first}`);
   await screen.findByRole('heading', { name: `Detail ${first}` });
-  expect(searches()).toHaveLength(3);
-  await userEvent.click(screen.getByRole('button', { name: 'Close selected' }));
-  await waitFor(() => expect(searches()).toHaveLength(4));
-  await screen.findByText('51 orçamento(s) · página 2');
-  expect(screen.getByLabelText('Nome do cliente')).toHaveValue('Cliente Azul');
-  expect(JSON.parse(searches().at(-1)![1].body)).toEqual({
-    customer_name: 'Cliente Azul',
-    page: 2,
-  });
+  await userEvent.click(screen.getByRole('button', { name: 'Edit selected' }));
+  await screen.findByRole('heading', { name: 'Editor' });
+  await userEvent.click(screen.getByRole('button', { name: 'Cancel editor' }));
+  await screen.findByRole('heading', { name: `Detail ${first}` });
+  expect(screen.getByTestId('location')).toHaveTextContent(first);
+  await userEvent.click(screen.getByRole('button', { name: 'New route' }));
+  await screen.findByRole('heading', { name: 'Editor' });
+  await userEvent.click(screen.getByRole('button', { name: 'Cancel editor' }));
+  expect(screen.getByTestId('location')).toHaveTextContent(/^\/$/);
+  expect(searches()).toHaveLength(0);
 });
 
-it('aborts pending list reads when hidden and ignores their stale response after a new save', async () => {
+it('aborts stale identifier reads and hides the old record until the next identifier resolves', async () => {
   let finish!: (value: ReturnType<typeof response>) => void;
-  const pending = new Promise<ReturnType<typeof response>>((resolve) => {
-    finish = resolve;
-  });
-  fetchMock.mockImplementationOnce(() => pending);
-  renderPage();
-  await waitFor(() => expect(searches()).toHaveLength(1));
-  const signal = searches()[0][1].signal as AbortSignal;
-  await userEvent.click(screen.getByRole('button', { name: 'Nova locação' }));
-  expect(signal.aborted).toBe(true);
-  await act(async () => {
-    finish(response({ items: [], total: 0, page: 99, page_size: 25 }));
-  });
-  expect(screen.getByRole('heading', { name: 'Editor' })).toBeVisible();
-  await userEvent.click(screen.getByRole('button', { name: 'Save selected' }));
-  await screen.findByRole('heading', { name: `Detail ${first}` });
-  expect(searches()).toHaveLength(1);
-  await userEvent.click(screen.getByRole('button', { name: 'Close selected' }));
-  expect(await screen.findByText('51 orçamento(s) · página 1')).toBeVisible();
-  expect(searches()).toHaveLength(2);
-});
-
-it('aborts stale identifier reads and keeps the existing detail until the next identifier resolves', async () => {
-  let finishFirst!: (value: ReturnType<typeof response>) => void;
   const normal = fetchMock.getMockImplementation()!;
   fetchMock.mockImplementation((url, ...args) =>
     url === `/api/quotations/${first}`
       ? new Promise((resolve) => {
-          finishFirst = resolve;
+          finish = resolve;
         })
       : normal(url, ...args),
   );
   renderPage(`/locacoes?orcamento=${first}`);
   await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-  const signal = fetchMock.mock.calls.find(
-    ([url]) => url === `/api/quotations/${first}`,
-  )![1].signal as AbortSignal;
+  const signal = fetchMock.mock.calls[0][1].signal as AbortSignal;
   await userEvent.click(screen.getByRole('button', { name: 'Second route' }));
   await screen.findByRole('heading', { name: `Detail ${second}` });
   expect(signal.aborted).toBe(true);
-  await act(async () => {
-    finishFirst(response(quotation));
-  });
+  await act(async () => finish(response(quotation)));
   expect(
     screen.getByRole('heading', { name: `Detail ${second}` }),
   ).toBeVisible();
-  let finishNext!: (value: ReturnType<typeof response>) => void;
-  fetchMock.mockImplementation((url, ...args) =>
-    url === `/api/quotations/${first}`
-      ? new Promise((resolve) => {
-          finishNext = resolve;
-        })
-      : normal(url, ...args),
-  );
   await userEvent.click(screen.getByRole('button', { name: 'First route' }));
   expect(
-    screen.getByRole('heading', { name: `Detail ${second}` }),
-  ).toBeVisible();
-  await act(async () => {
-    finishNext(response(quotation));
-  });
+    screen.queryByRole('heading', { name: `Detail ${second}` }),
+  ).not.toBeInTheDocument();
+  await screen.findByText('Carregando locação…');
+  await act(async () => finish(response(quotation)));
   await screen.findByRole('heading', { name: `Detail ${first}` });
   expect(searches()).toHaveLength(0);
 });
 
-it('returns from selected detail through browser history to a fresh filtered list without losing its page', async () => {
+it('browser Back opens a new rental and Forward reloads the selected record without searching', async () => {
   renderPage();
-  await screen.findByText('51 orçamento(s) · página 1');
-  await userEvent.type(
-    screen.getByLabelText('Nome do cliente'),
-    'Cliente Azul',
-  );
-  await userEvent.click(
-    screen.getByRole('button', { name: 'Buscar locações' }),
-  );
-  await waitFor(() => expect(searches()).toHaveLength(2));
-  await userEvent.click(screen.getByRole('button', { name: 'Próxima página' }));
-  await screen.findByText('51 orçamento(s) · página 2');
-  await userEvent.click(screen.getByRole('link', { name: 'Abrir orçamento' }));
+  await screen.findByRole('heading', { name: 'Editor' });
+  await userEvent.click(screen.getByRole('button', { name: 'First route' }));
   await screen.findByRole('heading', { name: `Detail ${first}` });
   await userEvent.click(screen.getByRole('button', { name: 'Back route' }));
-  await screen.findByRole('heading', { name: /^Orçamentos$/ });
-  await waitFor(() => expect(searches()).toHaveLength(4));
-  await screen.findByText('51 orçamento(s) · página 2');
-  expect(screen.getByLabelText('Nome do cliente')).toHaveValue('Cliente Azul');
-  expect(JSON.parse(searches().at(-1)![1].body)).toEqual({
-    customer_name: 'Cliente Azul',
-    page: 2,
-  });
+  await screen.findByRole('heading', { name: 'Editor' });
   await userEvent.click(screen.getByRole('button', { name: 'Forward route' }));
   await screen.findByRole('heading', { name: `Detail ${first}` });
   expect(
     fetchMock.mock.calls.filter(([url]) => url === `/api/quotations/${first}`),
   ).toHaveLength(2);
-  expect(searches()).toHaveLength(4);
+  expect(searches()).toHaveLength(0);
+});
+
+it('keeps a late edit read from replacing a newly opened rental form', async () => {
+  renderPage(`/locacoes?orcamento=${first}`);
+  await screen.findByRole('heading', { name: `Detail ${first}` });
+  let finish!: (value: ReturnType<typeof response>) => void;
+  fetchMock.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  await userEvent.click(screen.getByRole('button', { name: 'Edit selected' }));
+  await userEvent.click(screen.getByRole('button', { name: 'New route' }));
+  await screen.findByRole('heading', { name: 'Editor' });
+  await act(async () => finish(response(quotation)));
+  expect(screen.getByRole('heading', { name: 'Editor' })).toBeVisible();
+  expect(screen.queryByText('Version 1')).not.toBeInTheDocument();
+});
+
+it('shows a direct-read error and retries without opening a new form or global search', async () => {
+  fetchMock.mockResolvedValueOnce({
+    ok: false,
+    status: 503,
+    json: async () => ({ detail: 'Serviço indisponível.' }),
+  });
+  renderPage(`/locacoes?orcamento=${first}`);
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'Serviço indisponível.',
+  );
+  expect(
+    screen.queryByRole('heading', { name: 'Editor' }),
+  ).not.toBeInTheDocument();
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Tentar novamente' }),
+  );
+  await screen.findByRole('heading', { name: `Detail ${first}` });
+  expect(searches()).toHaveLength(0);
 });

@@ -34,7 +34,12 @@ class OperationalEvent:
 class Handover(OperationalEvent, Base):
     __tablename__ = "handovers"
     __table_args__ = (
-        CheckConstraint("contract_version >= 1", name="ck_handover_contract"),
+        CheckConstraint(
+            "(contract_id IS NULL AND contract_version IS NULL) OR "
+            "(contract_id IS NOT NULL AND contract_version IS NOT NULL "
+            "AND contract_version >= 1)",
+            name="ck_handover_contract",
+        ),
         ForeignKeyConstraint(
             ["contract_id", "contract_version"],
             ["contract_versions.series_id", "contract_versions.number"],
@@ -42,8 +47,8 @@ class Handover(OperationalEvent, Base):
     )
     rental_id: Mapped[UUID] = mapped_column(ForeignKey("rentals.id"), unique=True)
     business_date: Mapped[date] = mapped_column(Date)
-    contract_id: Mapped[UUID] = mapped_column(ForeignKey("contract_series.id"))
-    contract_version: Mapped[int] = mapped_column(Integer)
+    contract_id: Mapped[UUID | None] = mapped_column(ForeignKey("contract_series.id"))
+    contract_version: Mapped[int | None] = mapped_column(Integer)
     lines: Mapped[list[dict[str, object]]] = mapped_column(JSON)
     third_party: Mapped[dict[str, object] | None] = mapped_column(JSON)
     balance_exception: Mapped[str | None] = mapped_column(String(1000))
@@ -109,6 +114,12 @@ class IncidentResolution(OperationalEvent, Base):
 class FinancialAgreement(OperationalEvent, Base):
     __tablename__ = "incident_financial_agreements"
     __table_args__ = (
+        CheckConstraint(
+            "(contract_id IS NULL AND contract_version IS NULL) OR "
+            "(contract_id IS NOT NULL AND contract_version IS NOT NULL "
+            "AND contract_version >= 1)",
+            name="ck_agreement_contract",
+        ),
         ForeignKeyConstraint(
             ["contract_id", "contract_version"],
             ["contract_versions.series_id", "contract_versions.number"],
@@ -128,8 +139,8 @@ class FinancialAgreement(OperationalEvent, Base):
     kind: Mapped[str] = mapped_column(String(20))
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     financial_version: Mapped[int] = mapped_column(Integer)
-    contract_id: Mapped[UUID] = mapped_column(ForeignKey("contract_series.id"))
-    contract_version: Mapped[int] = mapped_column(Integer)
+    contract_id: Mapped[UUID | None] = mapped_column(ForeignKey("contract_series.id"))
+    contract_version: Mapped[int | None] = mapped_column(Integer)
 
 
 class ReturnForecast(OperationalEvent, Base):

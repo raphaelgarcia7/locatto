@@ -67,7 +67,7 @@ describe('workspace routing', () => {
     [
       '/locacoes',
       'Locações',
-      'Orçamentos, pagamentos, reservas e alterações com histórico. Confirme com sinal válido e nova checagem de estoque.',
+      'Prepare uma nova locação. Os orçamentos anteriores ficam no cadastro de cada cliente.',
     ],
   ])(
     'opens %s directly with active navigation and honest scope',
@@ -76,7 +76,9 @@ describe('workspace routing', () => {
       expect(
         screen.getByRole('heading', { level: 1, name: title }),
       ).toBeVisible();
-      expect(screen.getByRole('heading', { name: 'Orçamentos' })).toBeVisible();
+      expect(
+        screen.getByRole('heading', { name: 'Nova locação' }),
+      ).toBeVisible();
       expect(screen.getByText(description)).toBeVisible();
       const nav = within(
         screen.getByRole('navigation', { name: 'Navegação principal' }),

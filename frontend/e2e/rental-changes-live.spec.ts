@@ -37,7 +37,7 @@ async function seed(page: Page) {
     .fill('synthetic rental changes browser phrase');
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(
-    page.getByRole('button', { name: 'Nova locação' }),
+    page.getByRole('heading', { name: 'Nova locação', exact: true }),
   ).toBeVisible();
   const suffix = randomUUID().slice(0, 8);
   const customer = await post(
@@ -369,7 +369,7 @@ test('change diff, unknown replay, reduction, approved cancellation and same-ren
   await page.getByRole('link', { name: 'Ver cadastro do cliente' }).click();
   await expect(
     page.getByRole('link', {
-      name: `Orçamento ${quotation.id.slice(0, 8)} · revisão 4`,
+      name: `Orçamento · evento ${quotation.event_date.split('-').reverse().join('/')}`,
     }),
   ).toBeVisible();
 });

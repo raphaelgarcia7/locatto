@@ -110,7 +110,7 @@ for (const route of pages) {
       } else {
         await expect(
           page.getByRole('heading', {
-            name: 'Seu primeiro orçamento começa aqui',
+            name: 'Nova locação',
           }),
         ).toBeVisible();
       }

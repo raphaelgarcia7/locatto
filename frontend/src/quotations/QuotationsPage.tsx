@@ -1,11 +1,15 @@
-import { useContext, useEffect, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import {
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { AuthContext } from '../authContext';
-import { StatePanel } from '../components/StatePanel';
-import { useDebouncedValue } from '../components/useDebouncedValue';
-import { priceLabel } from '../catalog/api';
-import { quotationFeedback, quotationLink, quotationRequest } from './api';
-import type { Quotation, QuotationPage } from './api';
+import { customerLink } from '../customers/api';
+import { quotationFeedback, quotationRequest } from './api';
+import type { Quotation } from './api';
 import { QuotationEditor } from './QuotationEditor';
 import { QuotationDetail } from './QuotationDetail';
 import '../catalog/catalog.css';
@@ -14,40 +18,52 @@ import './quotations.css';
 export function QuotationsPage() {
   const { authenticated } = useContext(AuthContext);
   const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
   const identifier = params.get('orcamento');
   const [record, setRecord] = useState<Quotation | null>(null);
-  const [mode, setMode] = useState<'list' | 'new' | 'detail' | 'edit'>('list');
-  const [data, setData] = useState<QuotationPage | null>(null);
-  const [filters, setFilters] = useState<Record<string, string>>({});
-  const debouncedFilters = useDebouncedValue(filters);
-  const [submittedFilters, setSubmittedFilters] = useState(filters);
-  const query = filters === submittedFilters ? filters : debouncedFilters;
-  const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [loading, setLoading] = useState(Boolean(identifier));
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [refresh, setRefresh] = useState(0);
-  const newButton = useRef<HTMLButtonElement>(null);
   const loaded = useRef<string | null>(null);
+  const currentIdentifier = useRef(identifier);
+  useLayoutEffect(() => {
+    currentIdentifier.current = identifier;
+  }, [identifier]);
+
   useEffect(() => {
-    if (!authenticated || mode !== 'list' || identifier) return;
+    if (!authenticated) return;
     const controller = new AbortController();
+    if (!identifier) {
+      loaded.current = null;
+      queueMicrotask(() => {
+        if (controller.signal.aborted) return;
+        setRecord(null);
+        setEditing(false);
+        setError('');
+        setNotice('');
+        setLoading(false);
+      });
+      return () => controller.abort();
+    }
+    if (loaded.current === identifier) return;
     queueMicrotask(() => {
+      if (controller.signal.aborted) return;
       setLoading(true);
+      setEditing(false);
       setError('');
+      setNotice('');
     });
-    void quotationRequest<QuotationPage>(
-      '/search',
-      {
-        ...Object.fromEntries(
-          Object.entries(query).filter(([, value]) => Boolean(value)),
-        ),
-        page,
-      },
+    void quotationRequest<Quotation>(
+      `/${encodeURIComponent(identifier)}`,
+      undefined,
       controller.signal,
     )
       .then((value) => {
-        if (!controller.signal.aborted) setData(value);
+        if (controller.signal.aborted) return;
+        loaded.current = identifier;
+        setRecord(value);
       })
       .catch((problem: unknown) => {
         if (!controller.signal.aborted) setError(quotationFeedback(problem));
@@ -56,228 +72,88 @@ export function QuotationsPage() {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [authenticated, query, page, refresh, mode, identifier]);
-  useEffect(() => {
-    if (!authenticated) return;
-    const controller = new AbortController();
-    if (!identifier) {
-      if (mode === 'detail' && loaded.current !== null) {
-        queueMicrotask(() => {
-          if (controller.signal.aborted) return;
-          loaded.current = null;
-          setRecord(null);
-          setMode('list');
-        });
-        return () => controller.abort();
-      }
-      return;
-    }
-    if (loaded.current === identifier) return;
-    void quotationRequest<Quotation>(
-      `/${encodeURIComponent(identifier)}`,
-      undefined,
-      controller.signal,
-    )
-      .then((value) => {
-        if (!controller.signal.aborted) {
-          setRecord(value);
-          setMode('detail');
-          loaded.current = identifier;
-        }
-      })
-      .catch((problem: unknown) => {
-        if (!controller.signal.aborted) setError(quotationFeedback(problem));
-      });
-    return () => controller.abort();
-  }, [authenticated, identifier, mode]);
-  function close() {
-    setMode('list');
-    setParams({});
-    loaded.current = null;
-    setRecord(null);
-    setNotice('');
-    queueMicrotask(() => newButton.current?.focus());
-  }
+  }, [authenticated, identifier, refresh]);
+
   function saved(value: Quotation) {
     loaded.current = value.id;
     setParams({ orcamento: value.id });
     setRecord(value);
-    setMode('detail');
+    setEditing(false);
+    setLoading(false);
     setNotice('Orçamento salvo com sucesso. Nenhum estoque foi reservado.');
-    setRefresh((value) => value + 1);
   }
   async function edit() {
     if (!record) return;
+    const selectedId = record.id;
     try {
-      setRecord(await quotationRequest<Quotation>(`/${record.id}`));
-      setMode('edit');
+      const latest = await quotationRequest<Quotation>(`/${selectedId}`);
+      if (currentIdentifier.current !== selectedId) return;
+      setRecord(latest);
+      setEditing(true);
+      setError('');
       setNotice('');
     } catch (problem) {
-      setError(quotationFeedback(problem));
+      if (currentIdentifier.current === selectedId)
+        setError(quotationFeedback(problem));
     }
   }
+  const selected = record?.id === identifier ? record : null;
   return (
     <div className="catalog-workspace quotation-workspace">
       <header className="page-heading">
-        {mode !== 'detail' && (
-          <span className="section-kicker">SUA LOCADORA · PROPOSTAS</span>
-        )}
         <h1>Locações</h1>
-        {mode !== 'detail' && (
-          <>
-            <p>
-              Orçamentos, pagamentos, reservas e alterações com histórico.
-              Confirme com sinal válido e nova checagem de estoque.
-            </p>
-            <Link className="catalog-back" to="/">
-              Voltar à visão geral
-            </Link>
-          </>
+        {!identifier && (
+          <p>
+            Prepare uma nova locação. Os orçamentos anteriores ficam no cadastro
+            de cada cliente.
+          </p>
         )}
+        <nav className="rental-page-links" aria-label="Atalhos de locações">
+          <Link className="catalog-back" to="/">
+            Visão geral
+          </Link>
+          <Link className="catalog-back" to="/clientes">
+            Consultar orçamentos por cliente
+          </Link>
+        </nav>
       </header>
       {notice && (
         <p role="status" className="auth-feedback">
           {notice}
         </p>
       )}
-      {mode === 'new' || mode === 'edit' ? (
-        <QuotationEditor
-          key={mode === 'new' ? 'new' : record?.id}
-          initial={mode === 'edit' ? (record ?? undefined) : undefined}
-          onSaved={saved}
-          onCancel={close}
-        />
-      ) : mode === 'detail' && record ? (
-        <QuotationDetail
-          key={`${record.id}-${record.version}`}
-          record={record}
-          onEdit={() => void edit()}
-          onClose={close}
-        />
-      ) : (
-        <>
-          <div className="catalog-panel-heading">
-            <h2>Orçamentos</h2>
-            <button
-              className="auth-button"
-              ref={newButton}
-              onClick={() => {
-                setMode('new');
-                setError('');
-              }}
-            >
-              Nova locação
-            </button>
-          </div>
-          <form
-            className="catalog-panel quotation-search"
-            onSubmit={(event) => {
-              event.preventDefault();
-              setSubmittedFilters(filters);
-              setPage(1);
+      {error && (
+        <div role="alert" className="auth-feedback">
+          {error}
+          <button
+            className="auth-retry"
+            onClick={() => {
+              loaded.current = null;
               setRefresh((value) => value + 1);
             }}
           >
-            <div className="catalog-form-grid">
-              <label>
-                Nome do cliente
-                <input
-                  value={filters.customer_name ?? ''}
-                  maxLength={200}
-                  onChange={(event) =>
-                    setFilters((value) => ({
-                      ...value,
-                      customer_name: event.target.value,
-                    }))
-                  }
-                />
-              </label>
-              {(['pickup_date', 'event_date', 'return_date'] as const).map(
-                (key, index) => (
-                  <label key={key}>
-                    {['Retirada', 'Evento', 'Devolução', 'Validade'][index]}
-                    <input
-                      type="date"
-                      value={filters[key] ?? ''}
-                      onChange={(event) =>
-                        setFilters((value) => ({
-                          ...value,
-                          [key]: event.target.value,
-                        }))
-                      }
-                    />
-                  </label>
-                ),
-              )}
-            </div>
-            <button className="auth-retry" type="submit">
-              Buscar locações
-            </button>
-          </form>
-          {loading ? (
-            <p role="status">Carregando orçamentos…</p>
-          ) : error ? (
-            <div role="alert" className="auth-feedback">
-              {error}
-              <button
-                className="auth-retry"
-                onClick={() => setRefresh((value) => value + 1)}
-              >
-                Tentar novamente
-              </button>
-            </div>
-          ) : data?.items.length ? (
-            <>
-              <p>
-                {data.total} orçamento(s) · página {data.page}
-              </p>
-              <ul className="catalog-grid">
-                {data.items.map((item) => (
-                  <li className="catalog-card" key={item.id}>
-                    <span className="catalog-badge">
-                      Revisão {item.version} ·{' '}
-                      {item.expired ? 'Vencido' : 'Validade vigente'}
-                    </span>
-                    <h3>Orçamento {item.id.slice(0, 8)}</h3>
-                    <p className="catalog-price">{priceLabel(item.total)}</p>
-                    <p>Evento {item.event_date}</p>
-                    {item.stock_pending && (
-                      <p className="catalog-badge catalog-badge--warning">
-                        Pendência de estoque cadastral
-                      </p>
-                    )}
-                    <Link className="auth-retry" to={quotationLink(item.id)}>
-                      Abrir orçamento
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-              <div className="catalog-actions">
-                <button
-                  className="auth-retry"
-                  disabled={page === 1}
-                  onClick={() => setPage((value) => value - 1)}
-                >
-                  Página anterior
-                </button>
-                <button
-                  className="auth-retry"
-                  disabled={page * data.page_size >= data.total}
-                  onClick={() => setPage((value) => value + 1)}
-                >
-                  Próxima página
-                </button>
-              </div>
-            </>
-          ) : (
-            <StatePanel
-              icon="calendar"
-              showReturnLink={false}
-              title="Seu primeiro orçamento começa aqui"
-              description="Selecione um cliente e prepare uma proposta. Orçamento não reserva estoque; a confirmação revalida sinal e disponibilidade."
-            />
-          )}
-        </>
+            Tentar novamente
+          </button>
+        </div>
+      )}
+      {!identifier ? (
+        <QuotationEditor onSaved={saved} onCancel={() => void navigate('/')} />
+      ) : loading || !selected ? (
+        !error && <p role="status">Carregando locação…</p>
+      ) : editing ? (
+        <QuotationEditor
+          key={`edit:${selected.id}`}
+          initial={selected}
+          onSaved={saved}
+          onCancel={() => setEditing(false)}
+        />
+      ) : (
+        <QuotationDetail
+          key={`${selected.id}-${selected.version}`}
+          record={selected}
+          onEdit={() => void edit()}
+          onClose={() => void navigate(customerLink(selected.customer_id))}
+        />
       )}
     </div>
   );
