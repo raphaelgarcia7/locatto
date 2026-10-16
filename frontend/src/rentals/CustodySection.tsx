@@ -529,7 +529,7 @@ export function CustodySection({
                   <p>
                     Quantidade {incident.quantity} · pendente fisicamente{' '}
                     {incident.remaining} · encaminhada à manutenção{' '}
-                    {incident.maintenance_decided}. Autor {incident.actor_id}
+                    {incident.maintenance_decided}.
                   </p>
                   <p>{incident.reason}</p>
                   {incident.remaining > 0 && (
@@ -746,9 +746,7 @@ export function CustodySection({
                       ))}
                     </ul>
                   )}
-                  <p>
-                    {event.reason} · autor {event.actor_id}
-                  </p>
+                  <p>{event.reason}</p>
                   <time dateTime={event.created_at}>
                     {new Date(event.created_at).toLocaleString('pt-BR', {
                       timeZone: 'America/Sao_Paulo',

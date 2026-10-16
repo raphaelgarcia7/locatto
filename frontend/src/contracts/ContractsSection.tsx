@@ -556,9 +556,7 @@ export function ContractsSection({ quotation }: { quotation: Quotation }) {
                   </p>
                   <details>
                     <summary>Autoria e instante da emissão</summary>
-                    <p>
-                      {record.actor_id} · {record.created_at}
-                    </p>
+                    <p>{new Date(record.created_at).toLocaleString('pt-BR')}</p>
                   </details>
                 </details>
                 <a href={`/api${contractPath(record)}/download`}>
@@ -582,7 +580,7 @@ export function ContractsSection({ quotation }: { quotation: Quotation }) {
                       <details>
                         <summary>Detalhes do registro</summary>
                         <p>
-                          {event.actor_id} · {event.created_at}
+                          {new Date(event.created_at).toLocaleString('pt-BR')}
                         </p>
                         {event.data.method && <p>Meio: {event.data.method}</p>}
                         {event.data.reason && <p>{event.data.reason}</p>}

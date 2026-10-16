@@ -16,6 +16,9 @@ import { RentalChanges } from '../rentals/RentalChanges';
 import { ContractsSection } from '../contracts/ContractsSection';
 import { CustodySection } from '../rentals/CustodySection';
 import { rentalStateLabel } from '../rentals/api';
+import { ChecklistSection } from '../rentals/ChecklistSection';
+import { paymentRequest, type Payments } from '../payments/api';
+import { QuotationError } from './api';
 import '../rentals/custody.css';
 
 export function QuotationDetail({
@@ -36,6 +39,68 @@ export function QuotationDetail({
   const heading = useRef<HTMLHeadingElement>(null);
   const closing = useRef<HTMLDetailsElement>(null);
   const contract = useRef<HTMLDetailsElement>(null);
+  const custody = useRef<HTMLDetailsElement>(null);
+  const [reservationMessage, setReservationMessage] = useState('');
+  const [reservationUnknown, setReservationUnknown] = useState(false);
+  const [reserving, setReserving] = useState(false);
+  const reservationCommand = useRef<object | null>(null);
+  const reservationBusy = useRef(false);
+  async function reserveAfterPayment(financial?: Payments): Promise<string> {
+    if (reservationBusy.current)
+      return 'A confirmação da reserva está em andamento.';
+    reservationBusy.current = true;
+    setReserving(true);
+    if (financial && financial.quotation_version !== selected.current_version) {
+      const message =
+        'O pagamento está registrado, mas a proposta mudou. Reabra a locação e confira os novos valores antes de reservar.';
+      setReservationMessage(message);
+      reservationBusy.current = false;
+      setReserving(false);
+      return message;
+    }
+    const command =
+      reservationCommand.current ??
+      (financial
+        ? {
+            request_id: crypto.randomUUID(),
+            expected_quotation_version: financial.quotation_version,
+            expected_financial_version: financial.financial_version,
+            ...(selected.rental?.state === 'review'
+              ? { expected_rental_version: selected.rental.version }
+              : {}),
+          }
+        : null);
+    if (!command) {
+      reservationBusy.current = false;
+      setReserving(false);
+      return '';
+    }
+    reservationCommand.current = command;
+    try {
+      await quotationRequest(`/${record.id}/confirm`, command);
+      reservationCommand.current = null;
+      setReservationUnknown(false);
+      const message =
+        'Sinal registrado e reserva confirmada. Próximo passo: preparar contrato e materiais.';
+      setReservationMessage(message);
+      await consult();
+      openStep(contract.current);
+      return message;
+    } catch (problem) {
+      const unknown =
+        !(problem instanceof QuotationError) || problem.status >= 500;
+      setReservationUnknown(unknown);
+      if (!unknown) reservationCommand.current = null;
+      const message = unknown
+        ? 'O pagamento foi registrado. Falta confirmar o resultado da reserva. Use Recuperar confirmação; não registre o sinal novamente.'
+        : `O pagamento foi registrado, mas a reserva não foi confirmada. ${quotationFeedback(problem)} Não registre o sinal novamente.`;
+      setReservationMessage(message);
+      return message;
+    } finally {
+      reservationBusy.current = false;
+      setReserving(false);
+    }
+  }
   function openStep(element: HTMLDetailsElement | null) {
     if (!element) return;
     element.open = true;
@@ -105,13 +170,19 @@ export function QuotationDetail({
               openStep(
                 selected.rental?.state === 'confirmed'
                   ? contract.current
-                  : closing.current,
+                  : selected.rental?.state === 'out'
+                    ? custody.current
+                    : closing.current,
               )
             }
           >
             {selected.rental?.state === 'confirmed'
-              ? 'Ver contrato'
-              : 'Pagamento e confirmação'}
+              ? 'Preparar locação'
+              : selected.rental?.state === 'out'
+                ? 'Registrar devolução'
+                : selected.rental && selected.rental.state !== 'review'
+                  ? 'Ver pagamentos'
+                  : 'Registrar sinal e reservar'}
           </button>
         </div>
       </div>
@@ -129,11 +200,6 @@ export function QuotationDetail({
       {selected.rental?.inventory_pending && (
         <p role="status" className="auth-feedback">
           Há uma pendência de estoque. Confira antes de prometer a retirada.
-        </p>
-      )}
-      {selected.rental?.financial_pending && (
-        <p role="status" className="auth-feedback">
-          Há uma pendência financeira. Confira o pagamento desta locação.
         </p>
       )}
       <dl className="catalog-attributes">
@@ -212,25 +278,80 @@ export function QuotationDetail({
         showPaymentEstimate={!selected.rental}
         compact
       />
-      <p className="quotation-flow-note">
-        Confirme o pagamento e a reserva, gere o contrato e registre a retirada
-        após a assinatura.
-      </p>
+      <ol className="rental-journey" aria-label="Etapas da locação">
+        {['Orçamento', 'Reserva', 'Preparação', 'Retirada', 'Devolução'].map(
+          (label, index) => {
+            const stage =
+              selected.rental?.state === 'completed'
+                ? 4
+                : selected.rental?.state === 'out'
+                  ? 3
+                  : selected.rental?.state === 'confirmed'
+                    ? 2
+                    : 0;
+            return (
+              <li
+                key={label}
+                className={index <= stage ? 'rental-journey--active' : ''}
+              >
+                <span aria-hidden="true">
+                  {index < stage ? '✓' : index + 1}
+                </span>
+                {label}
+              </li>
+            );
+          },
+        )}
+      </ol>
+      {reservationMessage && (
+        <div
+          role={reservationUnknown ? 'alert' : 'status'}
+          className="auth-feedback"
+        >
+          {reservationMessage}
+          {reservationUnknown && (
+            <button
+              className="auth-retry"
+              disabled={reserving}
+              onClick={() => void reserveAfterPayment()}
+            >
+              Recuperar confirmação
+            </button>
+          )}
+        </div>
+      )}
       <details ref={closing} className="quotation-workflow">
-        <summary>1. Pagamento e confirmação</summary>
+        <summary>Pagamento</summary>
         <FinancialSection
           compact
           quotationId={record.id}
           refreshVersion={financialRead}
+          onReserve={
+            !selected.rental || selected.rental.state === 'review'
+              ? reserveAfterPayment
+              : undefined
+          }
           onNext={
             !selected.rental || selected.rental.state === 'review'
               ? () => {
-                  document.getElementById('rental-confirmation-title')?.focus();
-                  document.getElementById('prepare-reservation')?.click();
+                  void paymentRequest<Payments>(record.id, '')
+                    .then((financial) => reserveAfterPayment(financial))
+                    .catch(() =>
+                      setReservationMessage(
+                        'Não foi possível conferir o pagamento. Tente novamente, sem registrar outro sinal.',
+                      ),
+                    );
                 }
               : undefined
           }
         />
+      </details>
+      <details className="quotation-workflow quotation-workflow--secondary">
+        <summary>
+          {!selected.rental || selected.rental.state === 'review'
+            ? 'Reservar com sinal já registrado'
+            : 'Histórico da reserva'}
+        </summary>
         <ConfirmationSection
           guided
           key={`${record.id}:${selected.current_version}:${selected.rental?.version ?? 0}`}
@@ -240,16 +361,23 @@ export function QuotationDetail({
         />
       </details>
       <details ref={contract} className="quotation-workflow">
-        <summary>2. Contrato</summary>
+        <summary>Preparação · contrato e checklist</summary>
         {selected.version === selected.current_version && (
           <ContractsSection
             key={`contracts:${record.id}:${selected.current_version}:${selected.rental?.version ?? 0}`}
             quotation={selected}
           />
         )}
+        {selected.rental &&
+          ['confirmed', 'out', 'completed'].includes(selected.rental.state) && (
+            <ChecklistSection
+              key={`${selected.rental.id}:${selected.current_version}`}
+              rentalId={selected.rental.id}
+            />
+          )}
       </details>
-      <details className="quotation-workflow">
-        <summary>3. Retirada e devolução</summary>
+      <details ref={custody} className="quotation-workflow">
+        <summary>Retirada e devolução</summary>
         {selected.version === selected.current_version && (
           <CustodySection
             quotation={selected}

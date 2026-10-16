@@ -1,7 +1,7 @@
 """Private, versioned confirmation and operational reads."""
 
 from collections.abc import Iterator
-from typing import Annotated, cast
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Response
@@ -13,6 +13,7 @@ from rentalops_api.customer_routes import private_response
 from rentalops_api.database import build_engine, build_session_factory
 from rentalops_api.quotation_routes import body_only
 from rentalops_api.rental_changes import RentalChangeService
+from rentalops_api.rental_checklists import ChecklistCommand, ChecklistService
 from rentalops_api.rental_contracts import (
     CancellationCommand,
     ChangeCommand,
@@ -26,7 +27,6 @@ from rentalops_api.rental_contracts import (
     RentalView,
     ResumptionCommand,
 )
-from rentalops_api.rentals import RentalError
 
 router = APIRouter(tags=["Rentals"], dependencies=[Depends(private_response)])
 
@@ -105,14 +105,8 @@ def history(
 def checklist(
     identifier: UUID, identity: CurrentIdentity, service: Service
 ) -> Response:
-    rental = service.get(identifier)
-    if rental["state"] not in {"confirmed", "out", "completed"}:
-        raise RentalError(
-            409, "not_confirmed", "Confirme a locação para gerar o checklist."
-        )
-    document = render_separation_checklist(
-        cast(dict[str, object], rental["commercial_snapshot"])
-    )
+    commercial, preparation = ChecklistService(service.factory).snapshot(identifier)
+    document = render_separation_checklist(commercial, preparation)
     return Response(
         document,
         media_type="application/pdf",
@@ -122,6 +116,28 @@ def checklist(
             "X-Content-Type-Options": "nosniff",
         },
     )
+
+
+@router.get("/rentals/{identifier}/checklist")
+def checklist_detail(
+    identifier: UUID, identity: CurrentIdentity, service: Service
+) -> dict[str, object]:
+    return ChecklistService(service.factory).get(identifier)
+
+
+@router.post("/rentals/{identifier}/checklist", dependencies=mutation, status_code=201)
+def checklist_save(
+    identifier: UUID,
+    payload: ChecklistCommand,
+    identity: CurrentIdentity,
+    service: Service,
+    response: Response,
+) -> dict[str, object]:
+    result, replay = ChecklistService(service.factory).save(
+        identifier, payload, identity
+    )
+    response.status_code = 200 if replay else 201
+    return result
 
 
 @router.post(

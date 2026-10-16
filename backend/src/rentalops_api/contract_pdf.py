@@ -41,7 +41,9 @@ def currency(value: str) -> str:
     return "R$ " + format(Decimal(value), ",.2f").translate(str.maketrans(",.", ".,"))
 
 
-def render_separation_checklist(commercial: dict[str, object]) -> bytes:
+def render_separation_checklist(
+    commercial: dict[str, object], preparation: dict[str, object] | None = None
+) -> bytes:
     """Read-only preparation sheet from the persisted rental composition."""
     target = io.BytesIO()
     styles = getSampleStyleSheet()
@@ -63,11 +65,41 @@ def render_separation_checklist(commercial: dict[str, object]) -> bytes:
         ),
         Spacer(1, 20),
     ]
-    for name, quantity in rows.values():
-        box = Table([[""]], colWidths=[16], rowHeights=[16])
+    checked = {
+        str(item["id"])
+        for item in cast(
+            list[dict[str, object]], (preparation or {}).get("products", [])
+        )
+        if item["checked"]
+    }
+    entries = [
+        (f"{quantity} × {name}", key in checked, False)
+        for key, (name, quantity) in rows.items()
+    ]
+    extras = cast(list[dict[str, object]], (preparation or {}).get("extras", []))
+    entries += [
+        (str(item["label"]), bool(item["checked"]), index == 0)
+        for index, item in enumerate(extras)
+    ]
+    for label, marked, first_extra in entries:
+        if first_extra:
+            story.extend(
+                [
+                    Spacer(1, 12),
+                    Paragraph(
+                        "Extras de preparação (sem cobrança)", styles["Heading2"]
+                    ),
+                    Paragraph(
+                        "Acessórios operacionais, fora dos itens do contrato.",
+                        styles["Normal"],
+                    ),
+                    Spacer(1, 12),
+                ]
+            )
+        box = Table([["X" if marked else ""]], colWidths=[16], rowHeights=[16])
         box.setStyle(TableStyle([("BOX", (0, 0), (-1, -1), 0.8, INK)]))
         row = Table(
-            [[box, Paragraph(f"{quantity} × {escape(name)}", styles["BodyText"])]],
+            [[box, Paragraph(escape(label), styles["BodyText"])]],
             colWidths=[30, A4[0] - 130],
         )
         row.setStyle(

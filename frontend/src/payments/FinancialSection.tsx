@@ -25,6 +25,7 @@ type Prepared = {
   quotationVersion: number;
   financialVersion: number;
   label?: string;
+  reserve?: boolean;
 };
 const empty = () => ({
   amount: '',
@@ -50,7 +51,15 @@ const financialLabels = {
   excess: 'Excedente sem crédito automático',
 } as const;
 
-function PaymentReview({ data, value }: { data: Payments; value: string }) {
+function PaymentReview({
+  data,
+  value,
+  reserve = false,
+}: {
+  data: Payments;
+  value: string;
+  reserve?: boolean;
+}) {
   let message: string;
   try {
     const application = newPaymentApplication(data, value);
@@ -61,7 +70,9 @@ function PaymentReview({ data, value }: { data: Payments; value: string }) {
       message += ` ${priceLabel(application.balance)} abate o restante.`;
     if (application.pending !== '0.00')
       message += ` ${priceLabel(application.pending)} ficará pendente de conferência, sem crédito automático.`;
-    message += ' Esta ação não confirma a reserva.';
+    message += reserve
+      ? ' Em seguida, vamos confirmar a reserva com uma nova conferência de estoque. Se não houver disponibilidade, o pagamento continua registrado e a reserva não é confirmada.'
+      : ' Esta ação não confirma a reserva.';
   } catch (problem) {
     message = problem instanceof Error ? problem.message : 'Confira o valor.';
   }
@@ -77,11 +88,13 @@ export function FinancialSection({
   refreshVersion = 0,
   compact = false,
   onNext,
+  onReserve,
 }: {
   quotationId: string;
   refreshVersion?: number;
   compact?: boolean;
   onNext?: () => void;
+  onReserve?: (financial: Payments) => Promise<string>;
 }) {
   const [data, setData] = useState<Payments | null>(null);
   const [history, setHistory] = useState<History | null>(null);
@@ -347,7 +360,7 @@ export function FinancialSection({
     );
     if (source && mode !== 'receipt' && mode !== 'reconciliation') {
       description.unshift(
-        `Origem: recebimento ${data.receipts.indexOf(source) + 1} (${source.id}), valor registrado ${priceLabel(source.amount)}, líquido ${priceLabel(source.net)}.`,
+        `Origem: recebimento ${data.receipts.indexOf(source) + 1}, valor registrado ${priceLabel(source.amount)}, líquido ${priceLabel(source.net)}.`,
       );
     }
     setError('');
@@ -358,6 +371,12 @@ export function FinancialSection({
       description,
       quotationVersion: data.quotation_version,
       financialVersion: data.financial_version,
+      reserve: Boolean(
+        onReserve &&
+        receiptGoal === 'deposit' &&
+        mode === 'receipt' &&
+        path === '/received-payments',
+      ),
       label:
         compact && mode === 'receipt'
           ? receiptGoal === 'deposit'
@@ -376,7 +395,11 @@ export function FinancialSection({
     setError('');
     setNotice('');
     try {
-      await paymentRequest<Payments>(quotationId, command.path, command.body);
+      const result = await paymentRequest<Payments>(
+        quotationId,
+        command.path,
+        command.body,
+      );
       setPrepared(null);
       setUnknown(false);
       setNotice(
@@ -393,6 +416,16 @@ export function FinancialSection({
       if (compact) {
         setReceiptGoal(null);
         setManualReceipt(false);
+      }
+      if (command.reserve && onReserve) {
+        // Receipt is already committed: confirmation failure must never suggest paying again.
+        try {
+          setNotice(await onReserve(result));
+        } catch {
+          setNotice(
+            'Pagamento registrado. Consulte a reserva antes de tentar confirmar; não registre o mesmo sinal novamente.',
+          );
+        }
       }
       // An idempotent replay is the original result, not necessarily the current account.
       await refresh();
@@ -443,7 +476,7 @@ export function FinancialSection({
       aria-labelledby="financial-heading"
     >
       <h3 id="financial-heading" ref={title} tabIndex={-1}>
-        Financeiro deste orçamento
+        {compact ? 'Pagamentos da locação' : 'Financeiro deste orçamento'}
       </h3>
       {!compact && (
         <p>
@@ -492,6 +525,8 @@ export function FinancialSection({
               onReceive={startReceipt}
               onReview={reviewExisting}
               onNext={onNext}
+              reserveWithDeposit={Boolean(onReserve)}
+              editing={Boolean(receiptGoal) || manualReceipt}
             />
           )}
           <details className="payment-secondary" open={!compact}>
@@ -668,7 +703,11 @@ export function FinancialSection({
                         : 'Anexar comprovante opcional'}
               </h4>
               {compact && receiptGoal && data && (
-                <PaymentReview data={data} value={amount(fields.amount)} />
+                <PaymentReview
+                  data={data}
+                  value={amount(fields.amount)}
+                  reserve={Boolean(onReserve && receiptGoal === 'deposit')}
+                />
               )}
               <fieldset disabled={busy || unknown}>
                 {mode === 'reconciliation' ? (
@@ -792,7 +831,9 @@ export function FinancialSection({
                 )}
                 <button className="auth-button" type="submit">
                   {compact && mode === 'receipt' && receiptGoal
-                    ? 'Confirmar pagamento recebido'
+                    ? onReserve && receiptGoal === 'deposit'
+                      ? 'Registrar sinal e reservar'
+                      : 'Confirmar pagamento recebido'
                     : 'Revisar operação financeira'}
                 </button>
                 {compact && receiptGoal && (
@@ -867,14 +908,7 @@ export function FinancialSection({
             <ul className="catalog-history">
               {history?.items.map((item) => (
                 <li key={item.id}>
-                  <strong>
-                    {operations[item.operation]} · financeiro{' '}
-                    {item.financial_version} · comercial{' '}
-                    {item.quotation_version}
-                  </strong>
-                  <p>
-                    Autor {item.actor_id} · sessão {item.session_id}
-                  </p>
+                  <strong>{operations[item.operation]}</strong>
                   <time dateTime={item.created_at}>
                     {new Date(item.created_at).toLocaleString('pt-BR', {
                       timeZone: 'America/Sao_Paulo',

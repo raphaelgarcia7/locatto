@@ -736,6 +736,8 @@ test('RET05 reviews exact repair, replacement and delay agreement types before r
   expect(saved.financial.operational_debt).toBe('256.25');
   expect(saved.financial.received).toBe('200.00');
   expect(saved.financial.refunded).toBe('0.00');
+  expect(saved.financial.financial_version).toBe(5);
+  expect(saved.financial.quotation_version).toBe(1);
   expect(pageErrors).toEqual([]);
   const financialHistory = page.getByText('Histórico financeiro', {
     exact: true,
@@ -746,9 +748,13 @@ test('RET05 reviews exact repair, replacement and delay agreement types before r
       .evaluate((element) => element.hasAttribute('open')))
   )
     await financialHistory.click();
+  const historyAgreements = page.getByText('Acordo financeiro de ocorrência', {
+    exact: true,
+  });
+  await expect(historyAgreements).toHaveCount(3);
+  for (const agreement of await historyAgreements.all())
+    await expect(agreement).toBeVisible();
   await expect(
-    page.getByText(
-      'Acordo financeiro de ocorrência · financeiro 5 · comercial 1',
-    ),
-  ).toBeVisible();
+    page.getByRole('region', { name: 'Pagamentos da locação' }),
+  ).toHaveAttribute('data-financial-version', '5');
 });

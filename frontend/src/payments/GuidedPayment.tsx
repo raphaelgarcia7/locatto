@@ -8,12 +8,16 @@ export function GuidedPayment({
   onReceive,
   onNext,
   onReview,
+  reserveWithDeposit = false,
+  editing = false,
 }: {
   data: Payments;
   disabled: boolean;
   onReceive: (goal: PaymentGoal) => void;
   onNext?: () => void;
   onReview: () => void;
+  reserveWithDeposit?: boolean;
+  editing?: boolean;
 }) {
   const unpaid =
     BigInt(data.total.replace('.', '')) -
@@ -22,7 +26,7 @@ export function GuidedPayment({
   const outstandingAmount = `${outstanding / 100n}.${String(outstanding % 100n).padStart(2, '0')}`;
   return (
     <div className="payment-guide">
-      <h4>Pagamento</h4>
+      <h4>Resumo do pagamento</h4>
       <dl className="payment-guide-totals">
         <div>
           <dt>Total da locação</dt>
@@ -37,14 +41,22 @@ export function GuidedPayment({
           <dd>{priceLabel(outstandingAmount)}</dd>
         </div>
       </dl>
-      <p>
+      <p
+        className={
+          data.fully_paid
+            ? 'payment-status payment-status--paid'
+            : 'payment-status'
+        }
+      >
         {data.fully_paid
           ? 'Pagamento quitado.'
           : data.deposit_validated
-            ? 'Sinal recebido. Você já pode confirmar a reserva.'
+            ? onNext
+              ? 'Sinal recebido. Confirme a reserva para garantir os itens.'
+              : 'Sinal recebido. Registre o restante quando o cliente pagar.'
             : `Para reservar, o sinal é de ${priceLabel(data.estimated_deposit)}.`}
       </p>
-      {data.pending !== '0.00' && (
+      {data.pending !== '0.00' && data.pending !== data.excess && (
         <p role="status">
           Há {priceLabel(data.pending)} já recebido(s) para conferir. Não
           registre esse dinheiro novamente.
@@ -57,7 +69,7 @@ export function GuidedPayment({
         </p>
       )}
       <div className="catalog-actions">
-        {!data.fully_paid && outstanding > 0n && (
+        {!editing && !data.fully_paid && outstanding > 0n && (
           <button
             className="auth-button"
             disabled={disabled}
@@ -65,10 +77,14 @@ export function GuidedPayment({
               onReceive(data.deposit_validated ? 'balance' : 'deposit')
             }
           >
-            Registrar pagamento
+            {data.deposit_validated
+              ? 'Registrar restante'
+              : reserveWithDeposit
+                ? 'Registrar sinal e reservar'
+                : 'Registrar pagamento'}
           </button>
         )}
-        {data.deposit_validated && onNext && (
+        {!editing && data.deposit_validated && onNext && (
           <button className="auth-button" disabled={disabled} onClick={onNext}>
             Confirmar reserva
           </button>

@@ -115,7 +115,7 @@ WITH applications AS (
 ), filtered AS (
  SELECT *, remaining+extra_agreed AS operational_debt,
  account_reconciliation OR unallocated_received>0 AS requires_reconciliation,
- remaining+extra_agreed>0 OR account_reconciliation OR unallocated_received>0
+ remaining+extra_agreed>0
  AS financial_pending FROM facts
  WHERE (CAST(:state AS text) IS NULL OR operational_state=:state)
  AND (CAST(:customer AS uuid) IS NULL OR customer_id=CAST(:customer AS uuid))

@@ -7,9 +7,13 @@
   --ink: #203247;
   --muted: #5b6d80;
   --line: #dbe6f0;
-  --primary: #2678b8;
-  --primary-dark: #1c5c91;
-  --primary-soft: #e8f4ff;
+  --primary: #2463d4;
+  --primary-dark: #174aa8;
+  --primary-soft: #edf4ff;
+  --success: #11734e;
+  --success-soft: #e8f8ef;
+  --warning: #875000;
+  --warning-soft: #fff5d9;
   --focus-ring: #84a7c5;
   --red: #b8403d;
   --red-dark: #963330;

@@ -50,9 +50,23 @@
 .payment-guide {
   padding: 1.25rem;
   margin-block: 1rem 1.5rem;
-  border: 1px solid var(--line);
+  border: 1px solid #b7d1f7;
+  border-top: 4px solid var(--primary);
   border-radius: 12px;
   background: var(--primary-soft);
+}
+.payment-status {
+  padding: 0.8rem 1rem;
+  border-radius: 0.65rem;
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+.payment-status--paid {
+  background: var(--success-soft);
+  color: var(--success);
+}
+.payment-guide-totals > div:last-child dd {
+  color: var(--primary-dark);
 }
 .payment-guide h4 {
   margin-top: 0;
