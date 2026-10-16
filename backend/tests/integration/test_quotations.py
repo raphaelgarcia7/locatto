@@ -173,6 +173,7 @@ def test_migration_head_constraints_metadata_repeat_rollback(isolated_engine):
             "rental_history",
             "rental_pending",
             "rental_requests",
+            "rental_checklists",
             "company_settings",
             "company_revisions",
             "contract_series",
