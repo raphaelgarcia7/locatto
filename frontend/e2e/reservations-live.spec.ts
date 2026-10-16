@@ -86,14 +86,16 @@ async function setup(page: Page) {
 function section(page: Page) {
   return page.getByRole('region', { name: '2. Confirmar a reserva' });
 }
-async function financialPaid(page: Page) {
+async function financialPaid(page: Page, reserved = false) {
   await openFinancialDetails(page);
   const panel = page.getByRole('region', {
     name: 'Pagamentos da locação',
   });
   await expect(
     panel.getByText(
-      'Sinal recebido. Confirme a reserva para garantir os itens.',
+      reserved
+        ? 'Sinal recebido. Registre o restante quando o cliente pagar.'
+        : 'Sinal recebido. Confirme a reserva para garantir os itens.',
     ),
   ).toBeVisible();
   await expect(
@@ -318,7 +320,7 @@ test('confirmation requires payment and explicit action; unknown result reuses t
   await expect(
     page.getByRole('button', { name: 'Editar proposta', exact: true }),
   ).toHaveCount(0);
-  await financialPaid(page);
+  await financialPaid(page, true);
   await expect(page.getByText('Validade comercial vigente')).toHaveCount(0);
   await expect(
     page.getByText('Validade vigente · não é reserva confirmada'),
