@@ -31,7 +31,7 @@ async function login(page: Page) {
     .fill('synthetic quotation browser phrase');
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(
-    page.getByRole('button', { name: 'Nova locação' }),
+    page.getByRole('heading', { name: 'Nova locação', exact: true }),
   ).toBeVisible();
   return account;
 }
@@ -102,10 +102,9 @@ async function visual(page: Page, info: TestInfo, phase: string) {
   });
 }
 async function fillBase(page: Page, seeded: Awaited<ReturnType<typeof seed>>) {
-  await page.getByRole('button', { name: 'Nova locação' }).click();
   await expect(
     page.getByRole('heading', { name: 'Nova locação' }),
-  ).toBeFocused();
+  ).toBeVisible();
   await page.getByLabel('Cliente', { exact: true }).fill(seeded.name);
   await page.getByRole('option', { name: seeded.name, exact: true }).click();
   await page
@@ -283,9 +282,7 @@ test('real quotation agreement, custom composition, revisions, expiration, confl
   await expect(
     page.getByRole('heading', { name: 'Orçamentos deste cliente' }),
   ).toBeVisible();
-  await page
-    .getByRole('link', { name: new RegExp(`Orçamento ${id.slice(0, 8)}`) })
-    .click();
+  await page.locator(`a[href="/locacoes?orcamento=${id}"]`).click();
   await openRentalWorkflow(page);
   await page.getByRole('button', { name: 'Editar proposta' }).click();
   await page
@@ -483,53 +480,23 @@ test('real quotation agreement, custom composition, revisions, expiration, confl
   await visual(page, info, 'explicit-catalog-update');
 });
 
-test('quotation loading, empty, error retry, keyboard and reduced motion', async ({
+test('new rental opens directly, supports keyboard and cancellation without a global search', async ({
   page,
 }, info) => {
-  test.setTimeout(90000);
   await login(page);
-  await page.route(
-    '**/api/quotations/search',
-    async (route) => {
-      await route.fulfill({
-        status: 503,
-        json: { detail: 'Serviço indisponível.' },
-      });
-    },
-    { times: 1 },
-  );
-  await page.getByRole('button', { name: 'Buscar locações' }).click();
-  await expect(page.getByRole('alert')).toContainText('Serviço indisponível');
-  await visual(page, info, 'error');
-  let release: () => void = () => {};
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
+  const editor = page.getByRole('heading', {
+    name: 'Nova locação',
+    exact: true,
   });
-  await page.route(
-    '**/api/quotations/search',
-    async (route) => {
-      await gate;
-      await route.fulfill({
-        json: { items: [], total: 0, page: 1, page_size: 25 },
-      });
-    },
-    { times: 1 },
+  await expect(editor).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Buscar locações' }),
+  ).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Nova locação' })).toHaveCount(
+    0,
   );
-  await page
-    .getByRole('button', { name: 'Tentar novamente', exact: true })
-    .click();
-  await expect(page.getByText('Carregando orçamentos…')).toBeVisible();
-  await visual(page, info, 'loading');
-  release();
-  await expect(
-    page.getByRole('heading', { name: 'Seu primeiro orçamento começa aqui' }),
-  ).toBeVisible();
-  await visual(page, info, 'empty');
-  await page.getByRole('button', { name: 'Nova locação' }).focus();
-  await page.keyboard.press('Enter');
-  await expect(
-    page.getByRole('heading', { name: 'Nova locação' }),
-  ).toBeFocused();
+  await expect(page.getByLabel('ID do orçamento')).toHaveCount(0);
+  await editor.focus();
   await page.keyboard.press('Tab');
   await expect(
     page.getByRole('combobox', { name: 'Cliente', exact: true }),
@@ -544,9 +511,7 @@ test('quotation loading, empty, error retry, keyboard and reduced motion', async
       () => matchMedia('(prefers-reduced-motion: reduce)').matches,
     ),
   ).toBe(true);
-  await visual(page, info, 'keyboard');
+  await visual(page, info, 'direct-new-keyboard');
   await page.getByRole('button', { name: 'Cancelar edição' }).click();
-  await expect(
-    page.getByRole('button', { name: 'Nova locação' }),
-  ).toBeFocused();
+  await expect(page).toHaveURL(/\/$/);
 });

@@ -287,7 +287,7 @@ class HandoverService(RentalChangeService):
                 values["incident_id"] = str(row.incident_id)
             if isinstance(row, (Handover, FinancialAgreement)):
                 values.update(
-                    contract_id=str(row.contract_id),
+                    contract_id=str(row.contract_id) if row.contract_id else None,
                     contract_version=row.contract_version,
                 )
             return values
@@ -569,13 +569,6 @@ class HandoverService(RentalChangeService):
                 "invalid_state",
                 "Saída exige reserva confirmada e ainda não entregue.",
             )
-        if not contract["ready_for_pickup"]:
-            raise RentalError(
-                409,
-                "signature_required",
-                "Registre e confira a assinatura do contrato da versão vigente "
-                "antes da saída.",
-            )
         if not financial["deposit_validated"]:
             raise RentalError(
                 409,
@@ -626,8 +619,8 @@ class HandoverService(RentalChangeService):
             Handover(
                 **self._event(rental, actor, payload.reason),
                 business_date=self.clock().astimezone(SAO_PAULO).date(),
-                contract_id=UUID(str(contract["id"])),
-                contract_version=contract["version"],
+                contract_id=UUID(str(contract["id"])) if contract["id"] else None,
+                contract_version=contract["version"] if contract["id"] else None,
                 lines=lines,
                 third_party=payload.third_party.model_dump()
                 if payload.third_party
@@ -823,16 +816,6 @@ class HandoverService(RentalChangeService):
         contract: dict[str, object],
         financial: dict[str, object],
     ) -> None:
-        if (
-            not contract["signed"]
-            or contract["template_revision"] != "pegue-e-monte-v0.4"
-        ):
-            raise RentalError(
-                409,
-                "terms_required",
-                "Confira os termos aplicáveis aprovados e a assinatura "
-                "antes de registrar o acordo.",
-            )
         prior = list(
             session.scalars(
                 select(FinancialAgreement).where(
@@ -920,8 +903,8 @@ class HandoverService(RentalChangeService):
                 kind=payload.kind,
                 amount=payload.amount,
                 financial_version=account.version,
-                contract_id=UUID(str(contract["id"])),
-                contract_version=contract["version"],
+                contract_id=UUID(str(contract["id"])) if contract["id"] else None,
+                contract_version=contract["version"] if contract["id"] else None,
             )
         )
         session.flush()

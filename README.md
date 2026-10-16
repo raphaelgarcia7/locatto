@@ -612,16 +612,36 @@ Copie `.env.example` para `.env` na raiz do repositório. A chave `OPENAI_API_KE
 ### Atendimento e preparação da locação
 
 Em **Locações**, registre o sinal e confirme a reserva na mesma ação explícita.
+Essa tela abre diretamente o formulário de nova locação. Para consultar propostas
+anteriores, abra **Clientes**, selecione o cliente e escolha um dos seus orçamentos
+pela data do evento e valor. Os links da visão geral continuam abrindo os detalhes
+diretamente, sem exibir identificadores internos.
 O recebimento permanece registrado se faltar estoque; a tela informa que a reserva
 não foi confirmada, sem pedir o mesmo pagamento novamente. Pagamento, preparação
 e retirada/devolução ficam separados. O financeiro detalhado e o histórico ficam
 recolhidos, sem exibir IDs de banco ou de sessão.
 
-Em **Preparação · contrato e checklist**, a equipe confere os produtos dos kits
+Em **Pagamento**, os botões **Sinal pago** e **Restante pago** abrem uma confirmação
+com valor, data e forma de recebimento. O sinal confirma a reserva após checagem de
+estoque; o restante não pago permanece como pendência financeira. Excedente não é
+dívida e não gera devolução automática.
+
+Em **Preparação**, a equipe confere os produtos dos kits
 e acrescenta acessórios livres, como elásticos e pregadores. Esses extras são
 lembretes operacionais: não alteram preço, estoque ou contrato. O checklist é
 compartilhado, pode ser salvo e impresso com as marcações. Alterações comerciais
 exigem nova conferência; salvamentos concorrentes não sobrescrevem outro usuário.
+Somente todos os produtos e extras marcados e salvos concluem a preparação.
+É possível salvar progresso parcial, sem marcar a etapa como concluída.
+Contrato e assinatura ficam em uma ação de apoio separada.
+
+Na **Retirada**, registre o nome de quem recebeu os itens. O contrato e a assinatura
+são opcionais por decisão do responsável em 16/10/2026; sua ausência não bloqueia
+retirada, devolução, encerramento ou acordos operacionais. O pagamento e o estoque
+continuam conferidos; retirada por terceiro ou exceção de saldo ficam
+em **Mais opções**. Na **Devolução**, confira produtos e acessórios e confirme o
+retorno. A tela conclui a locação somente após o servidor contabilizar todos os
+itens; faltantes, avarias, manutenção e histórico permanecem no fluxo de exceções.
 Antes de iniciar o backend atualizado, aplique a migração `0015_rental_checklists`
 com o procedimento normal de backup e migração do ambiente.
 

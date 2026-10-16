@@ -262,7 +262,10 @@ export function ContractsSection({ quotation }: { quotation: Quotation }) {
   return (
     <section className="contract-panel" aria-labelledby="contracts-title">
       <h3 id="contracts-title">Contratos</h3>
-      <p>Confira os dados, visualize o documento e emita para assinatura.</p>
+      <p>
+        Contrato opcional. Se desejar, confira os dados e emita para assinatura.
+        A locação pode seguir sem documento.
+      </p>
       {loading && <p role="status">Carregando contratos e versões…</p>}
       {error && (
         <p role="alert" className="auth-feedback">
@@ -310,10 +313,10 @@ export function ContractsSection({ quotation }: { quotation: Quotation }) {
           {state.ready_for_pickup
             ? 'Assinatura vigente registrada pela equipe.'
             : state.contract && !state.matches_current_business
-              ? 'Contrato desatualizado: emita nova versão e registre nova assinatura.'
+              ? 'Documento de uma versão anterior. Atualize se desejar; isso não bloqueia a locação.'
               : state.contract?.signature_state === 'awaiting_review'
                 ? 'Anexo recebido, aguardando conferência manual.'
-                : 'Assinatura vigente pendente.'}
+                : 'Sem assinatura registrada. Isso não bloqueia as operações.'}
         </p>
       )}
       {!loading && company?.pending.length ? (

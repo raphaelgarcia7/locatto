@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { priceLabel } from '../catalog/api';
 import { customerLink } from '../customers/api';
@@ -14,7 +14,7 @@ import { FinancialSection } from '../payments/FinancialSection';
 import { ConfirmationSection } from '../rentals/ConfirmationSection';
 import { RentalChanges } from '../rentals/RentalChanges';
 import { ContractsSection } from '../contracts/ContractsSection';
-import { CustodySection } from '../rentals/CustodySection';
+import { GuidedCustody } from '../rentals/GuidedCustody';
 import { rentalStateLabel } from '../rentals/api';
 import { ChecklistSection } from '../rentals/ChecklistSection';
 import { paymentRequest, type Payments } from '../payments/api';
@@ -36,10 +36,45 @@ export function QuotationDetail({
   const [loading, setLoading] = useState(true);
   const [changed, setChanged] = useState(false);
   const [financialRead, setFinancialRead] = useState(0);
+  const [financial, setFinancial] = useState<Payments | null>(null);
+  const [prepared, setPrepared] = useState(false);
+  const [custodyOpen, setCustodyOpen] = useState(
+    record.rental?.state === 'out' || record.rental?.state === 'completed',
+  );
+  type Step = 'payment' | 'preparation' | 'custody';
+  const [activeStep, setActiveStep] = useState<Step | null>(
+    record.rental?.state === 'confirmed'
+      ? 'preparation'
+      : record.rental?.state === 'out' || record.rental?.state === 'completed'
+        ? 'custody'
+        : 'payment',
+  );
   const heading = useRef<HTMLHeadingElement>(null);
   const closing = useRef<HTMLDetailsElement>(null);
   const contract = useRef<HTMLDetailsElement>(null);
   const custody = useRef<HTMLDetailsElement>(null);
+  const preparation = useRef<HTMLDetailsElement>(null);
+  const onPrepared = useCallback(
+    (complete: boolean) => setPrepared(complete),
+    [],
+  );
+  const onPreparationComplete = useCallback(() => {
+    if (preparation.current) preparation.current.open = false;
+    if (custody.current) custody.current.open = true;
+    custody.current?.querySelector('summary')?.focus();
+    setActiveStep('custody');
+  }, []);
+  const reserved =
+    selected.rental &&
+    ['confirmed', 'out', 'completed'].includes(selected.rental.state);
+  const nextStep: Step =
+    selected.rental?.state === 'out' || selected.rental?.state === 'completed'
+      ? 'custody'
+      : reserved
+        ? prepared
+          ? 'custody'
+          : 'preparation'
+        : 'payment';
   const [reservationMessage, setReservationMessage] = useState('');
   const [reservationUnknown, setReservationUnknown] = useState(false);
   const [reserving, setReserving] = useState(false);
@@ -81,10 +116,10 @@ export function QuotationDetail({
       reservationCommand.current = null;
       setReservationUnknown(false);
       const message =
-        'Sinal registrado e reserva confirmada. Próximo passo: preparar contrato e materiais.';
+        'Sinal registrado e reserva confirmada. Próximo passo: separar os itens.';
       setReservationMessage(message);
       await consult();
-      openStep(contract.current);
+      setActiveStep('preparation');
       return message;
     } catch (problem) {
       const unknown =
@@ -103,6 +138,13 @@ export function QuotationDetail({
   }
   function openStep(element: HTMLDetailsElement | null) {
     if (!element) return;
+    for (const panel of [
+      closing.current,
+      preparation.current,
+      custody.current,
+    ]) {
+      if (panel && panel !== element) panel.open = false;
+    }
     element.open = true;
     element.querySelector('summary')?.focus();
   }
@@ -138,6 +180,11 @@ export function QuotationDetail({
         JSON.stringify(latest.capacity) !== JSON.stringify(selected.capacity),
       );
       setSelected(latest);
+      if (
+        latest.rental?.state === 'out' ||
+        latest.rental?.state === 'completed'
+      )
+        setActiveStep('custody');
       setVersions(
         await quotationRequest<Quotation[]>(`/${record.id}/versions`),
       );
@@ -162,22 +209,25 @@ export function QuotationDetail({
         </div>
         <div className="catalog-actions">
           <button className="auth-retry" onClick={onClose}>
-            Voltar à lista
+            Voltar ao cliente
           </button>
           <button
             className="auth-button"
-            onClick={() =>
+            onClick={() => {
+              setActiveStep(nextStep);
               openStep(
-                selected.rental?.state === 'confirmed'
-                  ? contract.current
-                  : selected.rental?.state === 'out'
-                    ? custody.current
-                    : closing.current,
-              )
-            }
+                nextStep === 'payment'
+                  ? closing.current
+                  : nextStep === 'preparation'
+                    ? preparation.current
+                    : custody.current,
+              );
+            }}
           >
             {selected.rental?.state === 'confirmed'
-              ? 'Preparar locação'
+              ? prepared
+                ? 'Confirmar retirada'
+                : 'Separar itens'
               : selected.rental?.state === 'out'
                 ? 'Registrar devolução'
                 : selected.rental && selected.rental.state !== 'review'
@@ -198,7 +248,7 @@ export function QuotationDetail({
         </p>
       )}
       {selected.rental?.inventory_pending && (
-        <p role="status" className="auth-feedback">
+        <p role="status" className="auth-feedback operational-warning">
           Há uma pendência de estoque. Confira antes de prometer a retirada.
         </p>
       )}
@@ -279,29 +329,55 @@ export function QuotationDetail({
         compact
       />
       <ol className="rental-journey" aria-label="Etapas da locação">
-        {['Orçamento', 'Reserva', 'Preparação', 'Retirada', 'Devolução'].map(
-          (label, index) => {
-            const stage =
-              selected.rental?.state === 'completed'
-                ? 4
-                : selected.rental?.state === 'out'
-                  ? 3
-                  : selected.rental?.state === 'confirmed'
-                    ? 2
-                    : 0;
-            return (
-              <li
-                key={label}
-                className={index <= stage ? 'rental-journey--active' : ''}
-              >
-                <span aria-hidden="true">
-                  {index < stage ? '✓' : index + 1}
-                </span>
-                {label}
-              </li>
-            );
+        {[
+          {
+            label: 'Pagamento',
+            done: Boolean(reserved && financial?.deposit_validated),
+            step: 'payment' as Step,
           },
-        )}
+          {
+            label: 'Preparação',
+            done:
+              prepared ||
+              selected.rental?.state === 'out' ||
+              selected.rental?.state === 'completed',
+            step: 'preparation' as Step,
+          },
+          {
+            label: 'Retirada',
+            done:
+              selected.rental?.state === 'out' ||
+              selected.rental?.state === 'completed',
+            step: 'custody' as Step,
+          },
+          {
+            label: 'Devolução',
+            done: selected.rental?.state === 'completed',
+            step: 'custody' as Step,
+          },
+        ].map(({ label, done, step }, index) => {
+          return (
+            <li key={label} className={done ? 'rental-journey--active' : ''}>
+              <button
+                className="rental-step-link"
+                onClick={() => {
+                  setActiveStep(step);
+                  openStep(
+                    step === 'payment'
+                      ? closing.current
+                      : step === 'preparation'
+                        ? preparation.current
+                        : custody.current,
+                  );
+                }}
+              >
+                <span aria-hidden="true">{done ? '✓' : index + 1}</span>
+                {label}
+                {done && <span className="sr-only"> concluído</span>}
+              </button>
+            </li>
+          );
+        })}
       </ol>
       {reservationMessage && (
         <div
@@ -320,10 +396,26 @@ export function QuotationDetail({
           )}
         </div>
       )}
-      <details ref={closing} className="quotation-workflow">
-        <summary>Pagamento</summary>
+      <details
+        ref={closing}
+        className="quotation-workflow"
+        open={activeStep === 'payment'}
+      >
+        <summary>
+          Pagamento{' '}
+          <span className="workflow-status">
+            {financial
+              ? financial.fully_paid
+                ? '✓ Quitado'
+                : financial.deposit_validated
+                  ? '✓ Sinal pago · restante pendente'
+                  : 'Sinal pendente'
+              : 'Consultando…'}
+          </span>
+        </summary>
         <FinancialSection
           compact
+          onStateChange={setFinancial}
           quotationId={record.id}
           refreshVersion={financialRead}
           onReserve={
@@ -346,125 +438,173 @@ export function QuotationDetail({
           }
         />
       </details>
-      <details className="quotation-workflow quotation-workflow--secondary">
+      <details
+        ref={preparation}
+        className="quotation-workflow"
+        open={activeStep === 'preparation'}
+      >
         <summary>
-          {!selected.rental || selected.rental.state === 'review'
-            ? 'Reservar com sinal já registrado'
-            : 'Histórico da reserva'}
+          Preparação{' '}
+          <span className="workflow-status">
+            {prepared ? '✓ Itens separados' : 'Separar itens'}
+          </span>
         </summary>
-        <ConfirmationSection
-          guided
-          key={`${record.id}:${selected.current_version}:${selected.rental?.version ?? 0}`}
-          quotation={selected}
-          onConfirmed={() => void consult()}
-          onFinancialRefresh={() => setFinancialRead((version) => version + 1)}
-        />
+        {selected.rental &&
+        ['confirmed', 'out', 'completed'].includes(selected.rental.state) ? (
+          <ChecklistSection
+            key={`${selected.rental.id}:${selected.current_version}`}
+            rentalId={selected.rental.id}
+            onStateChange={onPrepared}
+            onCompleted={onPreparationComplete}
+          />
+        ) : (
+          <p>
+            Registre o sinal para confirmar a reserva e iniciar a separação.
+          </p>
+        )}
       </details>
-      <details ref={contract} className="quotation-workflow">
-        <summary>Preparação · contrato e checklist</summary>
+      <details
+        ref={custody}
+        onToggle={(event) => setCustodyOpen(event.currentTarget.open)}
+        className="quotation-workflow"
+        open={activeStep === 'custody'}
+      >
+        <summary>
+          {selected.rental?.state === 'out' ||
+          selected.rental?.state === 'completed'
+            ? 'Devolução'
+            : 'Retirada'}{' '}
+          <span className="workflow-status">
+            {selected.rental?.state === 'completed'
+              ? '✓ Concluída'
+              : selected.rental?.state === 'out'
+                ? 'Conferir retorno dos itens'
+                : 'Aguardando retirada'}
+          </span>
+        </summary>
+        {reserved && selected.version === selected.current_version ? (
+          <GuidedCustody
+            active={custodyOpen}
+            quotation={selected}
+            prepared={prepared}
+            onContract={() => openStep(contract.current)}
+            onChanged={() => {
+              void consult();
+              setFinancialRead((version) => version + 1);
+            }}
+          />
+        ) : (
+          <p>A retirada fica disponível depois da confirmação da reserva.</p>
+        )}
+      </details>
+      <details
+        ref={contract}
+        className="quotation-workflow quotation-workflow--secondary"
+      >
+        <summary>Contrato · gerar, baixar e conferir assinatura</summary>
         {selected.version === selected.current_version && (
           <ContractsSection
             key={`contracts:${record.id}:${selected.current_version}:${selected.rental?.version ?? 0}`}
             quotation={selected}
           />
         )}
-        {selected.rental &&
-          ['confirmed', 'out', 'completed'].includes(selected.rental.state) && (
-            <ChecklistSection
-              key={`${selected.rental.id}:${selected.current_version}`}
-              rentalId={selected.rental.id}
+      </details>
+      <details className="quotation-workflow quotation-workflow--secondary">
+        <summary>Mais opções · histórico e alterações</summary>
+        <details className="quotation-secondary">
+          <summary>
+            {!selected.rental || selected.rental.state === 'review'
+              ? 'Reservar com sinal já registrado'
+              : 'Histórico da reserva'}
+          </summary>
+          <ConfirmationSection
+            guided
+            key={`${record.id}:${selected.current_version}:${selected.rental?.version ?? 0}`}
+            quotation={selected}
+            onConfirmed={() => void consult()}
+            onFinancialRefresh={() =>
+              setFinancialRead((version) => version + 1)
+            }
+          />
+        </details>
+        <details className="quotation-secondary">
+          <summary>Alterações e cancelamento</summary>
+          {!selected.rental && (
+            <button className="auth-retry" onClick={onEdit}>
+              Editar proposta
+            </button>
+          )}
+          {selected.version === selected.current_version && (
+            <RentalChanges
+              key={`${record.id}:${selected.current_version}`}
+              quotation={selected}
+              onChanged={() => {
+                void consult();
+                setFinancialRead((version) => version + 1);
+              }}
             />
           )}
-      </details>
-      <details ref={custody} className="quotation-workflow">
-        <summary>Retirada e devolução</summary>
-        {selected.version === selected.current_version && (
-          <CustodySection
-            quotation={selected}
-            onChanged={() => {
-              void consult();
-              setFinancialRead((version) => version + 1);
-            }}
-          />
-        )}
-      </details>
-      <details className="quotation-workflow quotation-workflow--secondary">
-        <summary>Alterações e cancelamento</summary>
-        {!selected.rental && (
-          <button className="auth-retry" onClick={onEdit}>
-            Editar proposta
+        </details>
+        <details className="quotation-secondary">
+          <summary>Consulta de estoque e histórico</summary>
+          <button
+            className="auth-retry"
+            disabled={loading}
+            onClick={() => void consult()}
+          >
+            Reconsultar estoque cadastral
           </button>
-        )}
-        {selected.version === selected.current_version && (
-          <RentalChanges
-            key={`${record.id}:${selected.current_version}`}
-            quotation={selected}
-            onChanged={() => {
-              void consult();
-              setFinancialRead((version) => version + 1);
-            }}
-          />
-        )}
-      </details>
-      <details className="quotation-workflow quotation-workflow--secondary">
-        <summary>Consulta de estoque e histórico</summary>
-        <button
-          className="auth-retry"
-          disabled={loading}
-          onClick={() => void consult()}
-        >
-          Reconsultar estoque cadastral
-        </button>
-        {changed && (
-          <p role="status">
-            O estoque cadastral mudou desde a última consulta. Os valores e a
-            composição acordados foram preservados.
-          </p>
-        )}
-        <section
-          className="catalog-section"
-          aria-labelledby="quotation-versions"
-        >
-          <h3 id="quotation-versions">Histórico de revisões</h3>
-          {loading && <p role="status">Consultando revisões…</p>}
-          {error && (
-            <div role="alert" className="auth-feedback">
-              {error}
-              <button className="auth-retry" onClick={() => void consult()}>
-                Tentar novamente
-              </button>
-            </div>
+          {changed && (
+            <p role="status">
+              O estoque cadastral mudou desde a última consulta. Os valores e a
+              composição acordados foram preservados.
+            </p>
           )}
-          <ul className="catalog-history">
-            {versions.map((version) => (
-              <li key={version.version}>
-                <div>
-                  <strong>
-                    Revisão {version.version} · {priceLabel(version.total)}
-                  </strong>
-                  <button
-                    className="auth-retry"
-                    onClick={() => {
-                      setSelected(version);
-                      setChanged(false);
-                    }}
-                  >
-                    Consultar revisão {version.version}
-                  </button>
-                </div>
-                <p>
-                  {version.reason ?? 'Proposta inicial'} ·{' '}
-                  {version.expired ? 'Vencido' : 'Validade vigente'}
-                </p>
-                <time dateTime={version.revised_at}>
-                  {new Date(version.revised_at).toLocaleString('pt-BR', {
-                    timeZone: 'America/Sao_Paulo',
-                  })}
-                </time>
-              </li>
-            ))}
-          </ul>
-        </section>
+          <section
+            className="catalog-section"
+            aria-labelledby="quotation-versions"
+          >
+            <h3 id="quotation-versions">Histórico de revisões</h3>
+            {loading && <p role="status">Consultando revisões…</p>}
+            {error && (
+              <div role="alert" className="auth-feedback">
+                {error}
+                <button className="auth-retry" onClick={() => void consult()}>
+                  Tentar novamente
+                </button>
+              </div>
+            )}
+            <ul className="catalog-history">
+              {versions.map((version) => (
+                <li key={version.version}>
+                  <div>
+                    <strong>
+                      Revisão {version.version} · {priceLabel(version.total)}
+                    </strong>
+                    <button
+                      className="auth-retry"
+                      onClick={() => {
+                        setSelected(version);
+                        setChanged(false);
+                      }}
+                    >
+                      Consultar revisão {version.version}
+                    </button>
+                  </div>
+                  <p>
+                    {version.reason ?? 'Proposta inicial'} ·{' '}
+                    {version.expired ? 'Vencido' : 'Validade vigente'}
+                  </p>
+                  <time dateTime={version.revised_at}>
+                    {new Date(version.revised_at).toLocaleString('pt-BR', {
+                      timeZone: 'America/Sao_Paulo',
+                    })}
+                  </time>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </details>
       </details>
     </section>
   );

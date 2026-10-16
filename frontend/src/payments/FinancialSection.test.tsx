@@ -2,6 +2,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { FinancialSection } from './FinancialSection';
+import { GuidedPayment } from './GuidedPayment';
 import type { Payments } from './api';
 import {
   existingPaymentApplication,
@@ -38,6 +39,36 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+it('shows paid milestones without treating an excess receipt as financial debt', () => {
+  render(
+    <GuidedPayment
+      data={{
+        ...state,
+        received: '450.00',
+        net_received: '450.00',
+        remaining: '0.00',
+        excess: '50.00',
+        pending: '50.00',
+        deposit_validated: true,
+        fully_paid: true,
+      }}
+      disabled={false}
+      onReceive={vi.fn()}
+      onReview={vi.fn()}
+    />,
+  );
+  expect(screen.getByText('✓ Sinal pago')).toBeVisible();
+  expect(screen.getByText('✓ Restante pago')).toBeVisible();
+  expect(screen.queryByText(/Pendência financeira:/)).not.toBeInTheDocument();
+  expect(screen.getByText(/Excedente de/)).toBeVisible();
+  expect(
+    screen.queryByRole('button', { name: 'Sinal pago' }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('button', { name: 'Restante pago' }),
+  ).not.toBeInTheDocument();
+});
+
 it('registers a deposit once and requests reservation only after the receipt commits', async () => {
   const commands: string[] = [];
   const onReserve = vi.fn(async () => {
@@ -65,9 +96,7 @@ it('registers a deposit once and requests reservation only after the receipt com
       onReserve={onReserve}
     />,
   );
-  await user.click(
-    await screen.findByRole('button', { name: 'Registrar sinal e reservar' }),
-  );
+  await user.click(await screen.findByRole('button', { name: 'Sinal pago' }));
   expect(screen.getByText(/nova conferência de estoque/)).toBeVisible();
   await user.click(
     screen.getByRole('button', { name: 'Registrar sinal e reservar' }),
@@ -198,7 +227,7 @@ it('offers review instead of another receipt when the full amount was already re
     name: 'Conferir pagamento existente',
   });
   expect(
-    screen.queryByRole('button', { name: 'Registrar pagamento' }),
+    screen.queryByRole('button', { name: 'Sinal pago' }),
   ).not.toBeInTheDocument();
   await userEvent.click(review);
   expect(screen.getByText(/sem criar outro pagamento/)).toBeVisible();
@@ -250,7 +279,7 @@ it('records and applies one reviewed payment, then opens reservation without ano
   );
   await user.click(
     await screen.findByRole('button', {
-      name: 'Registrar pagamento',
+      name: 'Sinal pago',
     }),
   );
   expect(screen.getByLabelText('Valor em reais')).toHaveValue('200.00');
@@ -277,7 +306,7 @@ it('records and applies one reviewed payment, then opens reservation without ano
   expect(
     screen.queryByRole('button', { name: 'Validar pagamento já recebido' }),
   ).not.toBeInTheDocument();
-  await user.click(screen.getByRole('button', { name: 'Registrar restante' }));
+  await user.click(screen.getByRole('button', { name: 'Restante pago' }));
   expect(screen.getByLabelText('Valor em reais')).toHaveValue('200.00');
   expect(screen.getByText(/abate o restante/)).toBeVisible();
   expect(commands).toHaveLength(1);
@@ -306,7 +335,7 @@ it('keeps a lost unified payment frozen and replays exactly the same command', a
   render(<FinancialSection quotationId={state.quotation_id} compact />);
   await user.click(
     await screen.findByRole('button', {
-      name: 'Registrar pagamento',
+      name: 'Sinal pago',
     }),
   );
   await user.click(
@@ -317,7 +346,7 @@ it('keeps a lost unified payment frozen and replays exactly the same command', a
   );
   expect(screen.getByLabelText('Valor em reais')).toBeDisabled();
   expect(
-    screen.queryByRole('button', { name: 'Registrar pagamento' }),
+    screen.queryByRole('button', { name: 'Sinal pago' }),
   ).not.toBeInTheDocument();
   await user.click(
     screen.getByRole('button', { name: 'Repetir a mesma operação' }),

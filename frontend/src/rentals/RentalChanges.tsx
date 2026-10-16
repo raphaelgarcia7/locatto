@@ -246,11 +246,10 @@ export function RentalChanges({
               <dd>{priceLabel(rental.current_financial.excess)}</dd>
             </div>
             <div>
-              <dt>Revisão para assinatura</dt>
+              <dt>Documento opcional</dt>
               <dd>
-                Comercial v{rental.signature_commercial_version}; nova
-                assinatura após alteração, quando contratos estiverem
-                disponíveis.
+                Você pode atualizar o contrato após alterações, sem bloquear a
+                locação.
               </dd>
             </div>
           </dl>

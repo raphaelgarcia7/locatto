@@ -55,3 +55,75 @@
   border-radius: 0.75rem;
   margin-block: 1rem;
 }
+.guided-custody .checklist-rows input[type='checkbox'] {
+  flex: 0 0 1.25rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  min-height: 1.25rem;
+  max-height: 1.25rem;
+  padding: 0;
+  margin: 0;
+  accent-color: var(--primary);
+}
+.guided-custody .checklist-rows label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: left;
+  gap: 0.85rem;
+  min-height: 44px;
+  flex: 1;
+  min-width: 0;
+}
+.guided-custody > form > fieldset {
+  border: 0;
+  padding: 0;
+  gap: 1rem;
+}
+.custody-section .custody-more-options {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.guided-custody input:not([type='checkbox']) {
+  border-color: #8196aa;
+  color: var(--ink);
+}
+.custody-step-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-block: 0.5rem 1.25rem;
+}
+.custody-step-heading h3 {
+  margin: 0;
+  flex: 1;
+}
+.custody-step-heading button {
+  flex: 0 1 auto;
+  width: auto;
+  margin: 0;
+}
+.guided-custody .warning-action {
+  display: block;
+  margin-top: 5px;
+}
+@media (max-width: 600px) {
+  .guided-custody .custody-step-heading {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+  .guided-custody .custody-step-heading h3 {
+    font-size: 1.125rem;
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+  .guided-custody .custody-step-heading button {
+    width: 100%;
+    padding-inline: 0.5rem;
+    font-size: 0.875rem;
+  }
+}

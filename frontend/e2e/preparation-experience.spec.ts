@@ -5,12 +5,18 @@ import { randomInt, randomUUID } from 'node:crypto';
 test('deposit reserves once, then prepares free checklist extras on screen and PDF', async ({
   page,
 }, info) => {
+  let quotationSearches = 0;
+  page.on('request', (request) => {
+    if (request.url().endsWith('/quotations/search')) quotationSearches++;
+  });
   const origin = 'http://127.0.0.1:4173';
-  const setup = await page.request.post('http://127.0.0.1:8000/__test/setup');
+  const backendOrigin =
+    process.env.RENTALOPS_TEST_CONTROL_ORIGIN ?? 'http://127.0.0.1:8000';
+  const setup = await page.request.post(`${backendOrigin}/__test/setup`);
   expect(setup.status()).toBe(200);
   const account = await setup.json();
   const setPassword = await page.request.post(
-    'http://127.0.0.1:8000/auth/password/set',
+    `${backendOrigin}/auth/password/set`,
     {
       headers: { Origin: origin },
       data: {
@@ -27,8 +33,15 @@ test('deposit reserves once, then prepares free checklist extras on screen and P
     .fill('synthetic preparation browser phrase');
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(
-    page.getByRole('button', { name: 'Nova locação' }),
+    page.getByRole('heading', { name: 'Nova locação', exact: true }),
   ).toBeVisible();
+  expect(quotationSearches).toBe(0);
+  await expect(page.getByRole('button', { name: 'Nova locação' })).toHaveCount(
+    0,
+  );
+  await page
+    .locator('.quotation-editor')
+    .screenshot({ path: info.outputPath('direct-rental-editor.png') });
   async function post(path: string, data: object, status = 200) {
     const result = await page.request.post(`/api/${path}`, {
       headers: { Origin: origin },
@@ -80,14 +93,29 @@ test('deposit reserves once, then prepares free checklist extras on screen and P
     )
       receipts++;
   });
-  await page.goto(`/locacoes?orcamento=${quote.id}`);
+  await page.goto(`/clientes?cliente=${customer.id}`);
+  const customerQuotations = page.getByRole('region', {
+    name: 'Orçamentos deste cliente',
+  });
+  const quotationLink = customerQuotations.locator(
+    `a[href="/locacoes?orcamento=${quote.id}"]`,
+  );
+  await expect(quotationLink).toBeVisible();
+  await expect(customerQuotations).not.toContainText(quote.id.slice(0, 8));
+  await quotationLink.click();
+  await expect(
+    page.getByRole('button', { name: 'Voltar ao cliente' }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Voltar ao cliente' }).click();
+  await expect(customerQuotations).toBeVisible();
+  await quotationLink.click();
   await page
     .locator('.catalog-panel-heading')
     .getByRole('button', { name: 'Registrar sinal e reservar' })
     .click();
   const payment = page.getByRole('region', { name: 'Pagamentos da locação' });
   await payment
-    .getByRole('button', { name: 'Registrar sinal e reservar' })
+    .getByRole('button', { name: 'Sinal pago', exact: true })
     .click();
   await expect(payment.getByLabel('Valor em reais')).toHaveValue('200.00');
   await payment
@@ -97,6 +125,35 @@ test('deposit reserves once, then prepares free checklist extras on screen and P
     'Reserva confirmada',
   );
   expect(receipts).toBe(1);
+  const panels = page.locator('.quotation-detail > .quotation-workflow');
+  for (const panel of await panels.all()) {
+    const summary = panel.locator(':scope > summary');
+    if (await panel.evaluate((element) => element.hasAttribute('open')))
+      await summary.click();
+    const frame = (await panel.boundingBox())!;
+    const header = (await summary.boundingBox())!;
+    expect(Math.abs(header.x - frame.x - 1)).toBeLessThanOrEqual(1);
+    expect(Math.abs(header.width - frame.width + 2)).toBeLessThanOrEqual(1);
+  }
+  await page
+    .locator('.quotation-detail')
+    .screenshot({ path: info.outputPath('uniform-rental-panels.png') });
+  const paymentHeader = page
+    .locator('.quotation-detail > details > summary')
+    .filter({ hasText: /^Pagamento/ });
+  await paymentHeader.focus();
+  await page.keyboard.press('Enter');
+  await expect(payment).toBeVisible();
+  const paymentFrame = (await paymentHeader.locator('..').boundingBox())!;
+  const paymentContent = (await payment.boundingBox())!;
+  const inset = (page.viewportSize()!.width <= 480 ? 32 : 48) + 2;
+  expect(
+    Math.abs(paymentContent.width - (paymentFrame.width - inset)),
+  ).toBeLessThanOrEqual(2);
+  await payment.screenshot({ path: info.outputPath('full-width-payment.png') });
+  await paymentHeader.focus();
+  await page.keyboard.press('Enter');
+  await page.getByRole('button', { name: 'Preparação', exact: true }).click();
   const checklist = page.getByRole('region', {
     name: 'Checklist de separação',
   });
@@ -113,9 +170,12 @@ test('deposit reserves once, then prepares free checklist extras on screen and P
   await checklist
     .getByRole('checkbox', { name: '1 × Painel sintético de preparação' })
     .check();
-  await checklist.getByRole('button', { name: 'Salvar checklist' }).click();
+  await checklist.getByRole('button', { name: 'Salvar preparação' }).click();
+  await page.getByRole('button', { name: 'Preparação concluído' }).click();
   await expect(
-    checklist.getByText('Checklist salvo para a equipe.'),
+    checklist.getByText(
+      'Preparação concluída. Todos os itens foram separados.',
+    ),
   ).toBeVisible();
   const link = checklist.getByRole('link', {
     name: 'Imprimir / baixar checklist',
@@ -125,7 +185,7 @@ test('deposit reserves once, then prepares free checklist extras on screen and P
   expect((await pdf.body()).subarray(0, 5).toString()).toBe('%PDF-');
   await page.reload();
   await page
-    .getByRole('button', { name: 'Preparar locação', exact: true })
+    .getByRole('button', { name: 'Preparação concluído', exact: true })
     .click();
   await expect(
     checklist.getByRole('checkbox', { name: '10 pregadores e elásticos' }),

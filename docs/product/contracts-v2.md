@@ -1,5 +1,9 @@
 # Contratos privados — contracts-v2 / ROP-015
 
+Atualização humana 16/10/2026: contrato e assinatura são opcionais no fluxo
+operacional, conforme [política atual](optional-contracts.md). As exigências
+históricas de assinatura para retirada/acordos abaixo não se aplicam mais.
+
 Atualização humana direta em 2026-10-15 (refinamento local): título "Contrato de
 locação de decorações", rótulos/valores em linha, sem versão visível, conferência
 financeira ou forma acordada no quadro inicial. Exibir total e sinal/saldo

@@ -213,7 +213,7 @@ describe('customers interface', () => {
     view(`/clientes?cliente=${record.id}`);
     expect(
       await screen.findByText(
-        'Reserva confirmada · locação v1 · pendência de estoque · pendência financeira',
+        'Reserva confirmada · pendência de estoque · pendência financeira',
       ),
     ).toBeVisible();
     expect(

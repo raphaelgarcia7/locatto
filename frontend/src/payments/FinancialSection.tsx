@@ -89,12 +89,14 @@ export function FinancialSection({
   compact = false,
   onNext,
   onReserve,
+  onStateChange,
 }: {
   quotationId: string;
   refreshVersion?: number;
   compact?: boolean;
   onNext?: () => void;
   onReserve?: (financial: Payments) => Promise<string>;
+  onStateChange?: (financial: Payments | null) => void;
 }) {
   const [data, setData] = useState<Payments | null>(null);
   const [history, setHistory] = useState<History | null>(null);
@@ -119,6 +121,12 @@ export function FinancialSection({
   const title = useRef<HTMLHeadingElement>(null);
   const readSequence = useRef(0);
   const requestedVersion = useRef(refreshVersion);
+  const saving = useRef(false);
+  useEffect(() => {
+    onStateChange?.(
+      !loading && loadedVersion === refreshVersion && !readError ? data : null,
+    );
+  }, [data, loading, loadedVersion, refreshVersion, readError, onStateChange]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -390,7 +398,8 @@ export function FinancialSection({
     if (path === '/received-payments') void save(command);
   }
   async function save(command = prepared) {
-    if (!command) return;
+    if (!command || saving.current) return;
+    saving.current = true;
     setBusy(true);
     setError('');
     setNotice('');
@@ -448,6 +457,7 @@ export function FinancialSection({
         );
       }
     } finally {
+      saving.current = false;
       setBusy(false);
     }
   }

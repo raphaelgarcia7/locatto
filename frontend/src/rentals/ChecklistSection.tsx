@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { quotationFeedback, QuotationError } from '../quotations/api';
 import { rentalRequest } from './api';
 import './checklist.css';
+import { checklistComplete } from './checklistState';
 
 export type Checklist = {
   version: number;
@@ -12,7 +13,15 @@ export type Checklist = {
   updated_at: string | null;
 };
 
-export function ChecklistSection({ rentalId }: { rentalId: string }) {
+export function ChecklistSection({
+  rentalId,
+  onStateChange,
+  onCompleted,
+}: {
+  rentalId: string;
+  onStateChange?: (complete: boolean) => void;
+  onCompleted?: () => void;
+}) {
   const [data, setData] = useState<Checklist | null>(null);
   const [label, setLabel] = useState('');
   const [dirty, setDirty] = useState(false);
@@ -22,6 +31,11 @@ export function ChecklistSection({ rentalId }: { rentalId: string }) {
   const [pending, setPending] = useState<object | null>(null);
   const inFlight = useRef(false);
   const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    onStateChange?.(
+      Boolean(data && !dirty && !pending && checklistComplete(data)),
+    );
+  }, [data, dirty, pending, onStateChange]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -72,8 +86,14 @@ export function ChecklistSection({ rentalId }: { rentalId: string }) {
       setPending(null);
       setDirty(false);
       // A replay can be older than another user's subsequent changes.
-      setData(await rentalRequest<Checklist>(`/${rentalId}/checklist`));
-      setNotice('Checklist salvo para a equipe.');
+      const latest = await rentalRequest<Checklist>(`/${rentalId}/checklist`);
+      setData(latest);
+      setNotice(
+        checklistComplete(latest)
+          ? 'Preparação concluída. Todos os itens foram separados.'
+          : 'Progresso salvo. Continue a separação dos itens restantes.',
+      );
+      if (checklistComplete(latest)) onCompleted?.();
     } catch (problem) {
       if (problem instanceof QuotationError && problem.status < 500) {
         setPending(null);
@@ -130,7 +150,7 @@ export function ChecklistSection({ rentalId }: { rentalId: string }) {
       {data && (
         <>
           {data.needs_recheck && (
-            <p role="status" className="auth-feedback">
+            <p role="status" className="auth-feedback operational-warning">
               A locação mudou. Confira novamente os produtos e os extras antes
               de salvar.
             </p>
@@ -272,7 +292,9 @@ export function ChecklistSection({ rentalId }: { rentalId: string }) {
                 ? 'Salvando…'
                 : pending
                   ? 'Recuperar salvamento'
-                  : 'Salvar checklist'}
+                  : done === total && total > 0
+                    ? 'Salvar preparação'
+                    : 'Salvar progresso'}
             </button>
             {!dirty && !pending && (
               <a

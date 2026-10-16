@@ -12,7 +12,7 @@ vi.mock('../contracts/ContractsSection', () => ({
 }));
 // Custody has its own command/unknown-state tests; keep this financial contract
 // test's existing responses scoped to the sections it exercises.
-vi.mock('../rentals/CustodySection', () => ({ CustodySection: () => null }));
+vi.mock('../rentals/GuidedCustody', () => ({ GuidedCustody: () => null }));
 vi.mock('../rentals/ChecklistSection', () => ({
   ChecklistSection: () => null,
 }));
@@ -116,11 +116,11 @@ it('shows a concise rental summary without IDs, source versions or duplicated pr
       'Painel romano',
     ),
   ).toHaveLength(1);
-  expect(screen.getByText('Pagamento').parentElement).not.toHaveAttribute(
-    'open',
-  );
   expect(
-    screen.getByText('Preparação · contrato e checklist').parentElement,
+    document.querySelector('.quotation-workflow > summary')!.parentElement,
+  ).toHaveAttribute('open');
+  expect(
+    document.querySelectorAll('.quotation-workflow > summary')[1].parentElement,
   ).not.toHaveAttribute('open');
   expect(
     screen.getByText('Alterações e cancelamento').parentElement,
@@ -131,17 +131,19 @@ it('shows a concise rental summary without IDs, source versions or duplicated pr
       name: 'Registrar sinal e reservar',
     })[0],
   );
-  expect(screen.getByText('Pagamento').parentElement).toHaveAttribute('open');
+  expect(
+    document.querySelector('.quotation-workflow > summary')!.parentElement,
+  ).toHaveAttribute('open');
   await user.click(
     await within(
       screen.getByRole('region', { name: 'Pagamentos da locação' }),
-    ).findByRole('button', { name: 'Registrar sinal e reservar' }),
+    ).findByRole('button', { name: 'Sinal pago' }),
   );
   const amount = await screen.findByLabelText('Valor em reais');
   await user.clear(amount);
   await user.type(amount, '30,00');
-  await user.click(screen.getByText('Pagamento', { exact: true }));
-  await user.click(screen.getByText('Pagamento', { exact: true }));
+  await user.click(document.querySelector('.quotation-workflow > summary')!);
+  await user.click(document.querySelector('.quotation-workflow > summary')!);
   expect(screen.getByLabelText('Valor em reais')).toHaveValue('30,00');
   expect(
     fetcher.mock.calls.every(([, options]) => options?.method !== 'POST'),
@@ -279,7 +281,10 @@ it.each(
         />
       </MemoryRouter>,
     );
-    await userEvent.click(screen.getByText('Pagamento', { exact: true }));
+    if (!document.querySelector('.quotation-workflow')!.hasAttribute('open'))
+      await userEvent.click(
+        document.querySelector('.quotation-workflow > summary')!,
+      );
     const summary = within(
       screen.getByRole('region', { name: 'Prévia comercial do servidor' }),
     );
@@ -350,7 +355,10 @@ it.each(['confirmed', 'review', 'out', 'completed'] as const)(
         />
       </MemoryRouter>,
     );
-    await userEvent.click(screen.getByText('Pagamento', { exact: true }));
+    if (!document.querySelector('.quotation-workflow')!.hasAttribute('open'))
+      await userEvent.click(
+        document.querySelector('.quotation-workflow > summary')!,
+      );
     const summary = within(
       screen.getByRole('region', { name: 'Prévia comercial do servidor' }),
     );
@@ -387,7 +395,10 @@ it('keeps the original estimates for a quotation without a rental', async () => 
       <QuotationDetail record={record} onEdit={vi.fn()} onClose={vi.fn()} />
     </MemoryRouter>,
   );
-  await userEvent.click(screen.getByText('Pagamento', { exact: true }));
+  if (!document.querySelector('.quotation-workflow')!.hasAttribute('open'))
+    await userEvent.click(
+      document.querySelector('.quotation-workflow > summary')!,
+    );
   const summary = within(
     screen.getByRole('region', { name: 'Prévia comercial do servidor' }),
   );
@@ -397,7 +408,7 @@ it('keeps the original estimates for a quotation without a rental', async () => 
   expect(
     summary.getByText('Saldo previsto').nextElementSibling,
   ).toHaveTextContent('200,00');
-  await screen.findByText(/Para reservar, o sinal é de R\$\s*200,00\./);
+  await screen.findByText(/Marque o sinal como pago após receber/);
 });
 
 it.each([
@@ -460,11 +471,14 @@ it.each([
         <QuotationDetail record={record} onEdit={vi.fn()} onClose={vi.fn()} />
       </MemoryRouter>,
     );
-    await userEvent.click(screen.getByText('Pagamento', { exact: true }));
+    if (!document.querySelector('.quotation-workflow')!.hasAttribute('open'))
+      await userEvent.click(
+        document.querySelector('.quotation-workflow > summary')!,
+      );
     const panel = within(
       screen.getByRole('region', { name: 'Pagamentos da locação' }),
     );
-    await panel.findByText(/Para reservar, o sinal é de R\$\s*200,00\./);
+    await panel.findByText(/Marque o sinal como pago após receber/);
     await userEvent.click(
       panel.getByText('Histórico financeiro', { exact: true }),
     );
@@ -472,6 +486,9 @@ it.each([
       panel.getByText('Nenhuma movimentação financeira no histórico.'),
     ).toBeVisible();
     financial = paid; // Another attendant receives and reconciles while the detail stays open.
+    await userEvent.click(
+      screen.getByText('Mais opções · histórico e alterações'),
+    );
     await userEvent.click(screen.getByText('Reservar com sinal já registrado'));
     await userEvent.click(
       await screen.findByRole('button', {
