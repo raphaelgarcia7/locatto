@@ -165,6 +165,10 @@ O Vite encaminha `/api` para a API local em `127.0.0.1:8000`. Configure `AUTH_OR
 
 ### Catálogo e fotos privadas
 
+A galeria de produtos e kits permite remover uma foto diretamente pelo botão
+“Remover foto”, sem solicitar motivo. A ação é registrada no histórico e o arquivo
+continua preservado para documentos e registros anteriores.
+
 Produto mínimo: nome, preço por locação e quantidade inicial (inclusive zero). Descrição, categoria, cor, medidas, reposição, observação e fotos são opcionais. Variações de cor/tamanho são cadastros separados. A quantidade inicial gera movimento auditado; depois, entrada/baixa/correção e manutenção/liberação exigem motivo, autoria da sessão e versão esperada. Total não pode ser negativo nem inferior à manutenção. A tela mostra quantidade apta **antes dos compromissos do período**, não uma promessa de disponibilidade para reserva.
 
 Kits exigem composição não vazia com produtos existentes/ativos e quantidades inteiras positivas. Repetições são agregadas; kit aninhado é recusado. Alterar o preço do produto não recalcula o preço do kit. Inativar um componente conserva composição/histórico e sinaliza revisão; substitua/remova o inativo para salvar a revisão. Não há exclusão definitiva.

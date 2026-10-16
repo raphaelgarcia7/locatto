@@ -315,12 +315,9 @@ test('real catalog: stale edit retains draft; keyboard focus and photo gallery c
   await expect(
     page.getByRole('button', { name: 'Salvar ordem' }).first(),
   ).toBeEnabled();
-  await page.getByRole('button', { name: 'Retirar da galeria' }).last().click();
   await page
-    .getByLabel('Motivo', { exact: true })
-    .fill('Substituição sintética');
-  await page
-    .getByRole('button', { name: 'Retirar foto da galeria', exact: true })
+    .getByRole('button', { name: 'Remover foto', exact: true })
+    .last()
     .click();
   await expect(
     page.getByRole('img', { name: `Foto de ${name} rascunho` }),

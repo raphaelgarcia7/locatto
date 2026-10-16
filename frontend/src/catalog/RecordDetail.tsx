@@ -10,7 +10,7 @@ import {
 import type { CatalogDetail, Kind, Photo } from './api';
 
 type Action = {
-  kind: 'stock' | 'maintenance' | 'release' | 'inactivate' | 'detach';
+  kind: 'stock' | 'maintenance' | 'release' | 'inactivate';
   target?: string;
 };
 
@@ -184,12 +184,7 @@ export function RecordDetail({
               </p>
             )}
           </section>
-          <PhotoGallery
-            kind={kind}
-            record={record}
-            onChange={onChange}
-            onDetach={(target) => setAction({ kind: 'detach', target })}
-          />
+          <PhotoGallery kind={kind} record={record} onChange={onChange} />
           <section className="catalog-section" aria-labelledby="stock-history">
             <h3 id="stock-history">Histórico de estoque</h3>
             <ol className="catalog-history">
@@ -248,12 +243,7 @@ export function RecordDetail({
         </section>
       )}
       {kind === 'kits' && (
-        <PhotoGallery
-          kind={kind}
-          record={record}
-          onChange={onChange}
-          onDetach={(target) => setAction({ kind: 'detach', target })}
-        />
+        <PhotoGallery kind={kind} record={record} onChange={onChange} />
       )}
       <section className="catalog-section" aria-labelledby="catalog-history">
         <h3 id="catalog-history">Histórico cadastral</h3>
@@ -377,7 +367,6 @@ function CommandForm({
     maintenance: 'Registrar manutenção',
     release: 'Liberar unidades',
     inactivate: 'Confirmar inativação',
-    detach: 'Retirar foto da galeria',
   };
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -390,9 +379,7 @@ function CommandForm({
           ? 'maintenance'
           : action.kind === 'release'
             ? `maintenance/${action.target}/release`
-            : action.kind === 'detach'
-              ? `photos/${action.target}/detach`
-              : 'inactivate';
+            : 'inactivate';
     try {
       onSaved(
         await catalogRequest<CatalogDetail>(`${kind}/${record.id}/${route}`, {
@@ -427,12 +414,6 @@ function CommandForm({
             ' Kits com este produto precisarão de revisão.'}
         </p>
       )}
-      {action.kind === 'detach' && (
-        <p>
-          A foto sairá da galeria; o arquivo e sua identificação serão
-          preservados no histórico.
-        </p>
-      )}
       {error && (
         <p role="alert" className="auth-feedback auth-feedback--error">
           {error}
@@ -460,7 +441,7 @@ function CommandForm({
               </select>
             </label>
           )}
-          {!['inactivate', 'detach'].includes(action.kind) && (
+          {action.kind !== 'inactivate' && (
             <label>
               {action.kind === 'stock' && operation === 'correction'
                 ? 'Novo total conferido'
@@ -511,14 +492,13 @@ function PhotoGallery({
   kind,
   record,
   onChange,
-  onDetach,
 }: {
   kind: Kind;
   record: CatalogDetail;
   onChange: (record: CatalogDetail) => void;
-  onDetach: (id: string) => void;
 }) {
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
   const file = useRef<HTMLInputElement>(null);
   async function upload(event: FormEvent<HTMLFormElement>) {
@@ -534,6 +514,7 @@ function PhotoGallery({
     }
     setBusy(true);
     setError('');
+    setNotice('');
     const body = new FormData();
     body.set('file', picked);
     body.set('expected_version', String(record.version));
@@ -554,6 +535,7 @@ function PhotoGallery({
   async function edit(photo: Photo, principal: boolean, order: number) {
     setBusy(true);
     setError('');
+    setNotice('');
     try {
       onChange(
         await catalogRequest<CatalogDetail>(
@@ -574,6 +556,28 @@ function PhotoGallery({
       setBusy(false);
     }
   }
+  async function remove(photo: Photo) {
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    setNotice('');
+    try {
+      onChange(
+        await catalogRequest<CatalogDetail>(
+          `${kind}/${record.id}/photos/${photo.id}/detach`,
+          {
+            method: 'POST',
+            body: { expected_version: record.version },
+          },
+        ),
+      );
+      setNotice('Foto removida.');
+    } catch (failure) {
+      setError(feedback(failure));
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
     <section className="catalog-section" aria-labelledby="photos-title">
       <h3 id="photos-title">Fotos do {kind === 'kits' ? 'kit' : 'produto'}</h3>
@@ -587,6 +591,7 @@ function PhotoGallery({
           {kind === 'kits' ? 'kit' : 'produto'} quando estiver disponível.
         </p>
       )}
+      {notice && <p role="status">{notice}</p>}
       {error && (
         <p role="alert" className="auth-feedback auth-feedback--error">
           {error}
@@ -633,11 +638,11 @@ function PhotoGallery({
               </button>
             </form>
             <button
-              className="auth-retry"
+              className="auth-retry auth-danger"
               disabled={busy}
-              onClick={() => onDetach(photo.id)}
+              onClick={() => void remove(photo)}
             >
-              Retirar da galeria
+              Remover foto
             </button>
           </div>
         ))}

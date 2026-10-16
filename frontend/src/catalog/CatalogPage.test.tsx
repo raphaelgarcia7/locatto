@@ -349,6 +349,70 @@ describe('catalog interface', () => {
     ).toHaveFocus();
   });
 
+  it.each(['products', 'kits'] as const)(
+    'removes a saved %s photo directly without requesting a reason',
+    async (kind) => {
+      const record =
+        kind === 'products'
+          ? product
+          : {
+              id: product.id,
+              name: 'Kit festa',
+              price: product.price,
+              is_active: true,
+              version: 1,
+              created_by: product.created_by,
+              updated_by: product.updated_by,
+              created_at: product.created_at,
+              updated_at: product.updated_at,
+              items: [],
+              needs_review: false,
+              history: [],
+              photos: [],
+            };
+      const updated = {
+        ...record,
+        version: 2,
+      };
+      fetchMock.mockResolvedValue(response(updated));
+      const onChange = vi.fn();
+      render(
+        <RecordDetail
+          kind={kind}
+          record={{
+            ...record,
+            photos: [
+              {
+                id: 'photo',
+                format: 'PNG',
+                size: 40,
+                sha256: 'hash',
+                order: 0,
+                is_principal: true,
+              },
+            ],
+          }}
+          onChange={onChange}
+          onEdit={() => {}}
+          onClose={() => {}}
+        />,
+      );
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Remover foto' }),
+      );
+      expect(screen.queryByLabelText('Motivo')).not.toBeInTheDocument();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock.mock.calls[0][0]).toBe(
+        `/api/${kind}/${product.id}/photos/photo/detach`,
+      );
+      expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+        expected_version: 1,
+      });
+      expect(onChange).toHaveBeenCalledWith(updated);
+      expect(await screen.findByText('Foto removida.')).toBeVisible();
+    },
+  );
+
   it('photo missing, loading, read error and failed upload are actionable', async () => {
     const user = userEvent.setup();
     fetchMock.mockResolvedValue(
