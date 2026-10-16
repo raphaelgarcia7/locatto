@@ -87,6 +87,7 @@
   border-radius: 10px;
   font: inherit;
   font-weight: 600;
+  text-decoration: none;
   cursor: pointer;
 }
 .auth-button {

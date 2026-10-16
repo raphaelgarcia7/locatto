@@ -18,6 +18,7 @@ from rentalops_api.catalog_contracts import (
     KitEdit,
     KitPage,
     MaintenanceCommand,
+    PhotoDetach,
     PhotoEdit,
     ProductCreate,
     ProductDetail,
@@ -296,7 +297,7 @@ def edit_photo(
 def detach_photo(
     identifier: UUID,
     photo_id: UUID,
-    payload: ReasonCommand,
+    payload: PhotoDetach,
     service: Service,
     identity: CurrentIdentity,
     request: Request,

@@ -313,9 +313,15 @@ def test_photo_api_principal_order_detach_and_auth_private_immutable_assets(
     detached = client.post(
         path + f"/{second['id']}/detach",
         headers={"Origin": ORIGIN},
-        json={"expected_version": 4, "reason": "Replace gallery"},
+        json={"expected_version": 4},
     )
     assert detached.status_code == 200 and detached.json()["photos"][0]["is_principal"]
+    removal = next(
+        row
+        for row in detached.json()["history"]
+        if row["operation"] == "photo_detached"
+    )
+    assert removal["reason"] == "Foto removida da galeria"
     assert (
         client.get(f"/{kind}").json()["items"][0]["principal_photo_id"] == first["id"]
     )

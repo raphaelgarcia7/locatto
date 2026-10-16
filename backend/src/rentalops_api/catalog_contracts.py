@@ -87,6 +87,12 @@ class ReasonCommand(VersionCommand):
     reason: str = Field(min_length=1, max_length=4000)
 
 
+class PhotoDetach(ReasonCommand):
+    reason: str = Field(
+        default="Foto removida da galeria", min_length=1, max_length=4000
+    )
+
+
 class StockAdjustment(ReasonCommand):
     operation: Literal["entry", "withdrawal", "correction"]
     quantity: Quantity
