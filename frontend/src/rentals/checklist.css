@@ -1,0 +1,119 @@
+.preparation-checklist {
+  margin-top: 1.5rem;
+  padding: clamp(1rem, 3vw, 1.75rem);
+  border: 1px solid #bbd5f8;
+  border-radius: 1rem;
+  background: #f8fbff;
+}
+.preparation-checklist header h3 {
+  margin-block: 0.4rem;
+}
+.quotation-workspace .preparation-checklist fieldset {
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  margin-block: 1.5rem;
+}
+.preparation-checklist legend {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+.preparation-checklist progress {
+  width: 100%;
+  accent-color: #16865e;
+  height: 0.7rem;
+}
+.checklist-progress {
+  font-weight: 600;
+  color: #225ab6;
+}
+.checklist-rows {
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.6rem;
+}
+.checklist-rows li {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.65rem 0.8rem;
+  background: white;
+  border: 1px solid #dce6f3;
+  border-radius: 0.7rem;
+}
+.preparation-checklist .checklist-rows label {
+  display: flex;
+  flex-direction: row;
+  gap: 0.85rem;
+  align-items: center;
+  min-height: 44px;
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: left;
+  margin: 0;
+}
+.preparation-checklist .checklist-rows input[type='checkbox'] {
+  width: 1.25rem;
+  height: 1.25rem;
+  min-width: 1.25rem;
+  min-height: 1.25rem;
+  max-height: 1.25rem;
+  padding: 0;
+  margin: 0;
+  flex: 0 0 1.25rem;
+  appearance: auto;
+  accent-color: #16865e;
+}
+.preparation-checklist .checklist-rows button {
+  margin: 0;
+}
+@media (max-width: 480px) {
+  .checklist-rows li {
+    flex-wrap: wrap;
+  }
+  .preparation-checklist .checklist-rows label {
+    flex-basis: 100%;
+  }
+  .preparation-checklist .checklist-rows button {
+    margin-left: auto;
+  }
+}
+.checklist-rows li:has(input:checked) {
+  background: #eefaf4;
+  border-color: #a8d9c0;
+}
+.checklist-add {
+  display: grid;
+  gap: 0.9rem;
+}
+.checklist-add label {
+  display: grid;
+  gap: 0.5rem;
+}
+.checklist-add input {
+  width: 100%;
+  min-width: 0;
+  padding: 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+}
+.checklist-add button {
+  justify-self: start;
+}
+.checklist-success {
+  color: #096343;
+  background: #e6f7ef;
+  border-radius: 0.6rem;
+  padding: 0.85rem;
+}
+.checklist-empty {
+  color: var(--muted);
+}
+@media print {
+  .preparation-checklist button,
+  .checklist-add {
+    display: none;
+  }
+}

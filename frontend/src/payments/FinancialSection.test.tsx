@@ -38,6 +38,46 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+it('registers a deposit once and requests reservation only after the receipt commits', async () => {
+  const commands: string[] = [];
+  const onReserve = vi.fn(async () => {
+    expect(commands).toHaveLength(1);
+    return 'Pagamento registrado, mas não há estoque. Não registre o sinal novamente.';
+  });
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === 'POST') commands.push(String(init.body));
+      return new Response(
+        JSON.stringify(
+          url.endsWith('/history')
+            ? { items: [], total: 0, page: 1, page_size: 50 }
+            : state,
+        ),
+      );
+    }),
+  );
+  const user = userEvent.setup();
+  render(
+    <FinancialSection
+      quotationId={state.quotation_id}
+      compact
+      onReserve={onReserve}
+    />,
+  );
+  await user.click(
+    await screen.findByRole('button', { name: 'Registrar sinal e reservar' }),
+  );
+  expect(screen.getByText(/nova conferência de estoque/)).toBeVisible();
+  await user.click(
+    screen.getByRole('button', { name: 'Registrar sinal e reservar' }),
+  );
+  await screen.findByText(/Pagamento registrado, mas não há estoque/);
+  expect(onReserve).toHaveBeenCalledOnce();
+  expect(commands).toHaveLength(1);
+  expect(screen.queryByText(/Resultado desconhecido/)).not.toBeInTheDocument();
+});
+
 const pendingReceipt = (id = 'received', amount = '200.00') => ({
   id,
   revision: 1,
@@ -237,7 +277,7 @@ it('records and applies one reviewed payment, then opens reservation without ano
   expect(
     screen.queryByRole('button', { name: 'Validar pagamento já recebido' }),
   ).not.toBeInTheDocument();
-  await user.click(screen.getByRole('button', { name: 'Registrar pagamento' }));
+  await user.click(screen.getByRole('button', { name: 'Registrar restante' }));
   expect(screen.getByLabelText('Valor em reais')).toHaveValue('200.00');
   expect(screen.getByText(/abate o restante/)).toBeVisible();
   expect(commands).toHaveLength(1);
@@ -277,8 +317,8 @@ it('keeps a lost unified payment frozen and replays exactly the same command', a
   );
   expect(screen.getByLabelText('Valor em reais')).toBeDisabled();
   expect(
-    screen.getByRole('button', { name: 'Registrar pagamento' }),
-  ).toBeDisabled();
+    screen.queryByRole('button', { name: 'Registrar pagamento' }),
+  ).not.toBeInTheDocument();
   await user.click(
     screen.getByRole('button', { name: 'Repetir a mesma operação' }),
   );
@@ -347,9 +387,7 @@ it('renders complete incident agreement financial history without inventing rece
   );
   render(<FinancialSection quotationId={state.quotation_id} />);
   expect(
-    await screen.findByText(
-      'Acordo financeiro de ocorrência · financeiro 1 · comercial 1',
-    ),
+    await screen.findByText('Acordo financeiro de ocorrência'),
   ).toBeVisible();
   expect(screen.getByText('Motivo: Acordo sintético explícito')).toBeVisible();
   expect(

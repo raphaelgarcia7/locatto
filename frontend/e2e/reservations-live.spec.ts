@@ -89,21 +89,19 @@ function section(page: Page) {
 async function financialPaid(page: Page) {
   await openFinancialDetails(page);
   const panel = page.getByRole('region', {
-    name: 'Financeiro deste orçamento',
+    name: 'Pagamentos da locação',
   });
   await expect(
-    panel.getByText('Sinal recebido. Você já pode confirmar a reserva.'),
+    panel.getByText(
+      'Sinal recebido. Confirme a reserva para garantir os itens.',
+    ),
   ).toBeVisible();
   await expect(
     panel.getByText('Recebido registrado').locator('..'),
   ).toContainText('200,00');
   await expect(panel).toHaveAttribute('data-financial-version', '2');
-  await expect(
-    panel.getByText(/Recebimento registrado · financeiro 1/),
-  ).toBeVisible();
-  await expect(
-    panel.getByText(/Conciliação substituída · financeiro 2/),
-  ).toBeVisible();
+  await expect(panel.getByText(/Recebimento registrado/)).toBeVisible();
+  await expect(panel.getByText(/Conciliação substituída/)).toBeVisible();
   await expect(
     panel.getByText('Nenhuma movimentação financeira no histórico.'),
   ).toHaveCount(0);
@@ -218,7 +216,7 @@ test('confirmation requires payment and explicit action; unknown result reuses t
   ).toBeDisabled();
   await visual(page, info, 'deposit-required');
   const finance = page.getByRole('region', {
-    name: 'Financeiro deste orçamento',
+    name: 'Pagamentos da locação',
   });
   await expect(finance.getByText(/Para reservar, o sinal é de/)).toBeVisible();
   await openFinancialDetails(page);
@@ -298,7 +296,9 @@ test('confirmation requires payment and explicit action; unknown result reuses t
   await expect(finance.getByRole('alert')).toBeVisible();
   await expect(finance.getByText(/Para reservar, o sinal é de/)).toHaveCount(0);
   await expect(
-    finance.getByText('Sinal recebido. Você já pode confirmar a reserva.'),
+    finance.getByText(
+      'Sinal recebido. Confirme a reserva para garantir os itens.',
+    ),
   ).toHaveCount(0);
   await visual(page, info, 'financial-read-error');
   await page.unroute(`**/api/quotations/${quote.id}/payments/history`);

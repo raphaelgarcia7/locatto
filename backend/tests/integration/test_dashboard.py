@@ -24,7 +24,7 @@ from rentalops_api.handover_contracts import (
     OperationalCommand,
 )
 from rentalops_api.models import Base
-from rentalops_api.payment_contracts import CorrectionCommand
+from rentalops_api.payment_contracts import AppliedReceiptCommand, CorrectionCommand
 from rentalops_api.quotation_models import Quotation, QuotationVersion
 from rentalops_api.rental_models import Rental
 
@@ -37,6 +37,35 @@ from .test_quotations import create
 from .test_rental_changes import cancel, resume_command
 
 pytestmark = pytest.mark.integration
+
+
+def test_excess_payment_is_not_a_financial_debt(dashboard_fixture):
+    dashboard, custody = dashboard_fixture
+    payments = custody[4][1]
+    service, actor, identifier = payments[:3]
+    service.write(
+        identifier,
+        "receipt_applied",
+        AppliedReceiptCommand.model_validate(
+            versions(
+                service,
+                identifier,
+                amount="250.00",
+                deposit="0.00",
+                balance="200.00",
+                method="pix",
+                business_date="2026-10-08",
+                reason="Pagamento sintético conferido explicitamente",
+                observation=None,
+            )
+        ),
+        actor,
+    )
+    day = dashboard.day(DayQuery(date="2026-10-10"))
+    assert day["queues"]["debt"]["total"] == 0
+    row = day["queues"]["pickup"]["items"][0]
+    assert row["financial_summary"]["operational_debt"] == "0.00"
+    assert not row["financial_summary"]["pending"]
 
 
 @pytest.fixture

@@ -295,7 +295,7 @@ test('change diff, unknown replay, reduction, approved cancellation and same-ren
     summary.getByText(/Cancelar não renegocia valores/),
   ).toBeVisible();
   const financial = page.getByRole('region', {
-    name: 'Financeiro deste orçamento',
+    name: 'Pagamentos da locação',
   });
   await expect(
     financial.getByText('Sinal previsto').locator('..'),

@@ -221,16 +221,6 @@ export function ConfirmationSection({
           <p>
             <strong>{rentalStateLabel[rental.state]}</strong>
           </p>
-          {['confirmed', 'out', 'completed'].includes(rental.state) && (
-            <p>
-              <a
-                className="auth-button"
-                href={`/api/rentals/${rental.id}/checklist/download`}
-              >
-                Baixar checklist de separação
-              </a>
-            </p>
-          )}
           <p>
             Última conferência:{' '}
             {new Date(rental.checked_at).toLocaleString('pt-BR', {
@@ -280,7 +270,7 @@ export function ConfirmationSection({
                         resumed: 'Retomada em revisão',
                       } as Record<string, string>
                     )[item.operation] ?? item.operation}{' '}
-                    · versão {item.version} · autor {item.actor_id} ·{' '}
+                    ·{' '}
                     <time dateTime={item.created_at}>
                       {new Date(item.created_at).toLocaleString('pt-BR', {
                         timeZone: 'America/Sao_Paulo',
@@ -350,9 +340,7 @@ export function ConfirmationSection({
                   <ul className="catalog-history">
                     {history.items.map((item) => (
                       <li key={item.id}>
-                        Versão {item.version} · {item.operation} ·{' '}
-                        {item.reason ?? 'Proposta inicial'} · autor{' '}
-                        {item.actor_id} ·{' '}
+                        {item.operation} · {item.reason ?? 'Proposta inicial'} ·{' '}
                         <time dateTime={item.created_at}>
                           {new Date(item.created_at).toLocaleString('pt-BR', {
                             timeZone: 'America/Sao_Paulo',

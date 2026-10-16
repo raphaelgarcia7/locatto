@@ -86,12 +86,12 @@ async function setup(page: Page) {
   await page.goto(`/locacoes?orcamento=${quote.id}`);
   await openRentalWorkflow(page);
   await expect(
-    page.getByRole('heading', { name: 'Financeiro deste orçamento' }),
+    page.getByRole('heading', { name: 'Pagamentos da locação' }),
   ).toBeVisible();
   return { quote, customer };
 }
 function section(page: Page) {
-  return page.getByRole('region', { name: 'Financeiro deste orçamento' });
+  return page.getByRole('region', { name: 'Pagamentos da locação' });
 }
 async function visual(page: Page, info: TestInfo, name: string) {
   await section(page).scrollIntoViewIfNeeded();
@@ -136,7 +136,7 @@ async function visual(page: Page, info: TestInfo, name: string) {
     fullPage: true,
   });
   await section(page)
-    .getByRole('heading', { name: 'Financeiro deste orçamento' })
+    .getByRole('heading', { name: 'Pagamentos da locação' })
     .scrollIntoViewIfNeeded();
   await page.screenshot({
     path: `test-results/evidence/${info.project.name}-payments-${name}-viewport.png`,
@@ -196,7 +196,7 @@ test('manual receipt, substitute reconciliation, correction, refund and private 
   await confirm(page);
   await expect(
     section(page).getByText(
-      'Sinal recebido. Você já pode confirmar a reserva.',
+      'Sinal recebido. Confirme a reserva para garantir os itens.',
       {
         exact: true,
       },
@@ -279,7 +279,7 @@ test('manual receipt, substitute reconciliation, correction, refund and private 
     .click();
   await openRentalWorkflow(page);
   await expect(
-    page.getByRole('heading', { name: 'Financeiro deste orçamento' }),
+    page.getByRole('heading', { name: 'Pagamentos da locação' }),
   ).toBeVisible();
 });
 
@@ -333,11 +333,11 @@ test('unknown commit replays same request and stale version preserves the form',
   await expect(section(page)).toHaveAttribute('data-financial-version', '2');
   await expect(
     section(page).getByText(
-      'Sinal recebido. Você já pode confirmar a reserva.',
+      'Sinal recebido. Confirme a reserva para garantir os itens.',
     ),
   ).toBeVisible();
   await expect(
-    section(page).getByText(/Conciliação substituída · financeiro 2/),
+    section(page).getByText(/Conciliação substituída/),
   ).toBeVisible();
   await visual(page, info, 'replay-current-financial');
   await page.unroute(`**${base}/receipts`);

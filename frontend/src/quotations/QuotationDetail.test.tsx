@@ -13,6 +13,9 @@ vi.mock('../contracts/ContractsSection', () => ({
 // Custody has its own command/unknown-state tests; keep this financial contract
 // test's existing responses scoped to the sections it exercises.
 vi.mock('../rentals/CustodySection', () => ({ CustodySection: () => null }));
+vi.mock('../rentals/ChecklistSection', () => ({
+  ChecklistSection: () => null,
+}));
 
 const record: Quotation = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -113,36 +116,32 @@ it('shows a concise rental summary without IDs, source versions or duplicated pr
       'Painel romano',
     ),
   ).toHaveLength(1);
-  expect(
-    screen.getByText('1. Pagamento e confirmação').parentElement,
-  ).not.toHaveAttribute('open');
-  expect(screen.getByText('2. Contrato').parentElement).not.toHaveAttribute(
+  expect(screen.getByText('Pagamento').parentElement).not.toHaveAttribute(
     'open',
   );
+  expect(
+    screen.getByText('Preparação · contrato e checklist').parentElement,
+  ).not.toHaveAttribute('open');
   expect(
     screen.getByText('Alterações e cancelamento').parentElement,
   ).not.toHaveAttribute('open');
   const user = userEvent.setup();
   await user.click(
-    screen.getByRole('button', {
-      name: 'Pagamento e confirmação',
-    }),
+    screen.getAllByRole('button', {
+      name: 'Registrar sinal e reservar',
+    })[0],
   );
-  expect(
-    screen.getByText('1. Pagamento e confirmação').parentElement,
-  ).toHaveAttribute('open');
+  expect(screen.getByText('Pagamento').parentElement).toHaveAttribute('open');
   await user.click(
-    await screen.findByRole('button', { name: 'Registrar pagamento' }),
+    await within(
+      screen.getByRole('region', { name: 'Pagamentos da locação' }),
+    ).findByRole('button', { name: 'Registrar sinal e reservar' }),
   );
   const amount = await screen.findByLabelText('Valor em reais');
   await user.clear(amount);
   await user.type(amount, '30,00');
-  await user.click(
-    screen.getByText('1. Pagamento e confirmação', { exact: true }),
-  );
-  await user.click(
-    screen.getByText('1. Pagamento e confirmação', { exact: true }),
-  );
+  await user.click(screen.getByText('Pagamento', { exact: true }));
+  await user.click(screen.getByText('Pagamento', { exact: true }));
   expect(screen.getByLabelText('Valor em reais')).toHaveValue('30,00');
   expect(
     fetcher.mock.calls.every(([, options]) => options?.method !== 'POST'),
@@ -280,9 +279,7 @@ it.each(
         />
       </MemoryRouter>,
     );
-    await userEvent.click(
-      screen.getByText('1. Pagamento e confirmação', { exact: true }),
-    );
+    await userEvent.click(screen.getByText('Pagamento', { exact: true }));
     const summary = within(
       screen.getByRole('region', { name: 'Prévia comercial do servidor' }),
     );
@@ -290,7 +287,7 @@ it.each(
     expect(summary.queryByText('Sinal previsto')).not.toBeInTheDocument();
     expect(summary.queryByText('Saldo previsto')).not.toBeInTheDocument();
     const panel = within(
-      screen.getByRole('region', { name: 'Financeiro deste orçamento' }),
+      screen.getByRole('region', { name: 'Pagamentos da locação' }),
     );
     if (read === 'loaded') {
       await panel.findByText('Sinal previsto');
@@ -353,16 +350,14 @@ it.each(['confirmed', 'review', 'out', 'completed'] as const)(
         />
       </MemoryRouter>,
     );
-    await userEvent.click(
-      screen.getByText('1. Pagamento e confirmação', { exact: true }),
-    );
+    await userEvent.click(screen.getByText('Pagamento', { exact: true }));
     const summary = within(
       screen.getByRole('region', { name: 'Prévia comercial do servidor' }),
     );
     expect(summary.queryByText('Sinal previsto')).not.toBeInTheDocument();
     expect(summary.queryByText('Saldo previsto')).not.toBeInTheDocument();
     const panel = within(
-      screen.getByRole('region', { name: 'Financeiro deste orçamento' }),
+      screen.getByRole('region', { name: 'Pagamentos da locação' }),
     );
     await panel.findByText('Sinal previsto');
     expect(
@@ -392,9 +387,7 @@ it('keeps the original estimates for a quotation without a rental', async () => 
       <QuotationDetail record={record} onEdit={vi.fn()} onClose={vi.fn()} />
     </MemoryRouter>,
   );
-  await userEvent.click(
-    screen.getByText('1. Pagamento e confirmação', { exact: true }),
-  );
+  await userEvent.click(screen.getByText('Pagamento', { exact: true }));
   const summary = within(
     screen.getByRole('region', { name: 'Prévia comercial do servidor' }),
   );
@@ -467,11 +460,9 @@ it.each([
         <QuotationDetail record={record} onEdit={vi.fn()} onClose={vi.fn()} />
       </MemoryRouter>,
     );
-    await userEvent.click(
-      screen.getByText('1. Pagamento e confirmação', { exact: true }),
-    );
+    await userEvent.click(screen.getByText('Pagamento', { exact: true }));
     const panel = within(
-      screen.getByRole('region', { name: 'Financeiro deste orçamento' }),
+      screen.getByRole('region', { name: 'Pagamentos da locação' }),
     );
     await panel.findByText(/Para reservar, o sinal é de R\$\s*200,00\./);
     await userEvent.click(
@@ -481,24 +472,23 @@ it.each([
       panel.getByText('Nenhuma movimentação financeira no histórico.'),
     ).toBeVisible();
     financial = paid; // Another attendant receives and reconciles while the detail stays open.
+    await userEvent.click(screen.getByText('Reservar com sinal já registrado'));
     await userEvent.click(
       await screen.findByRole('button', {
         name: 'Conferir disponibilidade para reservar',
       }),
     );
-    await panel.findByText('Sinal recebido. Você já pode confirmar a reserva.');
+    await panel.findByText(
+      'Sinal recebido. Confirme a reserva para garantir os itens.',
+    );
     await userEvent.click(
       panel.getByText('Histórico financeiro', { exact: true }),
     );
     expect(
-      screen.getByRole('region', { name: 'Financeiro deste orçamento' }),
+      screen.getByRole('region', { name: 'Pagamentos da locação' }),
     ).toHaveAttribute('data-financial-version', '2');
-    expect(
-      panel.getByText(/Recebimento registrado · financeiro 1/),
-    ).toBeVisible();
-    expect(
-      panel.getByText(/Conciliação substituída · financeiro 2/),
-    ).toBeVisible();
+    expect(panel.getByText(/Recebimento registrado/)).toBeVisible();
+    expect(panel.getByText(/Conciliação substituída/)).toBeVisible();
     expect(
       panel.queryByText('Nenhuma movimentação financeira no histórico.'),
     ).not.toBeInTheDocument();
@@ -518,7 +508,9 @@ it.each([
         panel.queryByText(/Para reservar, o sinal é de R\$\s*200,00\./),
       ).not.toBeInTheDocument();
       expect(
-        panel.queryByText('Sinal recebido. Você já pode confirmar a reserva.'),
+        panel.queryByText(
+          'Sinal recebido. Confirme a reserva para garantir os itens.',
+        ),
       ).not.toBeInTheDocument();
       expect(
         panel.queryByText('Nenhuma movimentação financeira no histórico.'),
@@ -532,7 +524,7 @@ it.each([
       await screen.findByText(/Resultado desconhecido/);
       expect(screen.queryByText('Reserva confirmada')).not.toBeInTheDocument();
       await panel.findByText(
-        'Sinal recebido. Você já pode confirmar a reserva.',
+        'Sinal recebido. Confirme a reserva para garantir os itens.',
       );
       await userEvent.click(
         screen.getByRole('button', { name: 'Reconciliar a mesma confirmação' }),
@@ -547,7 +539,9 @@ it.each([
     ).not.toBeInTheDocument();
     await waitFor(() =>
       expect(
-        panel.getByText('Sinal recebido. Você já pode confirmar a reserva.'),
+        panel.getByText(
+          'Sinal recebido. Confirme a reserva para garantir os itens.',
+        ),
       ).toBeVisible(),
     );
     expect(

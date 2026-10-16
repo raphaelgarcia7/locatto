@@ -42,6 +42,7 @@ def test_every_operational_route_session_origin_version_private_history_and_priv
     preview = base + "/confirmation-preview"
     confirm = base + "/confirm"
     paths = [
+        f"/rentals/{uuid4()}/checklist",
         f"/rentals/{uuid4()}/checklist/download",
         f"/rentals/{uuid4()}",
         f"/rentals/{uuid4()}/history",
@@ -95,6 +96,32 @@ def test_every_operational_route_session_origin_version_private_history_and_priv
     assert checklist.content.startswith(b"%PDF-")
     assert checklist.headers["Cache-Control"] == "no-store"
     assert checklist.headers["X-Content-Type-Options"] == "nosniff"
+    preparation_path = f"/rentals/{rental['id']}/checklist"
+    preparation = http.get(preparation_path)
+    assert preparation.headers["Cache-Control"] == "no-store"
+    body = {
+        "request_id": str(uuid4()),
+        "expected_version": 0,
+        "expected_rental_version": rental["version"],
+        "checked_products": [],
+        "extras": [{"id": str(uuid4()), "label": "Elásticos", "checked": False}],
+    }
+    for headers in ({}, {"Origin": "https://other.invalid"}):
+        assert (
+            http.post(preparation_path, headers=headers, json=body).status_code == 403
+        )
+    saved = http.post(preparation_path, headers=HEADERS, json=body)
+    assert (
+        saved.status_code == 201 and saved.json()["extras"][0]["label"] == "Elásticos"
+    )
+    assert http.post(preparation_path, headers=HEADERS, json=body).status_code == 200
+    assert (
+        http.post(
+            preparation_path, headers=HEADERS, json={**body, "actor_id": str(uuid4())}
+        ).status_code
+        == 422
+    )
+    assert http.get(f"/rentals/{rental['id']}").json() == rental
     assert http.get(f"/rentals/by-quotation/{identifier}").json() == rental
     history = http.get(f"/rentals/{rental['id']}/history?page=1&page_size=1")
     assert history.status_code == 200 and history.json()["total"] == 1

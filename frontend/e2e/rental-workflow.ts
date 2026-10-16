@@ -6,13 +6,16 @@ import type { Page } from '@playwright/test';
 export async function openRentalWorkflow(page: Page) {
   await expect(page.locator('.quotation-detail')).toBeVisible();
   for (const title of [
-    '1. Pagamento e confirmação',
-    '2. Contrato',
-    '3. Retirada e devolução',
+    'Pagamento',
+    'Preparação · contrato e checklist',
+    'Retirada e devolução',
+    'Reservar com sinal já registrado',
+    'Histórico da reserva',
     'Alterações e cancelamento',
     'Consulta de estoque e histórico',
   ]) {
     const summary = page.getByText(title, { exact: true });
+    if (!(await summary.count())) continue;
     if (
       !(await summary
         .locator('..')

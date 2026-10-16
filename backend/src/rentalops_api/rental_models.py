@@ -147,3 +147,17 @@ class RentalRequest(Base):
     payload_hash: Mapped[str] = mapped_column(String(64))
     status: Mapped[int] = mapped_column(Integer)
     result: Mapped[dict[str, object]] = mapped_column(JSON)
+
+
+class RentalChecklist(Base):
+    __tablename__ = "rental_checklists"
+    __table_args__ = (CheckConstraint("version >= 1", name="ck_checklist_version"),)
+
+    rental_id: Mapped[UUID] = mapped_column(ForeignKey("rentals.id"), primary_key=True)
+    version: Mapped[int] = mapped_column(Integer)
+    quotation_version: Mapped[int] = mapped_column(Integer)
+    extras: Mapped[list[dict[str, object]]] = mapped_column(JSON)
+    checked_products: Mapped[list[str]] = mapped_column(JSON)
+    actor_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
+    session_id: Mapped[UUID] = mapped_column(ForeignKey("auth_sessions.id"))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

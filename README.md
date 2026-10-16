@@ -609,6 +609,22 @@ Copie `.env.example` para `.env` na raiz do repositório. A chave `OPENAI_API_KE
 
 ## Desenvolvimento
 
+### Atendimento e preparação da locação
+
+Em **Locações**, registre o sinal e confirme a reserva na mesma ação explícita.
+O recebimento permanece registrado se faltar estoque; a tela informa que a reserva
+não foi confirmada, sem pedir o mesmo pagamento novamente. Pagamento, preparação
+e retirada/devolução ficam separados. O financeiro detalhado e o histórico ficam
+recolhidos, sem exibir IDs de banco ou de sessão.
+
+Em **Preparação · contrato e checklist**, a equipe confere os produtos dos kits
+e acrescenta acessórios livres, como elásticos e pregadores. Esses extras são
+lembretes operacionais: não alteram preço, estoque ou contrato. O checklist é
+compartilhado, pode ser salvo e impresso com as marcações. Alterações comerciais
+exigem nova conferência; salvamentos concorrentes não sobrescrevem outro usuário.
+Antes de iniciar o backend atualizado, aplique a migração `0015_rental_checklists`
+com o procedimento normal de backup e migração do ambiente.
+
 Os [controles de entrega](infra/automation/README.md) publicam o workflow Quality,
 o adapter autenticado de GitHub Projects e os guards de execução/retomada. A CI
 executa PostgreSQL real, qualidade/auditorias, Playwright/axe no build de produção
