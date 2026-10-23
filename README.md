@@ -4,6 +4,10 @@ RentalOps é um sistema para organizar locações de decorações e itens para f
 
 O projeto é construído como um monorepo: frontend, backend, documentação e infraestrutura ficam no mesmo repositório, com dependências e ciclos de execução próprios.
 
+Para uso diário no PC da locadora, a instalação local oferece os atalhos
+**Abrir RentalOps**, **Fechar RentalOps** e **Backup RentalOps**, com dados
+persistentes e cópias cifradas. Veja [uso local no Windows](infra/local/README.md).
+
 ## Problema que queremos resolver
 
 Uma locação pode incluir kits, itens avulsos, quantidades, datas, estoque e detalhes que precisam ser esclarecidos antes da confirmação. O RentalOps centraliza essas informações para que a equipe consiga montar propostas consistentes e acompanhar reservas com segurança.
