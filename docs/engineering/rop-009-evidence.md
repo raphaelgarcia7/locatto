@@ -2,7 +2,7 @@
 
 ## Scope, approval and revision
 
-- Approved issue: [#9](https://github.com/raphaelgarcia7/rentalops-agent/issues/9), `customers-v1`, `updated_at=2026-10-03T14:02:37Z`.
+- Approved issue: [#9](https://github.com/raphaelgarcia7/rentalops/issues/9), `customers-v1`, `updated_at=2026-10-03T14:02:37Z`.
 - Exact approved UTF-8 body SHA-256: `83ed04f04754c053b04688f5de442844f8524f71c074f60fd70ec67c60172e66`. Re-fetched unchanged before handoff.
 - Base: `e1217093afdb8722472bb57cc0dbed1a564af1a2` (catalog PR #25 integrated). Coordinator verified direct/transitive prerequisites #3/#7/#21 Done and remotely merged before dispatch; this execution did not waive those gates.
 - Implementation SHA: `62e307bc657787933f7b5a889d1a9015dc0bc38b`, branch `codex/9-customers`. The following evidence-only commit changes no executable code. Resolve the final review head with `git rev-parse HEAD`; the coordinator records that exact SHA in the handoff/journal.

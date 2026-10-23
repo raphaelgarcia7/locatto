@@ -1,7 +1,7 @@
 # Controles de entrega
 
 O SQLite é um journal local de coordenação, não persistência do produto. Todos os
-checkouts usam `--workspace C:/Projects/praxis/rmg-chatbot`. Nunca apagar o banco,
+checkouts usam `--workspace C:/Projects/praxis/rentalops`. Nunca apagar o banco,
 roubar um owner por idade ou reutilizar um owner encerrado. `checkpoint` substitui
 o objeto completo: ler e preservar os campos anteriores antes de atualizar.
 Testes usam exclusivamente `tmp_path`, sem acesso ao journal compartilhado.

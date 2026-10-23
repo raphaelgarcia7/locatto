@@ -109,13 +109,13 @@ Revisar e aprovar o plano é trabalho humano. A rotina pode executar a promoçã
 
 `infra/automation/task_lock.py` usa SQLite local em `.rentalops/automation.sqlite3`, sem servidor adicional. Não é o banco do produto. Uma restrição permite apenas uma execução ativa; liberação condicional por owner evita que uma chamada antiga libere outra execução. Owners não são reutilizados e o histórico não é apagado.
 
-Todos os participantes usam a raiz **C:/Projects/praxis/rmg-chatbot**, inclusive em worktrees:
+Todos os participantes usam a raiz **C:/Projects/praxis/rentalops**, inclusive em worktrees:
 
 ```sh
-uv run --project backend python infra/automation/task_lock.py status --workspace C:/Projects/praxis/rmg-chatbot
-uv run --project backend python infra/automation/task_lock.py claim --workspace C:/Projects/praxis/rmg-chatbot --owner EXECUTION_ID --task ISSUE_ID
-uv run --project backend python infra/automation/task_lock.py checkpoint --workspace C:/Projects/praxis/rmg-chatbot --owner EXECUTION_ID --progress '{"phase":"validating","head_sha":"COMMIT_SHA","agent_id":"AGENT_ID","branch":"BRANCH","issue_revision":"REVISION"}'
-uv run --project backend python infra/automation/task_lock.py release --workspace C:/Projects/praxis/rmg-chatbot --owner EXECUTION_ID
+uv run --project backend python infra/automation/task_lock.py status --workspace C:/Projects/praxis/rentalops
+uv run --project backend python infra/automation/task_lock.py claim --workspace C:/Projects/praxis/rentalops --owner EXECUTION_ID --task ISSUE_ID
+uv run --project backend python infra/automation/task_lock.py checkpoint --workspace C:/Projects/praxis/rentalops --owner EXECUTION_ID --progress '{"phase":"validating","head_sha":"COMMIT_SHA","agent_id":"AGENT_ID","branch":"BRANCH","issue_revision":"REVISION"}'
+uv run --project backend python infra/automation/task_lock.py release --workspace C:/Projects/praxis/rentalops --owner EXECUTION_ID
 ```
 
 `checkpoint` substitui o objeto completo de progresso; preservar campos anteriores. Não guardar segredos, CPF/RG ou conteúdo contratual. IDs ilustrativos devem ser substituídos. O lock antigo, caso exista, continua bloqueando até reconciliação explícita; banco inválido também bloqueia. SQLite não é um lock distribuído entre computadores.

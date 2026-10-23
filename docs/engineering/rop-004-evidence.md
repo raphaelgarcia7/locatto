@@ -1,6 +1,6 @@
 # ROP-004 — operations-prep-v1: evidências locais
 
-Plano humano: [issue4](https://github.com/raphaelgarcia7/rentalops-agent/issues/4),
+Plano humano: [issue4](https://github.com/raphaelgarcia7/rentalops/issues/4),
 updated_at `2026-10-09T00:27:44Z`, body UTF-8 SHA256
 `70d2b4f705844b565bb02855b5a6c05b20bed68f79ac28532dbf0d534744e5e2`.
 Reconsulta pelo conector antes da entrega confirmou issue aberta, mesma revisão e

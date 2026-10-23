@@ -1,6 +1,6 @@
 # ROP-007 — Evidências da fundação PostgreSQL
 
-Execução de `db-foundation-v1`, issue [#7](https://github.com/raphaelgarcia7/rentalops-agent/issues/7), corpo aprovado com `updatedAt=2026-10-03T12:26:15Z`; versão reconfirmada antes do commit em 2026-10-03. Executor GPT-6.1 Sol/high. Base: `2bbac480ae2e082099181b364cd1ab92e7914ffa` (`origin/develop`); branch `codex/7-postgres-foundation`. Os resultados locais abaixo correspondem ao código deste commit de implementação. Revisão independente, verificações remotas e integração são etapas posteriores do coordenador, vinculadas ao SHA final.
+Execução de `db-foundation-v1`, issue [#7](https://github.com/raphaelgarcia7/rentalops/issues/7), corpo aprovado com `updatedAt=2026-10-03T12:26:15Z`; versão reconfirmada antes do commit em 2026-10-03. Executor GPT-6.1 Sol/high. Base: `2bbac480ae2e082099181b364cd1ab92e7914ffa` (`origin/develop`); branch `codex/7-postgres-foundation`. Os resultados locais abaixo correspondem ao código deste commit de implementação. Revisão independente, verificações remotas e integração são etapas posteriores do coordenador, vinculadas ao SHA final.
 
 O checkout usado foi `C:/Users/Raphael/.codex/worktrees/rentalops-postgres/rmg-chatbot`. A raiz compartilhada suja foi somente lida para padrões, regras, delivery e ADR-001. Não houve cópia de mudanças acumuladas, alteração de journal/lock, publicação de workflow, alteração de GitHub, push ou merge pelo executor.
 
