@@ -18,7 +18,7 @@ function CatalogPhoto({ record }: { record: CatalogRecord }) {
   const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
   const photo = record.principal_photo_id;
   return (
-    <div className="catalog-card-photo">
+    <div className="catalog-card-photo catalog-photo-preview">
       {photo && photo !== failedPhoto ? (
         <img
           src={`/api/photos/${photo}`}
