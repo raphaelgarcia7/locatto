@@ -87,20 +87,6 @@ export function ParametersPage() {
       setBusy(false);
     }
   }
-  async function refreshVersion() {
-    setBusy(true);
-    setError('');
-    try {
-      setRecord(await contractRequest<Company>('/parameters'));
-      setNotice(
-        'Revisão atualizada. Seus campos foram mantidos; confira antes de salvar.',
-      );
-    } catch (problem) {
-      setError(readFeedback(problem));
-    } finally {
-      setBusy(false);
-    }
-  }
   return (
     <section
       className="catalog-panel contract-panel"
@@ -143,13 +129,6 @@ export function ParametersPage() {
               ? `${record.pending.length} campos pendentes para contratos`
               : 'Dados da locadora completos'}
           </p>
-          <button
-            className="auth-retry"
-            disabled={busy || unknown}
-            onClick={() => void refreshVersion()}
-          >
-            Reconsultar revisão sem apagar campos
-          </button>
           {record.version === 0 && (
             <p>Nenhum parâmetro cadastrado. A logo é opcional.</p>
           )}
