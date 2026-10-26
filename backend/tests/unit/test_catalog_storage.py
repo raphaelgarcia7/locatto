@@ -7,7 +7,7 @@ from unittest.mock import patch
 import pytest
 from PIL import Image
 
-from rentalops_api.catalog_storage import (
+from locatto_api.catalog_storage import (
     MAX_UPLOAD_BYTES,
     CatalogError,
     PhotoStorage,
@@ -126,7 +126,7 @@ def test_private_metadata_without_effective_access_fails_closed(tmp_path):
     tmp_path.chmod(0o700)
     storage = PhotoStorage(tmp_path)
     assert storage.checked_root() == tmp_path
-    with patch("rentalops_api.catalog_storage.os.access", return_value=False) as access:
+    with patch("locatto_api.catalog_storage.os.access", return_value=False) as access:
         with pytest.raises(CatalogError) as caught:
             storage.checked_root()
         access.assert_called_once_with(tmp_path, os.R_OK | os.W_OK | os.X_OK)
@@ -203,7 +203,7 @@ def test_filesystem_failure_only_removes_new_partial_file(tmp_path):
     storage = PhotoStorage(tmp_path)
     previous = storage.write(b"historical", "PNG")
     with patch(
-        "rentalops_api.catalog_storage.os.fsync",
+        "locatto_api.catalog_storage.os.fsync",
         side_effect=OSError("synthetic failure"),
     ):
         with pytest.raises(CatalogError) as caught:

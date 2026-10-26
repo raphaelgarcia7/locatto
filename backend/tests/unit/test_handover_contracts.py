@@ -3,7 +3,7 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-from rentalops_api.handover_contracts import (
+from locatto_api.handover_contracts import (
     FinancialAgreementCommand,
     HandoverCommand,
     ResolutionCommand,

@@ -22,28 +22,28 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import event
 
-from rentalops_api.auth import COOKIE_NAME, AuthError, AuthService, AuthSettings
-from rentalops_api.auth_routes import auth_service
-from rentalops_api.catalog import CatalogService
-from rentalops_api.catalog_routes import catalog_service
-from rentalops_api.catalog_storage import PhotoStorage
-from rentalops_api.contract_routes import contract_service
-from rentalops_api.contracts import ContractService
-from rentalops_api.customer_routes import customer_service
-from rentalops_api.customers import CustomerService
-from rentalops_api.dashboard import DashboardService
-from rentalops_api.dashboard_routes import dashboard_service
-from rentalops_api.database import build_session_factory
-from rentalops_api.handover_routes import handover_service
-from rentalops_api.handovers import HandoverService
-from rentalops_api.main import app as production_app
-from rentalops_api.payment_routes import payment_service
-from rentalops_api.payment_storage import ProofStorage
-from rentalops_api.payments import PaymentService
-from rentalops_api.quotation_routes import quotation_service
-from rentalops_api.quotations import QuotationService
-from rentalops_api.rental_changes import RentalChangeService
-from rentalops_api.rental_routes import rental_service
+from locatto_api.auth import COOKIE_NAME, AuthError, AuthService, AuthSettings
+from locatto_api.auth_routes import auth_service
+from locatto_api.catalog import CatalogService
+from locatto_api.catalog_routes import catalog_service
+from locatto_api.catalog_storage import PhotoStorage
+from locatto_api.contract_routes import contract_service
+from locatto_api.contracts import ContractService
+from locatto_api.customer_routes import customer_service
+from locatto_api.customers import CustomerService
+from locatto_api.dashboard import DashboardService
+from locatto_api.dashboard_routes import dashboard_service
+from locatto_api.database import build_session_factory
+from locatto_api.handover_routes import handover_service
+from locatto_api.handovers import HandoverService
+from locatto_api.main import app as production_app
+from locatto_api.payment_routes import payment_service
+from locatto_api.payment_storage import ProofStorage
+from locatto_api.payments import PaymentService
+from locatto_api.quotation_routes import quotation_service
+from locatto_api.quotations import QuotationService
+from locatto_api.rental_changes import RentalChangeService
+from locatto_api.rental_routes import rental_service
 
 from .conftest import isolated_engine, migration_config
 
@@ -71,21 +71,21 @@ class BrowserFixture:
 # Only schema initialization uses this lock: Alembic's migration context is
 # process-global. Requests, business transactions and parallel tests do not.
 migration_lock = Lock()
-if os.environ.get("RENTALOPS_TEST_DIAGNOSTICS") == "safe":
-    logging.getLogger("rentalops.operations").setLevel(logging.INFO)
+if os.environ.get("LOCATTO_TEST_DIAGNOSTICS") == "safe":
+    logging.getLogger("locatto.operations").setLevel(logging.INFO)
     handler = logging.StreamHandler()
-    logging.getLogger("rentalops.operations").addHandler(handler)
+    logging.getLogger("locatto.operations").addHandler(handler)
 fixture_context: ContextVar[BrowserFixture | None] = ContextVar(
     "browser_fixture", default=None
 )
-FIXTURE_COOKIE = "rentalops_test_fixture"
+FIXTURE_COOKIE = "locatto_test_fixture"
 
 
 @contextmanager
 def browser_fixture():
     namespace = isolated_engine.__wrapped__()
     engine = next(namespace)
-    if os.environ.get("RENTALOPS_TEST_DIAGNOSTICS") == "safe":
+    if os.environ.get("LOCATTO_TEST_DIAGNOSTICS") == "safe":
 
         @event.listens_for(engine, "handle_error")
         def safe_database_error(context):
@@ -99,7 +99,7 @@ def browser_fixture():
                 flush=True,
             )
 
-    storage = TemporaryDirectory(prefix="rentalops-catalog-browser-")
+    storage = TemporaryDirectory(prefix="locatto-catalog-browser-")
     try:
         with migration_lock, engine.begin() as connection:
             command.upgrade(migration_config(connection), "head")

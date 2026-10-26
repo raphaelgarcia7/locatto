@@ -6,7 +6,7 @@ O responsável limitou a execução automática às tarefas até **ROP-016**, in
 
 O responsável reafirmou a continuação imediata: acompanhar a entrega ativa até executor parar, revisão independente e gates finais. Depois de merge remoto em develop, Project Done confirmado, journal/evidências e todos os agentes parados, liberar somente o owner atual e selecionar imediatamente a próxima elegível dentro do limite ROP-016, com base atualizada e novo owner. Não encerrar a coordenação após um simples despacho nem aguardar o próximo heartbeat por conveniência. O intervalo horário é recuperação de interrupções; não renova cota nem substitui acesso/modelos. Estado desconhecido, decisão ou gate pendente preserva a entrega atual e impede outra implementação.
 
-Em 2026-10-10, após autenticar pessoalmente GitHub CLI com acesso a Projects, o responsável revalidou explicitamente a ROP-006: “Sim, executar a ROP-006 conforme esse plano”. A autorização é somente para delivery-controls-v1, issue6 updated_at2026-10-09T00:27:47Z/bodySHA25662abe0cd9c7760230544acb0ebbbcd237b6ea62d8f6f67de57485c84bad4046d, registrada em .rentalops/approved-plan-pins-20261010.json e snapshot próprio. Leitura real do Project confirmou acesso e capacidade declarada de atualização; escrita controlada, pipeline e proteção ainda precisam ser implementados/testados, não são gates passados. Concluir integralmente a entrega15 ativa antes de selecionar6 P0 com novo owner; depois seguir14/16 elegíveis. Isso não dispensa Project Ready, estado conhecido, revisão/hash, testes ou limite até016 e não permite alterar autenticação, ampliar grants, main/deploy ou contornar proteções.
+Em 2026-10-10, após autenticar pessoalmente GitHub CLI com acesso a Projects, o responsável revalidou explicitamente a ROP-006: “Sim, executar a ROP-006 conforme esse plano”. A autorização é somente para delivery-controls-v1, issue6 updated_at2026-10-09T00:27:47Z/bodySHA25662abe0cd9c7760230544acb0ebbbcd237b6ea62d8f6f67de57485c84bad4046d, registrada em .locatto/approved-plan-pins-20261010.json e snapshot próprio. Leitura real do Project confirmou acesso e capacidade declarada de atualização; escrita controlada, pipeline e proteção ainda precisam ser implementados/testados, não são gates passados. Concluir integralmente a entrega15 ativa antes de selecionar6 P0 com novo owner; depois seguir14/16 elegíveis. Isso não dispensa Project Ready, estado conhecido, revisão/hash, testes ou limite até016 e não permite alterar autenticação, ampliar grants, main/deploy ou contornar proteções.
 
 Decisão atual: planejamento manual com o responsável no Harness. A automação **não dispara planner**. Executor usa `gpt-6.1-sol`, esforço `high`, conforme atualização do responsável em 2026-10-02. Revisão independente continua `gpt-6-sol/high`. A revisão é uma etapa de verificação, não novo planejamento nem segundo executor simultâneo.
 
@@ -77,7 +77,7 @@ Mover para Ready autoriza somente o plano daquela versão. Registrar corpo/updat
 
 ## Uma execução por vez
 
-O heartbeat `rentalops-tarefas-prontas-a-cada-hora` acompanha este chat a cada hora. Ele coordena; a seleção de Sol/high é explícita no despacho do executor/revisor, não uma promessa de que o próprio coordenador mudou de modelo.
+O heartbeat `locatto-tarefas-prontas-a-cada-hora` acompanha este chat a cada hora. Ele coordena; a seleção de Sol/high é explícita no despacho do executor/revisor, não uma promessa de que o próprio coordenador mudou de modelo.
 
 1. Reconciliar execução/PR anterior antes de buscar nova task. Verificar agentes ativos, status do quadro e journal; estado incerto bloqueia despacho.
 2. Adquirir a execução com owner único por tentativa antes de mover a task ou despachar.
@@ -107,15 +107,15 @@ Revisar e aprovar o plano é trabalho humano. A rotina pode executar a promoçã
 
 ## Journal local e retomada
 
-`infra/automation/task_lock.py` usa SQLite local em `.rentalops/automation.sqlite3`, sem servidor adicional. Não é o banco do produto. Uma restrição permite apenas uma execução ativa; liberação condicional por owner evita que uma chamada antiga libere outra execução. Owners não são reutilizados e o histórico não é apagado.
+`infra/automation/task_lock.py` usa SQLite local em `.locatto/automation.sqlite3`, sem servidor adicional. Não é o banco do produto. Uma restrição permite apenas uma execução ativa; liberação condicional por owner evita que uma chamada antiga libere outra execução. Owners não são reutilizados e o histórico não é apagado.
 
-Todos os participantes usam a raiz **C:/Projects/praxis/rentalops**, inclusive em worktrees:
+Todos os participantes usam a raiz **C:/Projects/praxis/locatto**, inclusive em worktrees:
 
 ```sh
-uv run --project backend python infra/automation/task_lock.py status --workspace C:/Projects/praxis/rentalops
-uv run --project backend python infra/automation/task_lock.py claim --workspace C:/Projects/praxis/rentalops --owner EXECUTION_ID --task ISSUE_ID
-uv run --project backend python infra/automation/task_lock.py checkpoint --workspace C:/Projects/praxis/rentalops --owner EXECUTION_ID --progress '{"phase":"validating","head_sha":"COMMIT_SHA","agent_id":"AGENT_ID","branch":"BRANCH","issue_revision":"REVISION"}'
-uv run --project backend python infra/automation/task_lock.py release --workspace C:/Projects/praxis/rentalops --owner EXECUTION_ID
+uv run --project backend python infra/automation/task_lock.py status --workspace C:/Projects/praxis/locatto
+uv run --project backend python infra/automation/task_lock.py claim --workspace C:/Projects/praxis/locatto --owner EXECUTION_ID --task ISSUE_ID
+uv run --project backend python infra/automation/task_lock.py checkpoint --workspace C:/Projects/praxis/locatto --owner EXECUTION_ID --progress '{"phase":"validating","head_sha":"COMMIT_SHA","agent_id":"AGENT_ID","branch":"BRANCH","issue_revision":"REVISION"}'
+uv run --project backend python infra/automation/task_lock.py release --workspace C:/Projects/praxis/locatto --owner EXECUTION_ID
 ```
 
 `checkpoint` substitui o objeto completo de progresso; preservar campos anteriores. Não guardar segredos, CPF/RG ou conteúdo contratual. IDs ilustrativos devem ser substituídos. O lock antigo, caso exista, continua bloqueando até reconciliação explícita; banco inválido também bloqueia. SQLite não é um lock distribuído entre computadores.
@@ -124,7 +124,7 @@ O journal registra estado, não comprova sozinho que um agente parou. Antes de l
 
 ## Estado de implantação deste processo
 
-Agendamento nativo existente; instruções e ferramentas locais preparadas. GitHub conectado e Project RentalOps criado. Após a entrega ROP-003 há 15 issues abertas, uma concluída e 3 encerradas como não planejadas. O conector não expõe Projects e a credencial local não possui read:project. A interface autenticada permitiu ler Ready e registrar In progress e Done no piloto ROP-003, mas acesso programático estável continua pendente. API remota confirmou develop sem proteção, regras/rulesets vazios e nenhum workflow publicado em 2026-10-02. Após informar essas lacunas, o responsável autorizou a integração; PR #20 foi integrada por squash em develop no commit `2bbac480ae2e082099181b364cd1ab92e7914ffa`. Testes locais e revisão independente passaram; não houve CI remota nem bypass. Não afirmar que texto no prompt é garantia técnica.
+Agendamento nativo existente; instruções e ferramentas locais preparadas. GitHub conectado e Project Locatto criado. Após a entrega ROP-003 há 15 issues abertas, uma concluída e 3 encerradas como não planejadas. O conector não expõe Projects e a credencial local não possui read:project. A interface autenticada permitiu ler Ready e registrar In progress e Done no piloto ROP-003, mas acesso programático estável continua pendente. API remota confirmou develop sem proteção, regras/rulesets vazios e nenhum workflow publicado em 2026-10-02. Após informar essas lacunas, o responsável autorizou a integração; PR #20 foi integrada por squash em develop no commit `2bbac480ae2e082099181b364cd1ab92e7914ffa`. Testes locais e revisão independente passaram; não houve CI remota nem bypass. Não afirmar que texto no prompt é garantia técnica.
 
 O piloto supervisionado ROP-003 foi concluído. A autorização de integração sem confirmação por PR não dispensa Ready aprovado, testes, revisão e verificação dos requisitos remotos existentes. Não inventar tarefa piloto nem tratar este documento como autorização para publicar todas as alterações locais acumuladas.
 

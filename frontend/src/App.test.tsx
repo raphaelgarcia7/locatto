@@ -99,12 +99,12 @@ describe('workspace routing', () => {
     renderRoute();
     await user.click(screen.getByRole('link', { name: 'Clientes' }));
     expect(screen.getByRole('main', { name: 'Clientes' })).toHaveFocus();
-    expect(document.title).toBe('Clientes · RentalOps');
+    expect(document.title).toBe('Clientes · Locatto');
     await user.click(
       screen.getByRole('link', { name: 'Voltar à visão geral' }),
     );
     expect(screen.getByRole('main', { name: 'Visão geral' })).toHaveFocus();
-    expect(document.title).toBe('Visão geral · RentalOps');
+    expect(document.title).toBe('Visão geral · Locatto');
   });
 
   it.each(['/catalogo/', '/CATALOGO'])(
@@ -114,7 +114,7 @@ describe('workspace routing', () => {
       expect(
         screen.getByRole('heading', { level: 1, name: 'Catálogo' }),
       ).toBeVisible();
-      expect(document.title).toBe('Catálogo · RentalOps');
+      expect(document.title).toBe('Catálogo · Locatto');
     },
   );
 

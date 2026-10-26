@@ -152,7 +152,7 @@ test('navigation works with history, refresh and return links', async ({
     page.getByRole('heading', { level: 1, name: 'Clientes' }),
   ).toBeVisible();
   await page.reload();
-  await expect(page).toHaveTitle('Clientes · RentalOps');
+  await expect(page).toHaveTitle('Clientes · Locatto');
   await page
     .getByRole('navigation')
     .getByRole('link', { name: 'Locações', exact: true })
@@ -198,7 +198,7 @@ test('keyboard skip link, navigation and route focus remain usable', async ({
   });
   await page.keyboard.press('Enter');
   await expect(page.getByRole('main')).toBeFocused();
-  await page.getByRole('link', { name: 'RentalOps, início' }).focus();
+  await page.getByRole('link', { name: 'Locatto, início' }).focus();
   await page.keyboard.press('Tab');
   await expect(
     page

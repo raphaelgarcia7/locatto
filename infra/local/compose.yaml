@@ -1,7 +1,7 @@
-name: rentalops-desktop
+name: locatto-desktop
 services:
   prepare:
-    image: rentalops-local-backend:installed
+    image: locatto-local-backend:installed
     build:
       context: ../..
       dockerfile: infra/operations/Dockerfile.backend
@@ -34,21 +34,21 @@ services:
   database:
     image: postgres:17-bookworm@sha256:3645570cccdfa447589da9f57dd740faa29b30938e861289a5574b6ca6b03826
     environment:
-      POSTGRES_DB: rentalops
-      POSTGRES_USER: rentalops_bootstrap
+      POSTGRES_DB: locatto
+      POSTGRES_USER: locatto_bootstrap
       POSTGRES_PASSWORD_FILE: /run/database-auth/postgres-password
     volumes:
       - database:/var/lib/postgresql/data
       - database_auth:/run/database-auth:ro
     restart: unless-stopped
     healthcheck:
-      test: [CMD-SHELL, "pg_isready -U rentalops_bootstrap -d rentalops"]
+      test: [CMD-SHELL, "pg_isready -U locatto_bootstrap -d locatto"]
       interval: 5s
       timeout: 3s
       retries: 24
   backend:
-    image: rentalops-local-backend:installed
-    env_file: ${RENTALOPS_BACKEND_ENV:?local configuration required}
+    image: locatto-local-backend:installed
+    env_file: ${LOCATTO_BACKEND_ENV:?local configuration required}
     environment:
       APP_ENV: development
       AUTH_ORIGIN: http://localhost:8080
@@ -73,7 +73,7 @@ services:
       timeout: 6s
       retries: 24
   frontend:
-    image: rentalops-local-frontend:installed
+    image: locatto-local-frontend:installed
     build:
       context: ../..
       dockerfile: infra/operations/Dockerfile.frontend
@@ -88,11 +88,11 @@ services:
       timeout: 6s
       retries: 12
 volumes:
-  database: {name: rentalops-desktop-database}
-  photos: {name: rentalops-desktop-photos}
-  operations: {name: rentalops-desktop-operations}
-  backups: {name: rentalops-desktop-backups}
-  keys: {name: rentalops-desktop-keys}
-  scratch: {name: rentalops-desktop-scratch}
-  database_auth: {name: rentalops-desktop-database-auth}
-  mobile_tls: {name: rentalops-desktop-mobile-tls}
+  database: {name: locatto-desktop-database}
+  photos: {name: locatto-desktop-photos}
+  operations: {name: locatto-desktop-operations}
+  backups: {name: locatto-desktop-backups}
+  keys: {name: locatto-desktop-keys}
+  scratch: {name: locatto-desktop-scratch}
+  database_auth: {name: locatto-desktop-database-auth}
+  mobile_tls: {name: locatto-desktop-mobile-tls}

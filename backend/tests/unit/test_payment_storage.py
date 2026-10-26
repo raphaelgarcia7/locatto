@@ -10,9 +10,9 @@ from PIL import Image
 from pypdf import PdfWriter
 from pypdf.generic import DictionaryObject, NameObject, TextStringObject
 
-from rentalops_api import payment_storage
-from rentalops_api.payment_errors import PaymentError
-from rentalops_api.payment_storage import (
+from locatto_api import payment_storage
+from locatto_api.payment_errors import PaymentError
+from locatto_api.payment_storage import (
     MAX_PROOF_BYTES,
     ProofStorage,
     validate_proof,
@@ -141,7 +141,7 @@ def test_new_pdf_descendant_logger_is_private_only_in_validation_context(caplog)
     token = validating_pdf.set(True)
     try:
         logger.warning("PRIVATE_SYNTHETIC_SENTINEL")
-        logging.getLogger("rentalops.synthetic_other_logger").warning(
+        logging.getLogger("locatto.synthetic_other_logger").warning(
             "unrelated-diagnostic-visible"
         )
     finally:
@@ -229,7 +229,7 @@ def test_failed_new_write_compensates_only_owned_bytes(tmp_path):
     storage = ProofStorage(tmp_path)
     old = storage.write(pdf(), "application/pdf")
     with (
-        patch("rentalops_api.payment_storage.os.fsync", side_effect=OSError),
+        patch("locatto_api.payment_storage.os.fsync", side_effect=OSError),
         pytest.raises(PaymentError),
     ):
         storage.write(pdf(), "application/pdf")

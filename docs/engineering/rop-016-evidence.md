@@ -607,9 +607,9 @@ the newly persisted data explicitly.
 Repair branch `codex/16-dashboard-ci-repair` starts from integrated develop
 `43bff471a9d455ceb1dcca309dcdba62be3115b0`, in a new isolated checkout.
 Private repair evidence: `C:/Users/Raphael/.codex/tmp/rop016-ci-repair-20261014`;
-failed remote artifact: coordinator's `.rentalops/rop016-ci-repair-20261014`.
+failed remote artifact: coordinator's `.locatto/rop016-ci-repair-20261014`.
 The new disposable PostgreSQL17 cluster uses only loopback15450 and database
-`rentalops_rop016_ci_repair_test`; pre-existing services and fixtures are preserved.
+`locatto_rop016_ci_repair_test`; pre-existing services and fixtures are preserved.
 No OS clock, synchronization service, power setting or native UI policy bypass
 was used. Backend/infra and production frontend sources are unchanged, so their
 prior exact-source gates remain applicable; production build assets remain

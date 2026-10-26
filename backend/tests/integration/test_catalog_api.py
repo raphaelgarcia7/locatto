@@ -8,14 +8,14 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
-from rentalops_api.auth import AuthService, AuthSettings
-from rentalops_api.auth_routes import auth_service
-from rentalops_api.catalog import CatalogService
-from rentalops_api.catalog_models import ProductPhoto
-from rentalops_api.catalog_routes import catalog_service
-from rentalops_api.catalog_storage import CatalogError, PhotoStorage
-from rentalops_api.database import build_session_factory
-from rentalops_api.main import app
+from locatto_api.auth import AuthService, AuthSettings
+from locatto_api.auth_routes import auth_service
+from locatto_api.catalog import CatalogService
+from locatto_api.catalog_models import ProductPhoto
+from locatto_api.catalog_routes import catalog_service
+from locatto_api.catalog_storage import CatalogError, PhotoStorage
+from locatto_api.database import build_session_factory
+from locatto_api.main import app
 
 from ..unit.test_catalog_storage import synthetic_image
 
@@ -367,7 +367,7 @@ def test_photo_api_validation_missing_storage_and_failure_compensation(catalog_c
 def test_photo_db_failure_and_stale_version_remove_only_new_file(catalog_client):
     client, service, auth = catalog_client
     login(client)
-    actor = auth.identity(client.cookies.get("rentalops_session"))
+    actor = auth.identity(client.cookies.get("locatto_session"))
     product = create(client)
     identifier = UUID(product["id"])
     old = service.upload_photo(identifier, 1, synthetic_image(), "image/png", actor)
@@ -427,7 +427,7 @@ def test_upload_large_request_and_chunked_body_limit(catalog_client):
 def test_uncertain_commit_keeps_referenced_new_asset(catalog_client):
     client, service, auth = catalog_client
     login(client)
-    actor = auth.identity(client.cookies.get("rentalops_session"))
+    actor = auth.identity(client.cookies.get("locatto_session"))
     product = create(client)
     original_commit = Session.commit
 

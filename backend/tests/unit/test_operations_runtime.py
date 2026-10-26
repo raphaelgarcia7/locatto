@@ -8,7 +8,7 @@ from unittest.mock import patch
 import pytest
 from infra.operations import runtime
 
-from rentalops_api.operations import OperationsError
+from locatto_api.operations import OperationsError
 
 
 @pytest.fixture
@@ -68,7 +68,7 @@ def test_raw_relative_or_empty_paths_refused_before_docker(
     monkeypatch.setenv(name, value)
     with patch.object(runtime, "compose_command") as command:
         with pytest.raises(OperationsError):
-            runtime.run(action, env_file, "rentalops-synthetic-test")
+            runtime.run(action, env_file, "locatto-synthetic-test")
         command.assert_not_called()
 
 
@@ -171,7 +171,7 @@ def test_resolved_compose_mismatch_blocks_build_and_up(host_configuration, mutat
             runtime, "compose_command", return_value=json.dumps(model)
         ) as command:
             with pytest.raises(OperationsError):
-                runtime.run(action, env_file, "rentalops-synthetic-test")
+                runtime.run(action, env_file, "locatto-synthetic-test")
             assert command.call_count == 1
             assert "config" in command.call_args.args[0]
 
@@ -184,7 +184,7 @@ def test_mutation_requires_validated_host_and_resolved_sources(
     with patch.object(
         runtime, "compose_command", return_value=json.dumps(model_for(paths))
     ) as command:
-        runtime.run(action, env_file, "rentalops-synthetic-test")
+        runtime.run(action, env_file, "locatto-synthetic-test")
         assert command.call_count == 2
         first, second = command.call_args_list
         assert first.args[0][-4:] == [
@@ -206,7 +206,7 @@ def test_mutation_requires_validated_host_and_resolved_sources(
 def test_real_compose_resolution_and_safe_cli_errors(host_configuration, capsys):
     env_file, _ = host_configuration
     # Real installed Compose parser; requires no engine and starts no resources.
-    runtime.run("validate", env_file, "rentalops-synthetic-test")
+    runtime.run("validate", env_file, "locatto-synthetic-test")
     with (
         patch(
             "sys.argv",
@@ -216,7 +216,7 @@ def test_real_compose_resolution_and_safe_cli_errors(host_configuration, capsys)
                 "--env-file",
                 str(env_file),
                 "--project",
-                "rentalops-synthetic-test",
+                "locatto-synthetic-test",
             ],
         ),
         patch.object(

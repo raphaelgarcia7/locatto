@@ -53,7 +53,7 @@ MESMA fixture privada sem trocar código sob o navegador intermediário em execu
 exclusivos. Nenhum serviço/banco/porta duplicado, nenhum dado anterior sobrescrito.
 
 Logs/capturas/traces brutos PRIVADOS: raiz compartilhada
-`.rentalops/rop013-evidence/run01` até a rodada final. Cada rerun tem diretório novo;
+`.locatto/rop013-evidence/run01` até a rodada final. Cada rerun tem diretório novo;
 relatórios Playwright anteriores são copiados antes do rerun. Não publicar traces
 com sessão/cookies nem fixtures pessoais. Conjuntos anteriores não foram apagados.
 
@@ -127,7 +127,7 @@ Captura exclusiva `*-cancelled-commercial-summary.png` torna o achado legível.
 Preservação ANTES dos reruns: cópias completas de run01–22, clone anterior com
 fontes/dist/test-results/playwright-report e helper. Manifesto SHA256 confirmou
 2976 arquivos originais e respectivos backups idênticos. Nenhum conjunto11/12 foi
-alterado. Outputs novos exclusivamente em `.rentalops/rop013-evidence/correction1/`.
+alterado. Outputs novos exclusivamente em `.locatto/rop013-evidence/correction1/`.
 Helper ganhou sufixo correction1 para uma cópia separada de código na MESMA
 fixture/PG17/porta15444; `source-verified` anterior continua intocada, sem reset.
 

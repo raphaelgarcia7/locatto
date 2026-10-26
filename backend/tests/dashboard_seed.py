@@ -11,13 +11,13 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import Engine
 
-from rentalops_api.handover_contracts import (
+from locatto_api.handover_contracts import (
     FinancialAgreementCommand,
     ForecastCommand,
     OperationalCommand,
 )
-from rentalops_api.quotation_models import Quotation, QuotationVersion
-from rentalops_api.rental_models import Rental
+from locatto_api.quotation_models import Quotation, QuotationVersion
+from locatto_api.rental_models import Rental
 
 from .integration.test_handovers import command, handover, receive, resolve
 from .integration.test_handovers import custody as custody_fixture

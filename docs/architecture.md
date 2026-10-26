@@ -1,6 +1,6 @@
 # Princípios de arquitetura
 
-Este documento registra limites e princípios que já orientam o RentalOps. Decisões técnicas ainda em aberto devem ser documentadas como registros de decisão em [`decisions/`](decisions/).
+Este documento registra limites e princípios que já orientam o Locatto. Decisões técnicas ainda em aberto devem ser documentadas como registros de decisão em [`decisions/`](decisions/).
 
 ## Limites entre as partes
 

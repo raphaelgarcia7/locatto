@@ -6,12 +6,12 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import OperationalError
 
-from rentalops_api.auth import AuthService, AuthSettings
-from rentalops_api.auth_routes import auth_service
-from rentalops_api.customer_routes import customer_service
-from rentalops_api.customers import CustomerService
-from rentalops_api.database import build_session_factory
-from rentalops_api.main import app
+from locatto_api.auth import AuthService, AuthSettings
+from locatto_api.auth_routes import auth_service
+from locatto_api.customer_routes import customer_service
+from locatto_api.customers import CustomerService
+from locatto_api.database import build_session_factory
+from locatto_api.main import app
 
 from ..unit.test_customer_contracts import synthetic_cpf
 
@@ -99,7 +99,7 @@ def test_real_session_access_origin_and_server_actor(customer_client):
 def test_secure_invalid_missing_extra_inputs_field_errors_no_echo(
     customer_client, caplog
 ):
-    for logger in ("rentalops_api", "uvicorn.access", "uvicorn.error"):
+    for logger in ("locatto_api", "uvicorn.access", "uvicorn.error"):
         caplog.set_level(logging.INFO, logger=logger)
     client, _, _ = customer_client
     login(client)
@@ -148,7 +148,7 @@ def test_secure_invalid_missing_extra_inputs_field_errors_no_echo(
 def test_shared_contact_cpf_conflicts_drafts_versions_and_generic_errors(
     customer_client, caplog
 ):
-    for logger in ("rentalops_api", "uvicorn.access", "uvicorn.error"):
+    for logger in ("locatto_api", "uvicorn.access", "uvicorn.error"):
         caplog.set_level(logging.INFO, logger=logger)
     client, service, _ = customer_client
     login(client)

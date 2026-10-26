@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from rentalops_api.customer_contracts import (
+from locatto_api.customer_contracts import (
     Address,
     CustomerCreate,
     CustomerEdit,

@@ -6,7 +6,7 @@
   de editar, incluindo decisões históricas, Precisões executáveis e PAY-01–13.
 - Plano: updated_at `2026-10-09T00:27:53Z`; SHA-256 UTF-8 do body
   `9b04436fa47de9b41421c7dcd6a00a89f382958281f108045fe2369fbcb20fda`.
-- Executor: função fixa `rentalops_executor`, gpt-6.1-sol/high, contexto
+- Executor: função fixa `locatto_executor`, gpt-6.1-sol/high, contexto
   `/root/rop012_executor`. Sem planner, substituição de modelo ou executor paralelo.
 - Base: `4ea4fc3b4736e890d1728221bdc8a73d5e17622f`; branch `codex/12-payments`.
   Commit de implementação: `b73639edf0e1e5270205f8684cd24b92ff2f8ff6`.
@@ -26,13 +26,13 @@ locações, reserva, hold, cancelamento, retirada, roles, IA, main ou deploy.
 
 ## Ambiente reproduzível e isolamento
 
-Checkout Windows `C:/Users/Raphael/.codex/worktrees/rentalops-customers/rmg-chatbot`.
+Checkout Windows `C:/Users/Raphael/.codex/worktrees/locatto-customers/rmg-chatbot`.
 Backend espelhado por rsync em diretório Linux ext4 privado novo
 `/home/rop004-rehearsal/rop012-HHFcBtT1/source`, excluindo .git/.venv/node_modules e
 resultados/caches. O espelho mantém venv próprio; não é fonte publicada.
 
 Fixture próprio PostgreSQL17 nativo, loopback127.0.0.1:15442, database dedicada
-`rentalops_payments_test`; schemas/bancos de teste exclusivos UUID. URL/senha em
+`locatto_payments_test`; schemas/bancos de teste exclusivos UUID. URL/senha em
 config local mode0600, nunca neste documento. Root mode0700. NTFS com permissões
 abertas e endereço NAT foram recusados pelos guards existentes, não afrouxados.
 Não houve instalação global/serviço de sistema novo: age/nginx oficiais Ubuntu
@@ -73,7 +73,7 @@ retries para ocultar falha. Testes pesados backend/browser rodaram sequencialmen
 | Python audit          | `uv export --project backend --locked --all-groups --no-emit-project --output-file <private>/rop012-audit-requirements-hashed.txt`; `pip-audit --strict --disable-pip --no-deps -r <export>` em Linux e Windows: **No known vulnerabilities found**, exit0. Export resolve92 pacotes; todos os transitivos pinned/hashes, markers avaliados em ambos ambientes, sem dependência ignorada manualmente |
 | Frontend              | `npm run lint`, `npm run format:check`: PASS; `npm test`: **48 passed / 6 files**, 15.91s, sessão27895; `npm run build`: PASS                                                                                                                                                                                                                                                                        |
 | npm audit             | `npm audit --audit-level=high`: **0 vulnerabilities**                                                                                                                                                                                                                                                                                                                                                |
-| Browser completo      | `RENTALOPS_BROWSER_SERVER_COMMAND='wsl -d Ubuntu-24.04 -u rop004-rehearsal -- python3 /mnt/c/Users/Raphael/.codex/tmp/rop012-environment.py browser' npm run test:e2e`: **108 passed**, sessão41061, exit0; quatro harnesses/schemas novos, **27PASS** cada:320(1.9m),390(1.8m),768(1.9m),1440(2.1m). Build final B4Ydr-3x/BpUQv-dt; workers1/retries0/sem skips                                     |
+| Browser completo      | `LOCATTO_BROWSER_SERVER_COMMAND='wsl -d Ubuntu-24.04 -u rop004-rehearsal -- python3 /mnt/c/Users/Raphael/.codex/tmp/rop012-environment.py browser' npm run test:e2e`: **108 passed**, sessão41061, exit0; quatro harnesses/schemas novos, **27PASS** cada:320(1.9m),390(1.8m),768(1.9m),1440(2.1m). Build final B4Ydr-3x/BpUQv-dt; workers1/retries0/sem skips                                     |
 | Gitleaks              | `gitleaks git . --redact --log-opts=--all --no-banner`: **32 commits / 3.09MB**, sem achados até o commit de código b73639e; `gitleaks protect --staged --redact --no-banner`: scans do diff160.74KB/163.54KB e incremental48.44KB sem achados. Scan após commit documental e diff completo base→head registrados no handoff/checkpoint                                                              |
 | Diff                  | `git diff --cached --check`: PASS                                                                                                                                                                                                                                                                                                                                                                    |
 

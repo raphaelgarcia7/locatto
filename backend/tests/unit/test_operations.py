@@ -9,8 +9,8 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from rentalops_api.main import app
-from rentalops_api.operations import (
+from locatto_api.main import app
+from locatto_api.operations import (
     OperationsError,
     active_depth,
     active_operation,
@@ -89,7 +89,7 @@ def test_public_permissions_fail_closed(tmp_path):
 
 
 def test_structured_log_redaction_body_query_headers_paths(caplog):
-    caplog.set_level(logging.INFO, logger="rentalops.operations")
+    caplog.set_level(logging.INFO, logger="locatto.operations")
     sentinel = "SYNTHETIC_PRIVATE_SENTINEL"
     with TestClient(app) as client:
         for path in ("/health", f"/photos/{sentinel}", "/auth/password/set"):
@@ -106,7 +106,7 @@ def test_structured_log_redaction_body_query_headers_paths(caplog):
     records = [
         json.loads(record.message)
         for record in caplog.records
-        if record.name == "rentalops.operations"
+        if record.name == "locatto.operations"
     ]
     assert len(records) == 3 and sentinel not in json.dumps(records)
     assert all(
@@ -120,7 +120,7 @@ def test_production_requires_shared_barrier(monkeypatch):
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.delenv("OPERATIONS_ROOT", raising=False)
     with patch(
-        "rentalops_api.operations.environment_values",
+        "locatto_api.operations.environment_values",
         return_value={"APP_ENV": "production"},
     ):
         with pytest.raises(OperationsError), active_operation():

@@ -1,0 +1,15 @@
+[Unit]
+Description=Locatto encrypted recovery point
+OnFailure=locatto-backup-alert.service
+
+[Service]
+Type=oneshot
+User=locatto
+UMask=0077
+EnvironmentFile=/etc/locatto/backup.env
+WorkingDirectory=/opt/locatto
+ExecStart=/opt/locatto/backend/.venv/bin/python -m infra.operations.backup backup --storage-root /srv/locatto/photos --output-dir /srv/locatto/backups --operations-root /srv/locatto/operations --recipient-file /etc/locatto/backup-recipient.txt
+NoNewPrivileges=true
+PrivateTmp=true
+# Install only after adapting the container/host runner and off-host transport.
+# The alert unit must be implemented for the selected operator/monitor before enabling.

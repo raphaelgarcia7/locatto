@@ -4,7 +4,7 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-from rentalops_api.catalog_contracts import (
+from locatto_api.catalog_contracts import (
     KitCreate,
     KitItemInput,
     MaintenanceCommand,

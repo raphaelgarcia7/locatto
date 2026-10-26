@@ -13,9 +13,9 @@ from sqlalchemy import inspect, select, text
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
-from rentalops_api.auth import Identity
-from rentalops_api.catalog import CatalogService
-from rentalops_api.catalog_contracts import (
+from locatto_api.auth import Identity
+from locatto_api.catalog import CatalogService
+from locatto_api.catalog_contracts import (
     CategoryCreate,
     KitCreate,
     KitEdit,
@@ -25,10 +25,10 @@ from rentalops_api.catalog_contracts import (
     ReasonCommand,
     StockAdjustment,
 )
-from rentalops_api.catalog_models import CatalogHistory, KitItem, Product, StockMovement
-from rentalops_api.catalog_storage import CatalogError, PhotoStorage
-from rentalops_api.database import build_session_factory
-from rentalops_api.models import AuthSession, Base, User
+from locatto_api.catalog_models import CatalogHistory, KitItem, Product, StockMovement
+from locatto_api.catalog_storage import CatalogError, PhotoStorage
+from locatto_api.database import build_session_factory
+from locatto_api.models import AuthSession, Base, User
 
 from ..conftest import migration_config
 

@@ -11,7 +11,7 @@ test('deposit reserves once, then prepares free checklist extras on screen and P
   });
   const origin = 'http://127.0.0.1:4173';
   const backendOrigin =
-    process.env.RENTALOPS_TEST_CONTROL_ORIGIN ?? 'http://127.0.0.1:8000';
+    process.env.LOCATTO_TEST_CONTROL_ORIGIN ?? 'http://127.0.0.1:8000';
   const setup = await page.request.post(`${backendOrigin}/__test/setup`);
   expect(setup.status()).toBe(200);
   const account = await setup.json();

@@ -1,16 +1,16 @@
-# RentalOps
+# Locatto
 
-RentalOps é um sistema para organizar locações de decorações e itens para festas e eventos. Ele combina uma operação web tradicional com um assistente de IA que poderá ajudar a consultar o catálogo, verificar disponibilidade e preparar reservas.
+Locatto é um sistema para organizar locações de decorações e itens para festas e eventos. Ele combina uma operação web tradicional com um assistente de IA que poderá ajudar a consultar o catálogo, verificar disponibilidade e preparar reservas.
 
 O projeto é construído como um monorepo: frontend, backend, documentação e infraestrutura ficam no mesmo repositório, com dependências e ciclos de execução próprios.
 
 Para uso diário no PC da locadora, a instalação local oferece os atalhos
-**Abrir RentalOps**, **Fechar RentalOps** e **Backup RentalOps**, com dados
+**Abrir Locatto**, **Fechar Locatto** e **Backup Locatto**, com dados
 persistentes e cópias cifradas. Veja [uso local no Windows](infra/local/README.md).
 
 ## Problema que queremos resolver
 
-Uma locação pode incluir kits, itens avulsos, quantidades, datas, estoque e detalhes que precisam ser esclarecidos antes da confirmação. O RentalOps centraliza essas informações para que a equipe consiga montar propostas consistentes e acompanhar reservas com segurança.
+Uma locação pode incluir kits, itens avulsos, quantidades, datas, estoque e detalhes que precisam ser esclarecidos antes da confirmação. O Locatto centraliza essas informações para que a equipe consiga montar propostas consistentes e acompanhar reservas com segurança.
 
 ## Escopo do produto
 
@@ -115,7 +115,7 @@ Na raiz do repositório, instale as dependências e inicie a API:
 
 ```bash
 uv sync --project backend --locked
-uv run --project backend uvicorn rentalops_api.main:app --reload --no-proxy-headers --no-access-log
+uv run --project backend uvicorn locatto_api.main:app --reload --no-proxy-headers --no-access-log
 ```
 
 A API fica em `http://127.0.0.1:8000`. A documentação interativa fica em `http://127.0.0.1:8000/docs`; a verificação de saúde fica em `http://127.0.0.1:8000/health`. Essa rota responde 200 sem banco. Readiness responde `200 {"status":"ready"}` com conexão acessível ou `503 {"status":"unavailable"}` em falha/configuração inválida, sem detalhes internos. Ela verifica conectividade, não versão da migração. Importar fontes e iniciar a API não aplica DDL.
@@ -149,7 +149,7 @@ uv export --project backend --locked --all-groups --no-emit-project --format req
 uv run --project backend pip-audit -r audit-requirements.txt --disable-pip --no-deps
 ```
 
-O arquivo exportado contém dependências de produção e desenvolvimento, sem o pacote local. Guarde-o fora do repositório quando possível. Testes unitários isolados: `uv run --project backend pytest backend/tests/unit`. A suíte completa falha claramente se o alvo de integração faltar ou for inseguro, sem skip/fallback. Ela exige PostgreSQL em `127.0.0.1`, `localhost` ou `::1`, nome com segmento `test`, sem opções de query no URL, e alvo distinto do desenvolvimento. Cada teste cria e remove somente seu schema `rentalops_test_<UUID>`. Nenhum banco é apagado.
+O arquivo exportado contém dependências de produção e desenvolvimento, sem o pacote local. Guarde-o fora do repositório quando possível. Testes unitários isolados: `uv run --project backend pytest backend/tests/unit`. A suíte completa falha claramente se o alvo de integração faltar ou for inseguro, sem skip/fallback. Ela exige PostgreSQL em `127.0.0.1`, `localhost` ou `::1`, nome com segmento `test`, sem opções de query no URL, e alvo distinto do desenvolvimento. Cada teste cria e remove somente seu schema `locatto_test_<UUID>`. Nenhum banco é apagado.
 
 Sessões recebem uma factory explícita. O chamador executa `session.commit()`; sair sem commit não persiste alterações. `session_scope` reverte exceções e fecha a sessão. Se o chamador capturar uma falha dentro do bloco e quiser continuar, precisa executar `session.rollback()` antes da próxima operação. Não mantenha transações durante espera por rede/modelo. Após atualização, `session.refresh(user)` recarrega `updated_at` gerado pelo banco. Não há repositório genérico nem container de dependências.
 
@@ -234,10 +234,10 @@ Além de `DATABASE_URL`, defina `AUTH_RATE_KEY` no `.env` privado com chave alea
 Execute em terminal privado, sem transcrição/compartilhamento de saída, substituindo somente o e-mail pela pessoa autorizada. Os exemplos são sintéticos:
 
 ```bash
-uv run --project backend python -m rentalops_api.auth_cli create-user --email person@example.invalid
-uv run --project backend python -m rentalops_api.auth_cli issue-access-link --email person@example.invalid
-uv run --project backend python -m rentalops_api.auth_cli issue-reset-link --email person@example.invalid
-uv run --project backend python -m rentalops_api.auth_cli deactivate-user --email person@example.invalid
+uv run --project backend python -m locatto_api.auth_cli create-user --email person@example.invalid
+uv run --project backend python -m locatto_api.auth_cli issue-access-link --email person@example.invalid
+uv run --project backend python -m locatto_api.auth_cli issue-reset-link --email person@example.invalid
+uv run --project backend python -m locatto_api.auth_cli deactivate-user --email person@example.invalid
 ```
 
 `create-user` normaliza o e-mail, informa UUID/created ou existing e não troca senha, reativa nem duplica conta existente. Não há limite técnico de duas pessoas. `issue-access-link` exige conta ativa ainda sem senha. `issue-reset-link` exige conta ativa autorizada e revoga todas as sessões imediatamente ao gerar a recuperação. A emissão informa a URL privada apenas no terminal para entrega direta; não copie esse resultado para logs, issues, screenshots, chat ou journal. Entregar não comprova recebimento/uso. `deactivate-user` preserva identidade/histórico e revoga todos os links/sessões. Comandos que falham retornam exit 1, sem SQL/stack/credenciais.
@@ -383,7 +383,7 @@ eliminação/backups e conformidade jurídica não estão certificadas. Não há
 quatro larguras, foco/teclado/zoom/reduced-motion/axe, histórico e resposta perdida
 **depois do commit**, repetida com a mesma chave. O harness usa storage privado
 descartável. Para host Windows com guard NTFS incompatível, é possível definir
-`RENTALOPS_BROWSER_SERVER_COMMAND` com o comando explícito do harness em Linux
+`LOCATTO_BROWSER_SERVER_COMMAND` com o comando explícito do harness em Linux
 privado/loopback; os mesmos guards e validação estrita do banco continuam ativos.
 Não usar esse override para apontar sistemas ou contas reais.
 [Evidências e limitações da entrega](docs/engineering/rop-012-evidence.md).

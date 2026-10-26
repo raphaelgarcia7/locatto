@@ -6,7 +6,7 @@ import { randomInt, randomUUID } from 'node:crypto';
 
 const origin = 'http://127.0.0.1:4173';
 const evidence =
-  process.env.RENTALOPS_EVIDENCE_DIR ?? 'test-results/rop013-evidence';
+  process.env.LOCATTO_EVIDENCE_DIR ?? 'test-results/rop013-evidence';
 async function post(page: Page, path: string, data: object, status = 200) {
   const response = await page.request.post(`/api/${path}`, {
     headers: { Origin: origin },

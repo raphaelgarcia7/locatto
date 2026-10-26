@@ -1,14 +1,14 @@
 services:
   backend:
     environment:
-      AUTH_ORIGIN: ${RENTALOPS_ORIGIN:?local mobile origin required}
+      AUTH_ORIGIN: ${LOCATTO_ORIGIN:?local mobile origin required}
   frontend:
     command: [nginx, -g, "daemon off;", -c, /etc/nginx/nginx.mobile.conf]
     ports:
-      - "${RENTALOPS_LAN_IP:?local Wi-Fi address required}:8080:8080"
-      - "${RENTALOPS_LAN_IP:?local Wi-Fi address required}:8443:8443"
+      - "${LOCATTO_LAN_IP:?local Wi-Fi address required}:8080:8080"
+      - "${LOCATTO_LAN_IP:?local Wi-Fi address required}:8443:8443"
     volumes:
       - mobile_tls:/etc/nginx/certs:ro
 volumes:
   mobile_tls:
-    name: rentalops-desktop-mobile-tls
+    name: locatto-desktop-mobile-tls

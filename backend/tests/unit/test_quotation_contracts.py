@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-from rentalops_api.quotation_contracts import (
+from locatto_api.quotation_contracts import (
     QuotationDiscount,
     QuotationDraft,
     QuotationSearch,

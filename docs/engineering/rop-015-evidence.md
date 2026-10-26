@@ -59,7 +59,7 @@ sem adicioná-los ao commit. Ferramentas nginx/age anteriores usadas só leitura
 MinIO do usuário e fixtures11/12/13 preservados; nenhum serviço anterior reiniciado.
 
 Logs/capturas/PDFs brutos privados: raiz compartilhada
-`.rentalops/rop015-evidence/run01`; browser novo exclusivo em
+`.locatto/rop015-evidence/run01`; browser novo exclusivo em
 `frontend/test-results/executor-rop015/run13/source/frontend`. Antes de reruns,
 todos os reports/capturas anteriores foram copiados para diretórios de backup
 novos; não sobrescritos. Traces de contratos explicitamente desativados para
@@ -335,7 +335,7 @@ mascara todas essas ocorrências. PDFs/snapshots/capturas não são versionados.
 
 ### Pipeline do renderer antes do ajuste temporal da fixture
 
-Logs privados novos em `.rentalops/rop015-evidence/correction1`; fontes Linux
+Logs privados novos em `.locatto/rop015-evidence/correction1`; fontes Linux
 novas `source-correction1-final` na mesma fixture própria; browser clone exclusivo
 `frontend/test-results/executor-rop015/correction1/run02/source/frontend`.
 Reports/capturas anteriores preservados e copiados antes dos reruns, inclusive
@@ -427,7 +427,7 @@ da alteração do harness. Nenhuma promoção/reexecução de tarefa anterior.
 Comando exato PG: `wsl -d Ubuntu-24.04 -u rop004-rehearsal -- python3
 /mnt/c/Users/Raphael/.codex/tmp/rop015-correction1-environment.py quality-final2
 pytest backend/tests infra/tests -q`. Browser usa o mesmo prefixo com
-`browser-final2`, variável RENTALOPS_BROWSER_SERVER_COMMAND, e
+`browser-final2`, variável LOCATTO_BROWSER_SERVER_COMMAND, e
 `npm run test:e2e` no clone run03. Logs finais2 separados dos anteriores.
 
 Inspeção efetiva das capturas Chromium mascaradas do run03, recortes sem

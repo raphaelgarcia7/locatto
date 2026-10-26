@@ -6,12 +6,12 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.exc import OperationalError
 
-from rentalops_api.auth import AuthService, AuthSettings
-from rentalops_api.auth_routes import auth_service
-from rentalops_api.dashboard import DashboardService
-from rentalops_api.dashboard_routes import dashboard_service
-from rentalops_api.main import app
-from rentalops_api.models import AuthSession, User
+from locatto_api.auth import AuthService, AuthSettings
+from locatto_api.auth_routes import auth_service
+from locatto_api.dashboard import DashboardService
+from locatto_api.dashboard_routes import dashboard_service
+from locatto_api.main import app
+from locatto_api.models import AuthSession, User
 
 from .test_dashboard import dashboard_fixture as fixture
 

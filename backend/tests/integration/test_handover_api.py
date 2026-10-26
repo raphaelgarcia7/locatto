@@ -4,20 +4,20 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from rentalops_api.auth import AuthService, AuthSettings
-from rentalops_api.auth_routes import auth_service
-from rentalops_api.handover_contracts import (
+from locatto_api.auth import AuthService, AuthSettings
+from locatto_api.auth_routes import auth_service
+from locatto_api.handover_contracts import (
     FinancialAgreementCommand,
     HandoverCommand,
     OperationalCommand,
     ResolutionCommand,
     ReturnCommand,
 )
-from rentalops_api.handover_routes import handover_service
-from rentalops_api.main import app
-from rentalops_api.payment_routes import payment_service
-from rentalops_api.rental_models import RentalRequest
-from rentalops_api.rental_routes import rental_service
+from locatto_api.handover_routes import handover_service
+from locatto_api.main import app
+from locatto_api.payment_routes import payment_service
+from locatto_api.rental_models import RentalRequest
+from locatto_api.rental_routes import rental_service
 
 from .test_contract_api import HEADERS, ORIGIN, login
 from .test_handovers import command

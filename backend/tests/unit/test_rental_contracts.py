@@ -4,8 +4,8 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-from rentalops_api.capacity import simultaneous_segments
-from rentalops_api.rental_contracts import ConfirmationCommand
+from locatto_api.capacity import simultaneous_segments
+from locatto_api.rental_contracts import ConfirmationCommand
 
 
 @pytest.mark.parametrize(
@@ -47,7 +47,7 @@ def test_segments_compare_simultaneous_commitments_and_closed_dates():
 
 
 def test_calendar_next_day_includes_weekend_and_holiday():
-    from rentalops_api.quotation_contracts import next_planning_day
+    from locatto_api.quotation_contracts import next_planning_day
 
     assert next_planning_day(date(2026, 10, 11)) == date(2026, 10, 12)
     assert next_planning_day(date(2026, 10, 12)) == date(2026, 10, 13)

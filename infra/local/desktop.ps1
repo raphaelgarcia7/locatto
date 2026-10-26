@@ -1,4 +1,4 @@
-﻿# RentalOps on this Windows account. All Docker commands select Desktop explicitly.
+﻿# Locatto on this Windows account. All Docker commands select Desktop explicitly.
 [CmdletBinding()]
 param(
     [ValidateSet('Install', 'Start', 'ConfigureMobile', 'Stop', 'Backup', 'VerifyBackup', 'Status')]
@@ -8,7 +8,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $LauncherPath = $PSCommandPath
-$DataRoot = Join-Path $env:LOCALAPPDATA 'RentalOps'
+$DataRoot = Join-Path $env:LOCALAPPDATA 'Locatto'
 $ComposeFile = Join-Path $PSScriptRoot 'compose.yaml'
 $MobileComposeFile = Join-Path $PSScriptRoot 'compose.mobile.yaml'
 $ComposeEnv = Join-Path $DataRoot 'compose.env'
@@ -22,7 +22,7 @@ function Protect-Directory([string]$Path) {
     if ((Get-Item -LiteralPath $Path).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'A pasta privada não pode ser um atalho para outro local.' }
     $owner = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
     & "$env:SystemRoot\System32\icacls.exe" $Path /inheritance:r /grant:r "*${owner}:(OI)(CI)F" '*S-1-5-18:(OI)(CI)F' *> $null
-    if ($LASTEXITCODE -ne 0) { throw 'Não foi possível proteger a pasta privada do RentalOps.' }
+    if ($LASTEXITCODE -ne 0) { throw 'Não foi possível proteger a pasta privada do Locatto.' }
 }
 
 function Invoke-Docker {
@@ -41,13 +41,22 @@ function Invoke-Compose {
     param([string[]]$ComposeArguments)
     $files = @('--file', $ComposeFile)
     if (Get-MobileOrigin) { $files += @('--file', $MobileComposeFile) }
-    Invoke-Docker -DockerArguments (@('compose', '--project-name', 'rentalops-desktop', '--env-file', $ComposeEnv) + $files + $ComposeArguments)
+    # Existing installations retain their project and data volumes during a rebrand.
+    $projectName = 'locatto-desktop'
+    $projectFile = Join-Path $DataRoot 'compose-project.txt'
+    if (Test-Path -LiteralPath $projectFile) {
+        $projectName = (Get-Content -LiteralPath $projectFile -Raw).Trim()
+        if ($projectName -notmatch '^[a-z0-9][a-z0-9_-]*$') { throw 'Identificador da instalação inválido.' }
+    }
+    $compatibilityFile = Join-Path $DataRoot 'compose.compat.yaml'
+    if (Test-Path -LiteralPath $compatibilityFile) { $files += @('--file', $compatibilityFile) }
+    Invoke-Docker -DockerArguments (@('compose', '--project-name', $projectName, '--env-file', $ComposeEnv) + $files + $ComposeArguments)
 }
 
 function Get-MobileOrigin {
     if (-not (Test-Path -LiteralPath $ComposeEnv)) { return $null }
-    $line = Get-Content -LiteralPath $ComposeEnv | Where-Object { $_ -match '^RENTALOPS_ORIGIN=https://' } | Select-Object -Last 1
-    if ($line) { return $line.Substring('RENTALOPS_ORIGIN='.Length) }
+    $line = Get-Content -LiteralPath $ComposeEnv | Where-Object { $_ -match '^LOCATTO_ORIGIN=https://' } | Select-Object -Last 1
+    if ($line) { return $line.Substring('LOCATTO_ORIGIN='.Length) }
     return $null
 }
 
@@ -70,17 +79,17 @@ function Wait-Docker {
 
 function Start-App {
     if (-not (Test-Path -LiteralPath (Join-Path $DataRoot 'installed.json'))) {
-        throw 'A instalação inicial do RentalOps ainda precisa ser concluída.'
+        throw 'A instalação inicial do Locatto ainda precisa ser concluída.'
     }
     $mobileOrigin = Get-MobileOrigin
     if ($mobileOrigin) {
-        $savedIp = (Get-Content -LiteralPath $ComposeEnv | Where-Object { $_ -match '^RENTALOPS_LAN_IP=' } | Select-Object -Last 1)
+        $savedIp = (Get-Content -LiteralPath $ComposeEnv | Where-Object { $_ -match '^LOCATTO_LAN_IP=' } | Select-Object -Last 1)
         $currentIp = (Get-WifiAddress).IPAddress
-        if (-not $savedIp -or $savedIp.Substring('RENTALOPS_LAN_IP='.Length) -ne $currentIp) {
+        if (-not $savedIp -or $savedIp.Substring('LOCATTO_LAN_IP='.Length) -ne $currentIp) {
             throw 'O endereço do Wi-Fi mudou. Conecte à rede de casa e execute ConfigureMobile para atualizar o acesso do telefone.'
         }
     }
-    Write-Host 'Preparando o RentalOps...'
+    Write-Host 'Preparando o Locatto...'
     [void](Invoke-Compose -ComposeArguments @('up', '-d', '--no-build', '--wait', '--wait-timeout', '180'))
     $response = Invoke-WebRequest -UseBasicParsing -Uri 'http://localhost:8080/api/ready' -TimeoutSec 10
     if ($response.StatusCode -ne 200) { throw 'O sistema ainda não está pronto para uso.' }
@@ -150,7 +159,7 @@ function Get-WifiSubnet([Microsoft.Management.Infrastructure.CimInstance]$Addres
 }
 
 function Configure-MobileAccess {
-    if (-not (Test-Path -LiteralPath (Join-Path $DataRoot 'installed.json'))) { throw 'A instalação inicial do RentalOps ainda precisa ser concluída.' }
+    if (-not (Test-Path -LiteralPath (Join-Path $DataRoot 'installed.json'))) { throw 'A instalação inicial do Locatto ainda precisa ser concluída.' }
     $address = Get-WifiAddress
     $LanIp = $address.IPAddress
     $subnet = Get-WifiSubnet $address
@@ -160,16 +169,16 @@ function Configure-MobileAccess {
     Protect-Directory $TlsRoot
     $caKey = Join-Path $CaRoot 'root-key.pem'
     $caCertificate = Join-Path $CaRoot 'root.crt'
-    $caDer = Join-Path $TlsRoot 'rentalops-home-wifi-root.cer'
+    $caDer = Join-Path $TlsRoot 'locatto-home-wifi-root.cer'
     $serverKey = Join-Path $TlsRoot 'server-key.pem'
     $serverCsr = Join-Path $TlsRoot 'server.csr'
     $serverCert = Join-Path $TlsRoot 'server.crt'
     $extensions = Join-Path $TlsRoot 'server-extensions.cnf'
-    $mobileConfig = Join-Path $TlsRoot 'rentalops-home-wifi.mobileconfig'
+    $mobileConfig = Join-Path $TlsRoot 'locatto-home-wifi.mobileconfig'
     if ((Test-Path -LiteralPath $caKey) -xor (Test-Path -LiteralPath $caCertificate)) { throw 'A autoridade de certificados local está incompleta. Preserve os arquivos e peça reconciliação antes de continuar.' }
     if (-not (Test-Path -LiteralPath $caKey)) {
         Invoke-OpenSSL @('genpkey', '-algorithm', 'EC', '-pkeyopt', 'ec_paramgen_curve:P-256', '-out', $caKey)
-        Invoke-OpenSSL @('req', '-x509', '-new', '-key', $caKey, '-sha256', '-days', '3650', '-subj', '/CN=RentalOps Home Wi-Fi Root', '-addext', 'basicConstraints=critical,CA:TRUE,pathlen:0', '-addext', 'keyUsage=critical,keyCertSign,cRLSign', '-out', $caCertificate)
+        Invoke-OpenSSL @('req', '-x509', '-new', '-key', $caKey, '-sha256', '-days', '3650', '-subj', '/CN=Locatto Home Wi-Fi Root', '-addext', 'basicConstraints=critical,CA:TRUE,pathlen:0', '-addext', 'keyUsage=critical,keyCertSign,cRLSign', '-out', $caCertificate)
     }
     Invoke-OpenSSL @('genpkey', '-algorithm', 'EC', '-pkeyopt', 'ec_paramgen_curve:P-256', '-out', $serverKey)
     Invoke-OpenSSL @('req', '-new', '-key', $serverKey, '-subj', "/CN=$LanIp", '-out', $serverCsr)
@@ -187,15 +196,15 @@ function Configure-MobileAccess {
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict><key>PayloadContent</key><array><dict>
 <key>PayloadContent</key><data>$certificateData</data>
-<key>PayloadDescription</key><string>Autoridade local usada somente para acessar o RentalOps no Wi-Fi de casa.</string>
-<key>PayloadDisplayName</key><string>RentalOps Wi-Fi de casa</string>
-<key>PayloadIdentifier</key><string>com.rentalops.homewifi.root</string>
-<key>PayloadOrganization</key><string>RentalOps local</string>
+<key>PayloadDescription</key><string>Autoridade local usada somente para acessar o Locatto no Wi-Fi de casa.</string>
+<key>PayloadDisplayName</key><string>Locatto Wi-Fi de casa</string>
+<key>PayloadIdentifier</key><string>com.locatto.homewifi.root</string>
+<key>PayloadOrganization</key><string>Locatto local</string>
 <key>PayloadType</key><string>com.apple.security.root</string>
 <key>PayloadUUID</key><string>$payloadUUID</string><key>PayloadVersion</key><integer>1</integer>
-</dict></array><key>PayloadDescription</key><string>Certificado local para acesso privado ao RentalOps pela rede Wi-Fi de casa.</string>
-<key>PayloadDisplayName</key><string>RentalOps Wi-Fi de casa</string>
-<key>PayloadIdentifier</key><string>com.rentalops.homewifi.profile</string>
+</dict></array><key>PayloadDescription</key><string>Certificado local para acesso privado ao Locatto pela rede Wi-Fi de casa.</string>
+<key>PayloadDisplayName</key><string>Locatto Wi-Fi de casa</string>
+<key>PayloadIdentifier</key><string>com.locatto.homewifi.profile</string>
 <key>PayloadRemovalDisallowed</key><false/><key>PayloadType</key><string>Configuration</string>
 <key>PayloadUUID</key><string>$profileUUID</string><key>PayloadVersion</key><integer>1</integer>
 </dict></plist>
@@ -215,11 +224,11 @@ function Configure-MobileAccess {
     Save-Backup
     Write-Host 'Preparando a imagem do acesso seguro...'
     [void](Invoke-Compose -ComposeArguments @('build', 'frontend'))
-    Set-ComposeValues @{ RENTALOPS_LAN_IP = $LanIp; RENTALOPS_ORIGIN = "https://${LanIp}:8443" }
+    Set-ComposeValues @{ LOCATTO_LAN_IP = $LanIp; LOCATTO_ORIGIN = "https://${LanIp}:8443" }
     [void](Invoke-Compose -ComposeArguments @('run', '--rm', '--no-deps', 'prepare'))
     $helper = Invoke-Compose -ComposeArguments @('run', '-d', '--no-deps', '--entrypoint', 'sleep', 'prepare', '600')
     try {
-        foreach ($file in @(@($serverCert, 'server.crt', '644'), @($serverKey, 'server-key.pem', '600'), @($mobileConfig, 'rentalops-home-wifi.mobileconfig', '644'))) {
+        foreach ($file in @(@($serverCert, 'server.crt', '644'), @($serverKey, 'server-key.pem', '600'), @($mobileConfig, 'locatto-home-wifi.mobileconfig', '644'))) {
             [void](Invoke-Docker -DockerArguments @('cp', $file[0], "${helper}:/private/mobile-tls/$($file[1])"))
             [void](Invoke-Docker -DockerArguments @('exec', $helper, 'chmod', $file[2], "/private/mobile-tls/$($file[1])"))
         }
@@ -227,15 +236,15 @@ function Configure-MobileAccess {
     [void](Invoke-Compose -ComposeArguments @('up', '-d', '--build', '--wait', '--wait-timeout', '180', 'backend', 'frontend'))
     $fingerprint = (Get-FileHash -LiteralPath $caDer -Algorithm SHA256).Hash.ToLowerInvariant()
     Write-Host "Acesso seguro preparado: https://${LanIp}:8443"
-    Write-Host "Perfil do iPhone: http://${LanIp}:8080/rentalops-home-wifi.mobileconfig"
+    Write-Host "Perfil do iPhone: http://${LanIp}:8080/locatto-home-wifi.mobileconfig"
     Write-Host "Certificado raiz SHA-256: $fingerprint"
-    Write-Host "O Wi-Fi está marcado como Público. Para liberar somente essa rede, abra o PowerShell como administrador e execute: New-NetFirewallRule -DisplayName 'RentalOps Home Wi-Fi' -Direction Inbound -Action Allow -Protocol TCP -LocalAddress $LanIp -LocalPort 8080,8443 -RemoteAddress $subnet -InterfaceAlias '$($address.InterfaceAlias)' -Profile Any"
+    Write-Host "O Wi-Fi está marcado como Público. Para liberar somente essa rede, abra o PowerShell como administrador e execute: New-NetFirewallRule -DisplayName 'Locatto Home Wi-Fi' -Direction Inbound -Action Allow -Protocol TCP -LocalAddress $LanIp -LocalPort 8080,8443 -RemoteAddress $subnet -InterfaceAlias '$($address.InterfaceAlias)' -Profile Any"
 }
 
 function Install-Shortcuts {
     $shell = New-Object -ComObject WScript.Shell
     $desktop = [Environment]::GetFolderPath('Desktop')
-    foreach ($item in @(@('Abrir RentalOps', 'Start'), @('Fechar RentalOps', 'Stop'), @('Backup RentalOps', 'Backup'))) {
+    foreach ($item in @(@('Abrir Locatto', 'Start'), @('Fechar Locatto', 'Stop'), @('Backup Locatto', 'Backup'))) {
         $link = $shell.CreateShortcut((Join-Path $desktop ($item[0] + '.lnk')))
         $link.TargetPath = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
         $link.Arguments = '-NoProfile -ExecutionPolicy Bypass -File "' + $LauncherPath + '" -Action ' + $item[1]
@@ -249,29 +258,29 @@ function Install-Shortcuts {
     $trigger = New-ScheduledTaskTrigger -Daily -At '18:00'
     $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 15) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 5)
     try {
-        Register-ScheduledTask -TaskName 'RentalOps Backup Local' -Action $task -Trigger $trigger -Settings $settings -Description 'Cópia cifrada do RentalOps enquanto o computador estiver ligado.' -Force | Out-Null
+        Register-ScheduledTask -TaskName 'Locatto Backup Local' -Action $task -Trigger $trigger -Settings $settings -Description 'Cópia cifrada do Locatto enquanto o computador estiver ligado.' -Force | Out-Null
         if (Test-Path -LiteralPath (Join-Path $DataRoot 'schedule-warning.txt')) { Remove-Item -LiteralPath (Join-Path $DataRoot 'schedule-warning.txt') }
     } catch {
         # Logon plus backup-on-start remains available when Task Scheduler is restricted.
-        [IO.File]::WriteAllText((Join-Path $DataRoot 'schedule-warning.txt'), 'O Windows recusou o agendamento diário. O backup continua automático ao abrir o RentalOps a cada 24 horas.', $Utf8)
+        [IO.File]::WriteAllText((Join-Path $DataRoot 'schedule-warning.txt'), 'O Windows recusou o agendamento diário. O backup continua automático ao abrir o Locatto a cada 24 horas.', $Utf8)
     }
 }
 
-$mutex = New-Object Threading.Mutex($false, 'Local\RentalOpsDesktopOperation')
+$mutex = New-Object Threading.Mutex($false, 'Local\LocattoDesktopOperation')
 $locked = $false
 try {
     $locked = $mutex.WaitOne(0)
-    if (-not $locked) { throw 'O RentalOps já está iniciando ou fazendo backup. Aguarde e tente novamente.' }
+    if (-not $locked) { throw 'O Locatto já está iniciando ou fazendo backup. Aguarde e tente novamente.' }
     Protect-Directory $DataRoot
     Protect-Directory $BackupRoot
     Wait-Docker
     if ($Action -eq 'ConfigureMobile') {
         Configure-MobileAccess
     } elseif ($Action -eq 'Install') {
-        if (Test-Path -LiteralPath (Join-Path $DataRoot 'installed.json')) { throw 'O RentalOps já está instalado. Use Abrir RentalOps.' }
+        if (Test-Path -LiteralPath (Join-Path $DataRoot 'installed.json')) { throw 'O Locatto já está instalado. Use Abrir Locatto.' }
         if (-not $ImportDirectory -or -not (Test-Path -LiteralPath (Join-Path $ImportDirectory 'database.dump')) -or -not (Test-Path -LiteralPath (Join-Path $ImportDirectory 'storage.tar'))) { throw 'Informe a cópia dos dados para a instalação inicial.' }
         if (Test-Path -LiteralPath $ComposeEnv) { throw 'Há uma instalação incompleta. É necessário reconciliar os dados antes de continuar.' }
-        $existingVolumes = Invoke-Docker -DockerArguments @('volume', 'ls', '--filter', 'name=rentalops-desktop-', '--format', '{{.Name}}')
+        $existingVolumes = Invoke-Docker -DockerArguments @('volume', 'ls', '--filter', 'name=locatto-desktop-', '--format', '{{.Name}}')
         if ($existingVolumes) { throw 'Foram encontrados dados de uma instalação anterior. É necessário recuperar a configuração antes de continuar.' }
         $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
         $bytes = New-Object byte[] 32
@@ -283,8 +292,8 @@ try {
         $rateKey = -join ($bytes | ForEach-Object { $_.ToString('x2') })
         $rng.Dispose()
         [IO.File]::WriteAllText((Join-Path $DataRoot 'postgres-password'), $bootstrapPassword, $Utf8)
-        [IO.File]::WriteAllText($BackendEnv, "DATABASE_URL=postgresql+psycopg://rentalops_runtime:${runtimePassword}@database:5432/rentalops`nAUTH_RATE_KEY=$rateKey`n", $Utf8)
-        [IO.File]::WriteAllText($ComposeEnv, "RENTALOPS_BACKEND_ENV=$($BackendEnv.Replace('\','/'))`nRENTALOPS_POSTGRES_PASSWORD_FILE=$((Join-Path $DataRoot 'postgres-password').Replace('\','/'))`n", $Utf8)
+        [IO.File]::WriteAllText($BackendEnv, "DATABASE_URL=postgresql+psycopg://locatto_runtime:${runtimePassword}@database:5432/locatto`nAUTH_RATE_KEY=$rateKey`n", $Utf8)
+        [IO.File]::WriteAllText($ComposeEnv, "LOCATTO_BACKEND_ENV=$($BackendEnv.Replace('\','/'))`nLOCATTO_POSTGRES_PASSWORD_FILE=$((Join-Path $DataRoot 'postgres-password').Replace('\','/'))`n", $Utf8)
         Write-Host 'Preparando as imagens do sistema. Esta etapa é feita somente na instalação ou atualização...'
         [void](Invoke-Compose -ComposeArguments @('build', 'prepare', 'frontend'))
         [void](Invoke-Compose -ComposeArguments @('run', '--rm', '--no-deps', 'prepare'))
@@ -296,10 +305,10 @@ try {
         [void](Invoke-Compose -ComposeArguments @('up', '-d', '--wait', 'database'))
         $db = Invoke-Compose -ComposeArguments @('ps', '-q', 'database')
         [void](Invoke-Docker -DockerArguments @('cp', (Join-Path $ImportDirectory 'database.dump'), "${db}:/tmp/import.dump"))
-        [void](Invoke-Docker -DockerArguments @('exec', $db, 'pg_restore', '-U', 'rentalops_bootstrap', '-d', 'rentalops', '--no-owner', '--no-acl', '--exit-on-error', '--single-transaction', '/tmp/import.dump'))
+        [void](Invoke-Docker -DockerArguments @('exec', $db, 'pg_restore', '-U', 'locatto_bootstrap', '-d', 'locatto', '--no-owner', '--no-acl', '--exit-on-error', '--single-transaction', '/tmp/import.dump'))
         [void](Invoke-Docker -DockerArguments @('exec', $db, 'rm', '/tmp/import.dump'))
-        $sql = "CREATE ROLE rentalops_runtime LOGIN PASSWORD '$runtimePassword'; GRANT CONNECT ON DATABASE rentalops TO rentalops_runtime; GRANT USAGE ON SCHEMA public TO rentalops_runtime; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO rentalops_runtime; GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO rentalops_runtime; ALTER DEFAULT PRIVILEGES FOR ROLE rentalops_bootstrap IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO rentalops_runtime; ALTER DEFAULT PRIVILEGES FOR ROLE rentalops_bootstrap IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO rentalops_runtime;"
-        $sql | & $Docker --context desktop-linux exec -i $db psql -U rentalops_bootstrap -d rentalops -v ON_ERROR_STOP=1 *> $null
+        $sql = "CREATE ROLE locatto_runtime LOGIN PASSWORD '$runtimePassword'; GRANT CONNECT ON DATABASE locatto TO locatto_runtime; GRANT USAGE ON SCHEMA public TO locatto_runtime; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO locatto_runtime; GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO locatto_runtime; ALTER DEFAULT PRIVILEGES FOR ROLE locatto_bootstrap IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO locatto_runtime; ALTER DEFAULT PRIVILEGES FOR ROLE locatto_bootstrap IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO locatto_runtime;"
+        $sql | & $Docker --context desktop-linux exec -i $db psql -U locatto_bootstrap -d locatto -v ON_ERROR_STOP=1 *> $null
         if ($LASTEXITCODE -ne 0) { throw 'Não foi possível preparar a conta da aplicação.' }
         $helper = Invoke-Compose -ComposeArguments @('run', '-d', '--no-deps', '--entrypoint', 'sleep', 'prepare', '600')
         try {
@@ -314,11 +323,11 @@ try {
         Start-App
         Save-Backup
     } elseif ($Action -eq 'Stop') {
-        Write-Host 'Encerrando o RentalOps e guardando uma cópia de segurança...'
+        Write-Host 'Encerrando o Locatto e guardando uma cópia de segurança...'
         Start-App
         Save-Backup
         [void](Invoke-Compose -ComposeArguments @('stop', '--timeout', '30'))
-        Write-Host 'RentalOps encerrado. Seus dados estão guardados.'
+        Write-Host 'Locatto encerrado. Seus dados estão guardados.'
     } elseif ($Action -eq 'Status') {
         Write-Host (Invoke-Compose -ComposeArguments @('ps'))
     } elseif ($Action -eq 'VerifyBackup') {

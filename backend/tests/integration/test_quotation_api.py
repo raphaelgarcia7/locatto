@@ -7,11 +7,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.exc import OperationalError
 
-from rentalops_api.auth import AuthService, AuthSettings
-from rentalops_api.auth_routes import auth_service
-from rentalops_api.main import app
-from rentalops_api.quotation_models import QuotationAudit
-from rentalops_api.quotation_routes import quotation_service
+from locatto_api.auth import AuthService, AuthSettings
+from locatto_api.auth_routes import auth_service
+from locatto_api.main import app
+from locatto_api.quotation_models import QuotationAudit
+from locatto_api.quotation_routes import quotation_service
 
 from .test_quotations import draft
 from .test_quotations import quotations as quotation_fixture
@@ -162,7 +162,7 @@ def test_preview_returns_safe_field_errors_and_creates_no_quotation(client, quot
     assert response.status_code == 422
     assert "lines.0.quantity" in response.json()["field_errors"]
     assert "PRIVATE_SYNTHETIC_DO_NOT_ECHO" not in response.text
-    from rentalops_api.quotation_contracts import QuotationSearch
+    from locatto_api.quotation_contracts import QuotationSearch
 
     assert service.search(QuotationSearch())["total"] == 0
 
@@ -172,7 +172,7 @@ def test_errors_no_input_echo_logs_sql_or_pii_and_body_search(
 ):
     http, service = client
     login(http)
-    for logger in ("rentalops_api", "uvicorn.access", "uvicorn.error"):
+    for logger in ("locatto_api", "uvicorn.access", "uvicorn.error"):
         caplog.set_level(logging.INFO, logger=logger)
     body = draft(quotations).model_dump(mode="json")
     sentinel = "PRIVATE_SYNTHETIC_DO_NOT_ECHO"

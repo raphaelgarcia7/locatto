@@ -7,8 +7,8 @@ from alembic.config import Config
 from sqlalchemy import Engine, event, text
 from sqlalchemy.engine import Connection
 
-from rentalops_api.config import environment_values
-from rentalops_api.database import build_engine
+from locatto_api.config import environment_values
+from locatto_api.database import build_engine
 
 from .database_safety import new_schema_name, test_settings, validated_schema
 

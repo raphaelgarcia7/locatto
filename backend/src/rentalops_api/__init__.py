@@ -1,1 +1,0 @@
-"""RentalOps backend application."""

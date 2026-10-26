@@ -79,7 +79,7 @@ export async function operationRequest<T>(
   });
   if (!response.ok) {
     if (response.status === 401)
-      window.dispatchEvent(new Event('rentalops-session-ended'));
+      window.dispatchEvent(new Event('locatto-session-ended'));
     throw new Error(
       response.status === 422
         ? 'Confira as datas, o período de até 90 dias e os filtros.'

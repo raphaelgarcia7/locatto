@@ -12,27 +12,27 @@ from sqlalchemy import event, func, inspect, select, text
 from sqlalchemy.exc import IntegrityError, ProgrammingError
 from sqlalchemy.orm import Session
 
-from rentalops_api.catalog import CatalogService
-from rentalops_api.catalog_contracts import (
+from locatto_api.catalog import CatalogService
+from locatto_api.catalog_contracts import (
     MaintenanceCommand,
     ProductEdit,
     ReasonCommand,
     StockAdjustment,
 )
-from rentalops_api.catalog_models import Product
-from rentalops_api.catalog_storage import PhotoStorage
-from rentalops_api.models import Base
-from rentalops_api.payment_contracts import CorrectionCommand, RefundCommand
-from rentalops_api.quotation_contracts import QuotationSearch
-from rentalops_api.quotations import QuotationError
-from rentalops_api.rental_contracts import ConfirmationCommand, ConfirmationPreview
-from rentalops_api.rental_models import (
+from locatto_api.catalog_models import Product
+from locatto_api.catalog_storage import PhotoStorage
+from locatto_api.models import Base
+from locatto_api.payment_contracts import CorrectionCommand, RefundCommand
+from locatto_api.quotation_contracts import QuotationSearch
+from locatto_api.quotations import QuotationError
+from locatto_api.rental_contracts import ConfirmationCommand, ConfirmationPreview
+from locatto_api.rental_models import (
     Rental,
     RentalAllocation,
     RentalPending,
     RentalRequest,
 )
-from rentalops_api.rentals import RentalError, RentalService
+from locatto_api.rentals import RentalError, RentalService
 
 from ..conftest import migration_config
 from .test_payments import allocation, receive, reconcile, versions
@@ -527,7 +527,7 @@ def test_inventory_pending_insert_never_locks_quotation_after_product(
     p2 = (*payments[:2], UUID(offer["id"]), payments[3], offer)
     paid(p2)
     stock_holds_product, confirmation_waits_product = Event(), Event()
-    from rentalops_api.rental_effects import record_inventory_impact
+    from locatto_api.rental_effects import record_inventory_impact
 
     def impact(session, product, actor):
         stock_holds_product.set()
@@ -560,7 +560,7 @@ def test_inventory_pending_insert_never_locks_quotation_after_product(
         assert failure.value.code == "capacity_conflict"
 
     try:
-        with patch("rentalops_api.catalog.record_inventory_impact", side_effect=impact):
+        with patch("locatto_api.catalog.record_inventory_impact", side_effect=impact):
             with ThreadPoolExecutor(max_workers=2) as pool:
                 a, b = pool.submit(stock), pool.submit(confirm)
                 a.result()

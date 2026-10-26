@@ -12,16 +12,16 @@ from sqlalchemy import inspect, select, text
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
-from rentalops_api.auth import Identity
-from rentalops_api.customer_contracts import (
+from locatto_api.auth import Identity
+from locatto_api.customer_contracts import (
     CustomerCreate,
     CustomerEdit,
     CustomerSearch,
 )
-from rentalops_api.customer_models import Customer, CustomerAudit
-from rentalops_api.customers import CustomerError, CustomerService
-from rentalops_api.database import build_session_factory
-from rentalops_api.models import AuthSession, Base, User
+from locatto_api.customer_models import Customer, CustomerAudit
+from locatto_api.customers import CustomerError, CustomerService
+from locatto_api.database import build_session_factory
+from locatto_api.models import AuthSession, Base, User
 
 from ..conftest import migration_config
 from ..unit.test_customer_contracts import synthetic_cpf

@@ -196,13 +196,13 @@ it('shows conflict comparison while preserving the negotiated draft and requirin
 
 it('ends session on authenticated failure without leaking rejected fields into feedback', async () => {
   const ended = vi.fn();
-  window.addEventListener('rentalops-session-ended', ended);
+  window.addEventListener('locatto-session-ended', ended);
   fetchMock.mockResolvedValue(response({ detail: 'Sessão encerrada.' }, 401));
   await expect(quotationRequest('/search', {})).rejects.toThrow(
     'Sessão encerrada.',
   );
   expect(ended).toHaveBeenCalledOnce();
-  window.removeEventListener('rentalops-session-ended', ended);
+  window.removeEventListener('locatto-session-ended', ended);
   fetchMock.mockResolvedValue(
     response(
       {

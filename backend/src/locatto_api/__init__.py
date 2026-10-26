@@ -1,0 +1,1 @@
+"""Locatto backend application."""

@@ -22,7 +22,7 @@ export function AppShell({
           (module) => module.path === pathname.replace(/\/$/, '').toLowerCase(),
         )?.title ?? 'Página não encontrada');
   useEffect(() => {
-    document.title = `${pageTitle} · RentalOps`;
+    document.title = `${pageTitle} · Locatto`;
     if (previousPath.current !== pathname) {
       mainRef.current?.focus();
       window.scrollTo(0, 0);
@@ -35,7 +35,7 @@ export function AppShell({
         Pular para o conteúdo
       </a>
       <aside className="sidebar" aria-label="Espaço de trabalho">
-        <Link className="brand" to="/" aria-label="RentalOps, início">
+        <Link className="brand" to="/" aria-label="Locatto, início">
           <span className="brand-mark" aria-hidden="true">
             <span />
             <span />
@@ -88,7 +88,7 @@ export function AppShell({
           {children}
         </main>
         <footer className="page-footer">
-          <span>RentalOps · Gestão de locações</span>
+          <span>Locatto · Gestão de locações</span>
         </footer>
       </div>
     </div>

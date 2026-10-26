@@ -1,6 +1,6 @@
 # ROP-004 — operations-prep-v1: evidências locais
 
-Plano humano: [issue4](https://github.com/raphaelgarcia7/rentalops/issues/4),
+Plano humano: [issue4](https://github.com/raphaelgarcia7/locatto/issues/4),
 updated_at `2026-10-09T00:27:44Z`, body UTF-8 SHA256
 `70d2b4f705844b565bb02855b5a6c05b20bed68f79ac28532dbf0d534744e5e2`.
 Reconsulta pelo conector antes da entrega confirmou issue aberta, mesma revisão e
@@ -8,7 +8,7 @@ body exatamente igual ao snapshot aprovado. O coordenador confirmou Project
 In progress e dependência #7 Done/remotamente integrada antes do despacho.
 
 Base `4184cb193a23abfe51a8f16f9f63aa39199a6d4b`, branch `codex/4-operations`, checkout
-isolado `C:/Users/Raphael/.codex/worktrees/rentalops-customers/rmg-chatbot`. Nenhum código
+isolado `C:/Users/Raphael/.codex/worktrees/locatto-customers/rmg-chatbot`. Nenhum código
 do root sujo foi copiado. Processo/padrões/regras/ADR-001 foram lidos explicitamente
 na raiz porque não existem completos no checkout limpo; essa lacuna não autorizou
 publicar CI/configurações acumuladas. Executor `gpt-6.1-sol/high`, agente
@@ -23,7 +23,7 @@ esse head e esta base, sem substituir modelos.
 | --- | --- | --- |
 | OPS-01 configuração reproduzível, secrets, root privado, legado | Compose/Dockerfiles por digest, `.dockerignore`; wrapper valida paths brutos/sources resolvidos no host;62 regressões; binds sem autocreate; retomada autorizada em ext4/rootless passou validate/build/up, migração, readiness, login/upload/bytes e guard real UID10001; legado na suíte359pytest | Falha NTFS0777 e bloqueio anterior preservados abaixo, resolvidos somente pelo preparo nativo autorizado. Ensaio final do SHA/base e revisão exata registrados no checkpoint/journal; não certifica implantação real |
 | OPS-02 backup/restore real, vínculos/bytes/histórico/login/contagens | `test_real_backup_restore_login_queries_photos_history_and_revocation`: PostgreSQL17 real, migrações0001–0006, usuário/cliente/produtos/kit/orçamento; foto original detached após orçamento e substituta; age real; copy em diretório independente; pg_restore real em banco novo; contagens/digests das22tabelas, FK/constraints e2fotos; consulta/revisões e login por senha após revogação | Ensaio sintético muito pequeno; copy é diretório local independente, **não off-host real**; não certifica RPO24h/RTO4h de produção |
-| OPS-03 recusas, source preservado e autoridade revogada | chave age errada, ciphertext corrupto, foto ausente, manifest cifrado/autenticado incompleto, falha de pg_dump no meio, DB/storage não vazio e target sem nome/opção aprovada recusados; sem ponto incompleto publicado; source fingerprint igual após recusas; sessão e link antigos falham, login novo funciona; cópia não sobrescreve ponto | Destino falho fica descartável/fechado para investigação; sem overwrite/cleanup automático de produção. CLI restrita a `rentalops_restore_test_<32hex>` em loopback e opção explícita |
+| OPS-03 recusas, source preservado e autoridade revogada | chave age errada, ciphertext corrupto, foto ausente, manifest cifrado/autenticado incompleto, falha de pg_dump no meio, DB/storage não vazio e target sem nome/opção aprovada recusados; sem ponto incompleto publicado; source fingerprint igual após recusas; sessão e link antigos falham, login novo funciona; cópia não sobrescreve ponto | Destino falho fica descartável/fechado para investigação; sem overwrite/cleanup automático de produção. CLI restrita a `locatto_restore_test_<32hex>` em loopback e opção explícita |
 | OPS-04 readiness, manutenção, atraso e logs | Retomada ext4: nginx/backend reais health/ready200, storage0000 e DB próprio indisponível→ready503/liveness200→recuperação200;22JSON backend+34proxy sem body/query/headers/token/DSN/paths/chaves. Rodada2 corrige acesso efetivo do storage com regressões unit/PG, além do ensaio UID10001 | Falha original readiness200/storage inacessível preservada abaixo; TLS externo/monitor/alert unit não implantados; prova Windows anterior continua distinta |
 | OPS-05 runbook, retenção, recuperação/incidentes e gates honestos | `infra/operations/README.md`: config/secrets/contas/revogação/TLS/acessos; backup diário/copy/verify/idade/falha;30dias sem autopurge; restore/checks/cutover humano; migração compatível/rollback; incidentes DB/storage/chave/segredo; templates systemd adaptáveis | fornecedor/domínio/TLS/acessos reais, destino externo/monitor, retenção legal e treino com volume representativo permanecem gates de exposição, não fatos realizados |
 | OPS-06 qualidade/head/base/revisão/PR | resultados exatos abaixo; Ruff/format/mypy/pytest realPG/pip-audit/npm gates/Gitleaks e Playwright+axe | revisão independente `gpt-6-sol/high` do head atual, PR develop e checks/proteções remotos são do coordenador e permanecem pendentes nesta entrega do executor |
@@ -31,8 +31,8 @@ esse head e esta base, sem substituir modelos.
 ## Ensaio de recuperação e segurança
 
 PostgreSQL17.10 do cluster previamente autorizado de teste, somente loopback
-`127.0.0.1:15437`, usuário/banco sintéticos `rentalops_test`. Cada fixture cria apenas
-`rentalops_source_test_<UUID>` e `rentalops_restore_test_<UUID>`, aplica migrations no
+`127.0.0.1:15437`, usuário/banco sintéticos `locatto_test`. Cada fixture cria apenas
+`locatto_source_test_<UUID>` e `locatto_restore_test_<UUID>`, aplica migrations no
 public desses bancos novos e os elimina por nomes registrados. Não alterou serviço
 PostgreSQL existente, credenciais, main ou dados reais. Os demais testes usam schemas
 UUID no banco sintético já validado. API/proxy de teste usam portas loopback livres;
@@ -108,7 +108,7 @@ colunas legíveis; `desktop-1440-home.png` mostra navegação lateral e três ca
 corte horizontal. Foram geradas **196 capturas sintéticas**, sem atualização de baseline
 para ocultar diferença. Essa inspeção não afirma ter revisado visualmente todas elas.
 
-Após as suítes: **0 bancos source/restore desta tarefa, 0 schemas rentalops_test_UUID
+Após as suítes: **0 bancos source/restore desta tarefa, 0 schemas locatto_test_UUID
 e 0 listeners nas portas 8000/4173**. O cluster sintético pré-existente permanece para
 revisão por ser recurso anteriormente autorizado; nenhum serviço do usuário foi parado.
 
@@ -221,14 +221,14 @@ root montado, nenhum termo/settings/firewall/segurança alterado. MinIO preexist
 
 Fixture exclusiva fora do Git, dirs database/photos/operations/config com ACLs
 privadas verificadas pelo wrapper, envs e credenciais **somente sintéticos**, sem
-imprimir conteúdos. Projeto único `rentalops-rop004-linux-1dc2485`, frontend somente
+imprimir conteúdos. Projeto único `locatto-rop004-linux-1dc2485`, frontend somente
 loopback18084; nenhum serviço/banco/volume do usuário usado como destino. O Docker
 Compose parser real e wrapper `validate` passaram; wrapper `build` passou com os
 Dockerfiles exatos do head `1dc2485ea2047faff06e9175bcac2e2b33d94241`:
 
 | Imagem construída | Evidência |
 | --- | --- |
-| backend Linuxamd64, USER rentalops |`sha256:36eab4bc13632a8f1da1169b7320acd78bcfd2b2f7b08288cce742c68bf88444` |
+| backend Linuxamd64, USER locatto |`sha256:36eab4bc13632a8f1da1169b7320acd78bcfd2b2f7b08288cce742c68bf88444` |
 | frontend Linuxamd64/nginx |`sha256:800b642a6d02d993107f57d0a85e56fc00125fe94f95ede09c69f5789a5c9ece` |
 
 Primeiro wrapper `up --wait --wait-timeout120` retornou exit1 genérico antes do

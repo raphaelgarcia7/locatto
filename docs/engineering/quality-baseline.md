@@ -4,7 +4,7 @@ Validação local em Windows, 2026-10-02. Não corresponde a uma execução remo
 
 | Verificação | Resultado |
 | --- | --- |
-| Instalação backend com lockfile | Aprovada; nome do módulo configurado como `rentalops_api` |
+| Instalação backend com lockfile | Aprovada; nome do módulo configurado como `locatto_api` |
 | Ruff lint/formatação | Aprovados |
 | pytest | 6 testes aprovados: saúde, contrato HTTP, rota inexistente, exclusão concorrente, liberação pelo proprietário e lock incompleto |
 | ESLint/Prettier | Aprovados |

@@ -3,9 +3,9 @@
 import re
 from uuid import uuid4
 
-from rentalops_api.config import DatabaseConfigurationError, DatabaseSettings
+from locatto_api.config import DatabaseConfigurationError, DatabaseSettings
 
-SCHEMA_PATTERN = re.compile(r"rentalops_test_[0-9a-f]{32}")
+SCHEMA_PATTERN = re.compile(r"locatto_test_[0-9a-f]{32}")
 
 
 def local_host(host: str | None) -> str:
@@ -56,7 +56,7 @@ def test_settings(
 
 
 def new_schema_name() -> str:
-    return "rentalops_test_" + uuid4().hex
+    return "locatto_test_" + uuid4().hex
 
 
 def validated_schema(name: str) -> str:

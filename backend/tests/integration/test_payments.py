@@ -13,9 +13,9 @@ from sqlalchemy import inspect, select, text
 from sqlalchemy.exc import IntegrityError, ProgrammingError
 from sqlalchemy.orm import Session
 
-from rentalops_api.auth import Identity
-from rentalops_api.models import AuthSession, Base, User
-from rentalops_api.payment_contracts import (
+from locatto_api.auth import Identity
+from locatto_api.models import AuthSession, Base, User
+from locatto_api.payment_contracts import (
     AppliedReceiptCommand,
     CorrectionCommand,
     PaymentCommand,
@@ -23,15 +23,15 @@ from rentalops_api.payment_contracts import (
     ReconciliationCommand,
     RefundCommand,
 )
-from rentalops_api.payment_errors import PaymentError
-from rentalops_api.payment_models import (
+from locatto_api.payment_errors import PaymentError
+from locatto_api.payment_models import (
     PaymentAllocation,
     PaymentHistory,
     PaymentRequest,
     ReceiptRevision,
 )
-from rentalops_api.payment_storage import ProofStorage
-from rentalops_api.payments import PaymentService
+from locatto_api.payment_storage import ProofStorage
+from locatto_api.payments import PaymentService
 
 from ..conftest import migration_config
 from ..unit.test_payment_storage import pdf

@@ -10,7 +10,7 @@ from PIL import Image
 from pydantic import ValidationError
 from pypdf import PdfReader
 
-from rentalops_api.contract_contracts import (
+from locatto_api.contract_contracts import (
     ContractIssue,
     ContractPreview,
     ContractSnapshot,
@@ -19,8 +19,8 @@ from rentalops_api.contract_contracts import (
     ItemSnapshot,
     SignatureCommand,
 )
-from rentalops_api.contract_pdf import render_pdf
-from rentalops_api.contracts import (
+from locatto_api.contract_pdf import render_pdf
+from locatto_api.contracts import (
     TEMPLATE_DIGEST,
     TEMPLATE_REVISION,
     differences,
@@ -157,7 +157,7 @@ def test_ctr02_03_deterministic_nine_clauses_term_images_no_internal_notes():
     ):
         assert phrase in text
     for phrase in (
-        "RentalOps",
+        "Locatto",
         "MINUTA",
         "RASCUNHO",
         "Registro de revisão",

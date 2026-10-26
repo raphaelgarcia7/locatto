@@ -7,12 +7,12 @@ RUN apt-get update && apt-get install --no-install-recommends -y curl ca-certifi
     && printf '%s\n' 'deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main' > /etc/apt/sources.list.d/pgdg.list \
     && apt-get update && apt-get install --no-install-recommends -y postgresql-client-17 \
     && rm -rf /var/lib/apt/lists/* \
-    && useradd --uid 10001 --create-home rentalops
+    && useradd --uid 10001 --create-home locatto
 WORKDIR /app
 COPY backend /app/backend
 COPY infra/operations /app/infra/operations
 RUN uv sync --project backend --locked --no-dev
 ENV PATH="/app/backend/.venv/bin:$PATH" PYTHONUNBUFFERED=1
-USER rentalops
+USER locatto
 EXPOSE 8000
-CMD ["uvicorn", "rentalops_api.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log", "--no-proxy-headers", "--log-config", "/app/infra/operations/logging.json"]
+CMD ["uvicorn", "locatto_api.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log", "--no-proxy-headers", "--log-config", "/app/infra/operations/logging.json"]

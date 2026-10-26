@@ -14,10 +14,10 @@ implementação. Rechecagem viva após a implementação: issue aberta, mesma re
 e body exatamente igual ao original. O coordenador verificou Project/dependências
 diretas #10/#12 e transitivas, integração remota e promoção Ready/In progress.
 
-Executor fixo `rentalops_executor`, `gpt-6.1-sol/high`, `/root/rop011_executor`.
+Executor fixo `locatto_executor`, `gpt-6.1-sol/high`, `/root/rop011_executor`.
 Owner `rop011-reservations-20261010-50c88df8-run1`, lock compartilhado na raiz
 `C:/Projects/praxis/rmg-chatbot`. Sem planner, executor paralelo ou troca de modelo.
-Checkout isolado `C:/Users/Raphael/.codex/worktrees/rentalops-customers/rmg-chatbot`,
+Checkout isolado `C:/Users/Raphael/.codex/worktrees/locatto-customers/rmg-chatbot`,
 branch `codex/11-reservations`, base `5916965a5592489ddce7087fe97967ffd83fe223`.
 
 Commits de código validados:
@@ -99,7 +99,7 @@ Os builds intermediários IpAEAspX e jzdLaWqg e suas matrizes são preservados;
 não certificam o build final Ca3imgeD, cuja matriz é registrada separadamente.
 
 Preservação ANTES do primeiro rerun: cópia integral dos1614 arquivos/319372911bytes
-run00..run18 em `.rentalops/rop011-correction1-originals/rop011-evidence`, mais
+run00..run18 em `.locatto/rop011-correction1-originals/rop011-evidence`, mais
 reports/resultados originais do clone. Originais mantidos também in-place; manifesto
 run17 continua com hash98b91e6b44e4fd6ce3abf58548e7892dd5be01a0a1191568e0b7c8c45ca6b87a
 tanto na origem quanto no backup. Ignorados/capturas #12 não foram alterados.
@@ -205,7 +205,7 @@ versão imutável, sem adquirir quotation/rental após produto. Estoque físico 
 ## Ambiente, comandos e resultados da rodada0
 
 Artefatos privados, fora do Git: raiz compartilhada
-`.rentalops/rop011-evidence/`. Diretórios run00..run18 são tentativas exclusivas;
+`.locatto/rop011-evidence/`. Diretórios run00..run18 são tentativas exclusivas;
 nenhum rerun sobrescreve os originais. Comandos backend Windows partem do checkout;
 comandos frontend partem de `frontend/`. Saídas completas ficam nos arquivos
 indicados. Sem skips, retries ou relaxamento de assertions/timeouts/rate limits.
@@ -247,8 +247,8 @@ o hold do executor será encerrado, não transferido silenciosamente ao revisor.
 
 Browser: clone exclusivo fora do Git
 `C:/Users/Raphael/.codex/tmp/rop011-browser-source/frontend`, node_modules junction
-somente para dependências. `RENTALOPS_BROWSER_SERVER_COMMAND` usa helper `browser`;
-`RENTALOPS_EVIDENCE_DIR` aponta run17/reservations-captures e cada largura tem
+somente para dependências. `LOCATTO_BROWSER_SERVER_COMMAND` usa helper `browser`;
+`LOCATTO_EVIDENCE_DIR` aponta run17/reservations-captures e cada largura tem
 `PLAYWRIGHT_HTML_OUTPUT_DIR` próprio. Capturas legadas do clone também preservadas
 antes de rerun. O harness aplica migrations reais em schema UUID novo; fresh server
 por largura preserva proteção de30 tentativas de senha/peer/15min. Nenhum reset de

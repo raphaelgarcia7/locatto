@@ -1,8 +1,8 @@
 # ROP-007 — Evidências da fundação PostgreSQL
 
-Execução de `db-foundation-v1`, issue [#7](https://github.com/raphaelgarcia7/rentalops/issues/7), corpo aprovado com `updatedAt=2026-10-03T12:26:15Z`; versão reconfirmada antes do commit em 2026-10-03. Executor GPT-6.1 Sol/high. Base: `2bbac480ae2e082099181b364cd1ab92e7914ffa` (`origin/develop`); branch `codex/7-postgres-foundation`. Os resultados locais abaixo correspondem ao código deste commit de implementação. Revisão independente, verificações remotas e integração são etapas posteriores do coordenador, vinculadas ao SHA final.
+Execução de `db-foundation-v1`, issue [#7](https://github.com/raphaelgarcia7/locatto/issues/7), corpo aprovado com `updatedAt=2026-10-03T12:26:15Z`; versão reconfirmada antes do commit em 2026-10-03. Executor GPT-6.1 Sol/high. Base: `2bbac480ae2e082099181b364cd1ab92e7914ffa` (`origin/develop`); branch `codex/7-postgres-foundation`. Os resultados locais abaixo correspondem ao código deste commit de implementação. Revisão independente, verificações remotas e integração são etapas posteriores do coordenador, vinculadas ao SHA final.
 
-O checkout usado foi `C:/Users/Raphael/.codex/worktrees/rentalops-postgres/rmg-chatbot`. A raiz compartilhada suja foi somente lida para padrões, regras, delivery e ADR-001. Não houve cópia de mudanças acumuladas, alteração de journal/lock, publicação de workflow, alteração de GitHub, push ou merge pelo executor.
+O checkout usado foi `C:/Users/Raphael/.codex/worktrees/locatto-postgres/rmg-chatbot`. A raiz compartilhada suja foi somente lida para padrões, regras, delivery e ADR-001. Não houve cópia de mudanças acumuladas, alteração de journal/lock, publicação de workflow, alteração de GitHub, push ou merge pelo executor.
 
 O coordenador confirmou por API autenticada somente de leitura, em 2026-10-03: develop `protected=false` no SHA da base acima; endpoint de proteção 404; regras aplicáveis da branch 200 com lista vazia; rulesets incluindo parents 200 com lista vazia; workflows 200 com `total_count=0`. Ausência confirmada, não CI aprovada; integração permitida pela autorização do responsável enquanto ROP-006 permanece pendente. O coordenador repetirá os checks aplicáveis ao head após publicar PR. O responsável também separou autenticação por senha em ROP-021 e Google em ROP-022, sem alterar o escopo de ROP-007.
 
@@ -58,17 +58,17 @@ Capturas geradas em `frontend/test-results/evidence/`, relatório em `frontend/p
 
 Diretório externo ao Git: `C:/Users/Raphael/.codex/tmp/rop007-postgres-20261003-5d9bf762`. Cluster: subdiretório `data`. Foi criado com ferramentas oficiais PostgreSQL já instaladas; nenhuma configuração/autenticação/database do serviço existente foi alterada e nenhuma senha foi tentada. Porta inicial 55437 recusada pelo Windows antes de abrir listener; porta 15437 validada e utilizada. Listener confirmado somente em `127.0.0.1:15437`; PID principal `10176` no momento da entrega. Esse é o único serviço de teste preservado deliberadamente para revisão. O preview Playwright é encerrado pela própria suíte.
 
-`trust` existe somente neste cluster descartável local, sem dados pessoais ou segredos; `rentalops_test` é superuser sintético e qualquer processo local pode acessá-lo. Não representa configuração de produção nem conta padrão do produto. Bancos criados: `rentalops_test` para schemas exclusivos da suíte e `rentalops_migration_test` para reproduzir a CLI (users vazio, alembic_version no head). O cluster inteiro contém apenas dados sintéticos.
+`trust` existe somente neste cluster descartável local, sem dados pessoais ou segredos; `locatto_test` é superuser sintético e qualquer processo local pode acessá-lo. Não representa configuração de produção nem conta padrão do produto. Bancos criados: `locatto_test` para schemas exclusivos da suíte e `locatto_migration_test` para reproduzir a CLI (users vazio, alembic_version no head). O cluster inteiro contém apenas dados sintéticos.
 
 Na raiz do worktree, o revisor pode executar:
 
 ```powershell
-$env:TEST_DATABASE_URL='postgresql+psycopg://rentalops_test@127.0.0.1:15437/rentalops_test'
+$env:TEST_DATABASE_URL='postgresql+psycopg://locatto_test@127.0.0.1:15437/locatto_test'
 uv sync --project backend --locked
 uv run --project backend pytest backend/tests -q
 ```
 
-Não definir `DATABASE_URL` para esse mesmo alvo. Se desejar reproduzir a CLI isolada, use o banco `rentalops_migration_test` para DATABASE_URL e rode os comandos Alembic do README. Nenhum downgrade manual foi executado: downgrade ocorre exclusivamente na suíte/schema próprio.
+Não definir `DATABASE_URL` para esse mesmo alvo. Se desejar reproduzir a CLI isolada, use o banco `locatto_migration_test` para DATABASE_URL e rode os comandos Alembic do README. Nenhum downgrade manual foi executado: downgrade ocorre exclusivamente na suíte/schema próprio.
 
 Logs sem dados reais, no diretório externo acima: `backend-quality.log`, `pytest-final.log`, `frontend-quality.log`, `playwright-final.log`, `missing-test-url.log`, `postgres.log`, `audit-requirements.txt`, `gitleaks-history.json` e `gitleaks-diff.json`. Arquivos da ferramenta Gitleaks também estão nesse diretório. Logs PostgreSQL podem conter SQL/dados sintéticos de testes; nunca utilizar esse padrão de retenção para dados pessoais. Nenhuma credencial real foi exportada para logs.
 
@@ -78,7 +78,7 @@ Após revisão, o coordenador pode parar exatamente este cluster, preservando os
 & 'C:/Program Files/PostgreSQL/17/bin/pg_ctl.exe' -D C:/Users/Raphael/.codex/tmp/rop007-postgres-20261003-5d9bf762/data -m fast -w stop
 ```
 
-Não foi solicitado apagar o diretório. Nenhuma limpeza abrangente foi executada. Zero namespaces `rentalops_test_<UUID>` permaneceram depois da suíte e da recusa sem configuração.
+Não foi solicitado apagar o diretório. Nenhuma limpeza abrangente foi executada. Zero namespaces `locatto_test_<UUID>` permaneceram depois da suíte e da recusa sem configuração.
 
 ## Entrada de revisão
 

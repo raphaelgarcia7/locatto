@@ -99,7 +99,7 @@ test('closed login is responsive, readable, keyboard accessible and has clear er
     route.fulfill({ status: 401, json: { detail: 'generic' } }),
   );
   await page.goto('/clientes');
-  const heading = page.getByRole('heading', { name: 'Entrar no RentalOps' });
+  const heading = page.getByRole('heading', { name: 'Entrar no Locatto' });
   await expect(heading).toBeFocused();
   await expect(page.getByRole('navigation')).toHaveCount(0);
   await expect(page.getByText('Google')).toHaveCount(0);
@@ -180,7 +180,7 @@ test('private fragment is removed and first password succeeds through body-only 
   await page.getByRole('button', { name: 'Salvar senha' }).click();
   await expect(page.getByRole('status')).toContainText('Senha definida');
   await expect(
-    page.getByRole('heading', { name: 'Entrar no RentalOps' }),
+    page.getByRole('heading', { name: 'Entrar no Locatto' }),
   ).toBeFocused();
   expect(received).toHaveLength(1);
   expect(received[0].url).not.toContain('synthetic-private-token');
@@ -264,7 +264,7 @@ test('login pending, logout, identity revocation and deliberate activity use dis
   await page.clock.fastForward(30_001);
   await expect(page.getByRole('status')).toContainText('sessão terminou');
   await expect(
-    page.getByRole('heading', { name: 'Entrar no RentalOps' }),
+    page.getByRole('heading', { name: 'Entrar no Locatto' }),
   ).toBeFocused();
 });
 
@@ -284,7 +284,7 @@ test('polling is read-only and cannot keep an idle session alive', async ({
   await expect(page.getByRole('button', { name: 'Sair' })).toBeVisible();
   await page.clock.fastForward(60 * 60 * 1000 + 1);
   await expect(
-    page.getByRole('heading', { name: 'Entrar no RentalOps' }),
+    page.getByRole('heading', { name: 'Entrar no Locatto' }),
   ).toBeVisible();
   expect(count).toBe(0);
 });

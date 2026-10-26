@@ -1,7 +1,7 @@
 .git
 .env
 .env.*
-.rentalops
+.locatto
 **/.venv
 **/__pycache__
 **/node_modules

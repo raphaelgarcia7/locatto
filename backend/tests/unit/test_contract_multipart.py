@@ -8,12 +8,12 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from rentalops_api.auth import Identity
-from rentalops_api.auth_routes import auth_service
-from rentalops_api.contract_contracts import CompanyView
-from rentalops_api.contract_routes import contract_service
-from rentalops_api.main import app
-from rentalops_api.payment_errors import PaymentError
+from locatto_api.auth import Identity
+from locatto_api.auth_routes import auth_service
+from locatto_api.contract_contracts import CompanyView
+from locatto_api.contract_routes import contract_service
+from locatto_api.main import app
+from locatto_api.payment_errors import PaymentError
 
 
 class BoundaryService:

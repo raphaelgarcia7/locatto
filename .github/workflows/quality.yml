@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
-      TEST_DATABASE_URL: postgresql+psycopg://rentalops_test@127.0.0.1:15446/rentalops_ci_test
+      TEST_DATABASE_URL: postgresql+psycopg://locatto_test@127.0.0.1:15446/locatto_ci_test
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: ./.github/actions/test-postgres
@@ -28,7 +28,7 @@ jobs:
       - name: Install official recovery test tools
         run: |
           sudo apt-get install --yes age nginx
-          export DOCKER_CONFIG="$RUNNER_TEMP/rentalops-ci-docker"
+          export DOCKER_CONFIG="$RUNNER_TEMP/locatto-ci-docker"
           echo "DOCKER_CONFIG=$DOCKER_CONFIG" >> "$GITHUB_ENV"
           install -d -m 700 "$DOCKER_CONFIG/cli-plugins"
           curl --fail --location --silent --show-error -o "$DOCKER_CONFIG/cli-plugins/docker-compose" https://github.com/docker/compose/releases/download/v5.3.0/docker-compose-linux-x86_64
@@ -46,8 +46,8 @@ jobs:
       - name: Stop own disposable database
         if: always()
         run: |
-          if test -f "$RUNNER_TEMP/rentalops-ci-postgres/data/postmaster.pid"; then
-            /usr/lib/postgresql/17/bin/pg_ctl -D "$RUNNER_TEMP/rentalops-ci-postgres/data" -m fast -w stop
+          if test -f "$RUNNER_TEMP/locatto-ci-postgres/data/postmaster.pid"; then
+            /usr/lib/postgresql/17/bin/pg_ctl -D "$RUNNER_TEMP/locatto-ci-postgres/data" -m fast -w stop
           fi
 
   frontend:
@@ -74,7 +74,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
-      TEST_DATABASE_URL: postgresql+psycopg://rentalops_test@127.0.0.1:15446/rentalops_ci_test
+      TEST_DATABASE_URL: postgresql+psycopg://locatto_test@127.0.0.1:15446/locatto_ci_test
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: ./.github/actions/test-postgres
@@ -107,8 +107,8 @@ jobs:
       - name: Stop own disposable database
         if: always()
         run: |
-          if test -f "$RUNNER_TEMP/rentalops-ci-postgres/data/postmaster.pid"; then
-            /usr/lib/postgresql/17/bin/pg_ctl -D "$RUNNER_TEMP/rentalops-ci-postgres/data" -m fast -w stop
+          if test -f "$RUNNER_TEMP/locatto-ci-postgres/data/postmaster.pid"; then
+            /usr/lib/postgresql/17/bin/pg_ctl -D "$RUNNER_TEMP/locatto-ci-postgres/data" -m fast -w stop
           fi
 
   secrets:

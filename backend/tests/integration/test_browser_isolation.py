@@ -137,8 +137,8 @@ def test_parallel_browser_parameters_isolated_guards_and_schema_cleanup(
                     namespaces.append(session.scalar(text("SELECT current_schema()")))
             assert len(namespaces) == len(set(namespaces)) == 3
             # A session from another schema cannot authenticate in this context.
-            first_session = clients[0].cookies.get("rentalops_session")
-            clients[1].cookies.set("rentalops_session", first_session)
+            first_session = clients[0].cookies.get("locatto_session")
+            clients[1].cookies.set("locatto_session", first_session)
             assert clients[1].get("/parameters").status_code == 401
             harness.cookies.set(browser_server.FIXTURE_COOKIE, "unknown")
             assert harness.get("/parameters").status_code == 400

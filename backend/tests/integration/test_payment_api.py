@@ -4,10 +4,10 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from rentalops_api.auth import AuthService, AuthSettings
-from rentalops_api.auth_routes import auth_service
-from rentalops_api.main import app
-from rentalops_api.payment_routes import payment_service
+from locatto_api.auth import AuthService, AuthSettings
+from locatto_api.auth_routes import auth_service
+from locatto_api.main import app
+from locatto_api.payment_routes import payment_service
 
 from ..unit.test_payment_storage import pdf
 from .test_payments import payments as payment_fixture
@@ -237,7 +237,7 @@ def test_private_proof_download_content_replay_alien_link_and_upload_limits(
 
 
 def service_error():
-    from rentalops_api.payment_errors import PaymentError
+    from locatto_api.payment_errors import PaymentError
 
     return PaymentError(503, "storage_unavailable", "Comprovante indisponível.")
 

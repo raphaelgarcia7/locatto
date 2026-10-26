@@ -5,18 +5,18 @@ from unittest.mock import patch
 
 import pytest
 
-from rentalops_api.config import (
+from locatto_api.config import (
     DatabaseConfigurationError,
     DatabaseSettings,
     environment_values,
 )
-from rentalops_api.database import build_engine
-from rentalops_api.models import User
+from locatto_api.database import build_engine
+from locatto_api.models import User
 
 from ..database_safety import new_schema_name, validated_schema
 from ..database_safety import test_settings as safe_settings
 
-TEST_URL = "postgresql+psycopg://synthetic:synthetic@127.0.0.1/rentalops_test"
+TEST_URL = "postgresql+psycopg://synthetic:synthetic@127.0.0.1/locatto_test"
 
 
 @pytest.mark.parametrize(
@@ -66,10 +66,10 @@ from unittest.mock import patch
 with patch('psycopg.connect', side_effect=AssertionError('connection')), \\
      patch('sqlalchemy.create_engine', side_effect=AssertionError('engine')), \\
      patch('alembic.command.upgrade', side_effect=AssertionError('DDL')):
-    import rentalops_api.config
-    import rentalops_api.database
-    import rentalops_api.models
-    import rentalops_api.main
+    import locatto_api.config
+    import locatto_api.database
+    import locatto_api.models
+    import locatto_api.main
 """
     result = subprocess.run(
         [sys.executable, "-c", code], capture_output=True, text=True
@@ -81,15 +81,15 @@ with patch('psycopg.connect', side_effect=AssertionError('connection')), \\
     "test_url,development",
     [
         (None, None),
-        ("sqlite:///rentalops_test", None),
-        ("postgresql://user:password@remote.example/rentalops_test", None),
-        ("postgresql://user:password@127.0.0.2/rentalops_test", None),
-        ("postgresql://user:password@localhost/rentalops", None),
+        ("sqlite:///locatto_test", None),
+        ("postgresql://user:password@remote.example/locatto_test", None),
+        ("postgresql://user:password@127.0.0.2/locatto_test", None),
+        ("postgresql://user:password@localhost/locatto", None),
         ("postgresql://user:password@localhost/contest", None),
         (TEST_URL + "?host=remote.example", None),
         (TEST_URL + "?service=production", None),
-        (TEST_URL, "postgresql://other:other@localhost:5432/rentalops_test"),
-        (TEST_URL, "postgresql://other:other@[::1]:5432/rentalops_test"),
+        (TEST_URL, "postgresql://other:other@localhost:5432/locatto_test"),
+        (TEST_URL, "postgresql://other:other@[::1]:5432/locatto_test"),
         (TEST_URL, "postgresql://other:other@localhost/development?host=remote"),
     ],
 )
@@ -101,15 +101,15 @@ def test_unsafe_integration_targets_fail_before_connection(test_url, development
 
 
 def test_safe_target_and_namespace_validation():
-    settings = safe_settings(TEST_URL, "postgresql://user:password@localhost/rentalops")
+    settings = safe_settings(TEST_URL, "postgresql://user:password@localhost/locatto")
     assert settings.url.host == "127.0.0.1"
     assert settings.url.query["hostaddr"] == "127.0.0.1"
     assert settings.url.port == 5432
-    assert validated_schema(new_schema_name()).startswith("rentalops_test_")
+    assert validated_schema(new_schema_name()).startswith("locatto_test_")
     for unsafe in [
         "public",
-        "rentalops_test_",
-        "rentalops_test_" + "a" * 32 + "; DROP SCHEMA public",
+        "locatto_test_",
+        "locatto_test_" + "a" * 32 + "; DROP SCHEMA public",
     ]:
         with pytest.raises(ValueError):
             validated_schema(unsafe)

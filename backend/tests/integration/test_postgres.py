@@ -11,10 +11,10 @@ from sqlalchemy import Engine, inspect, select, text
 from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.orm import Session
 
-from rentalops_api.config import DatabaseSettings, environment_values
-from rentalops_api.database import build_engine, build_session_factory, session_scope
-from rentalops_api.main import app
-from rentalops_api.models import User
+from locatto_api.config import DatabaseSettings, environment_values
+from locatto_api.database import build_engine, build_session_factory, session_scope
+from locatto_api.main import app
+from locatto_api.models import User
 
 from ..conftest import migration_config
 from ..database_safety import new_schema_name, validated_schema
@@ -242,18 +242,18 @@ def test_real_readiness_and_database_outage(
     settings = DatabaseSettings(migrated_engine.url)
     with (
         patch(
-            "rentalops_api.main.DatabaseSettings.from_environment",
+            "locatto_api.main.DatabaseSettings.from_environment",
             return_value=settings,
         ),
         # This engine owns the fixture's real migrated PostgreSQL namespace.
-        patch("rentalops_api.main.build_engine", return_value=migrated_engine),
+        patch("locatto_api.main.build_engine", return_value=migrated_engine),
     ):
         with TestClient(app) as client:
             assert client.get("/health/ready").json() == {"status": "ready"}
             assert client.get("/health/ready").status_code == 200
     unreachable = DatabaseSettings(settings.url.set(port=1))
     with patch(
-        "rentalops_api.main.DatabaseSettings.from_environment", return_value=unreachable
+        "locatto_api.main.DatabaseSettings.from_environment", return_value=unreachable
     ):
         with TestClient(app) as client:
             assert client.get("/health").status_code == 200

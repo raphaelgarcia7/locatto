@@ -12,21 +12,21 @@ from sqlalchemy import func, select, text
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
 
-from rentalops_api.models import Base
-from rentalops_api.payment_contracts import CorrectionCommand, RefundCommand
-from rentalops_api.payment_errors import PaymentError
-from rentalops_api.payment_models import PaymentRefund, Receipt
-from rentalops_api.quotation_models import QuotationVersion
-from rentalops_api.quotations import QuotationError
-from rentalops_api.rental_changes import RentalChangeService
-from rentalops_api.rental_contracts import (
+from locatto_api.models import Base
+from locatto_api.payment_contracts import CorrectionCommand, RefundCommand
+from locatto_api.payment_errors import PaymentError
+from locatto_api.payment_models import PaymentRefund, Receipt
+from locatto_api.quotation_models import QuotationVersion
+from locatto_api.quotations import QuotationError
+from locatto_api.rental_changes import RentalChangeService
+from locatto_api.rental_contracts import (
     CancellationCommand,
     ChangeCommand,
     ChangePreview,
     ResumptionCommand,
 )
-from rentalops_api.rental_models import Rental
-from rentalops_api.rentals import RentalError
+from locatto_api.rental_models import Rental
+from locatto_api.rentals import RentalError
 
 from ..conftest import migration_config
 from .test_payments import allocation, receive, versions
@@ -464,8 +464,8 @@ def test_chg02_custom_kit_dates_swap_excludes_self_preserves_other_and_maintenan
 ):
     from decimal import Decimal
 
-    from rentalops_api.catalog_contracts import KitItemInput
-    from rentalops_api.catalog_models import Product
+    from locatto_api.catalog_contracts import KitItemInput
+    from locatto_api.catalog_models import Product
 
     service, payments = changes
     original = confirmed(changes)
@@ -589,8 +589,8 @@ def test_chg05_reference_saved_through_quotation_uses_current_prices_new_id_zero
 ):
     from decimal import Decimal
 
-    from rentalops_api.catalog_models import Kit
-    from rentalops_api.rental_changes import copy_draft
+    from locatto_api.catalog_models import Kit
+    from locatto_api.rental_changes import copy_draft
 
     from .test_quotations import command_for
 

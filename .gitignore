@@ -16,7 +16,7 @@ dist/
 .DS_Store
 .idea/
 .vscode/
-.rentalops/
+.locatto/
 .mypy_cache/
 frontend/playwright-report/
 frontend/test-results/

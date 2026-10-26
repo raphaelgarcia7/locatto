@@ -4,11 +4,11 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from rentalops_api.auth import AuthService, AuthSettings
-from rentalops_api.auth_routes import auth_service
-from rentalops_api.catalog_storage import normalize_image
-from rentalops_api.contract_routes import contract_service
-from rentalops_api.main import app
+from locatto_api.auth import AuthService, AuthSettings
+from locatto_api.auth_routes import auth_service
+from locatto_api.catalog_storage import normalize_image
+from locatto_api.contract_routes import contract_service
+from locatto_api.main import app
 
 from ..unit.test_contract_contracts import image_bytes
 from ..unit.test_payment_storage import pdf

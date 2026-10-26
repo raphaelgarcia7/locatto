@@ -111,7 +111,7 @@ describe('closed team access', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Você saiu');
     await act(async () => resolve(response(200)));
     expect(
-      screen.getByRole('heading', { name: 'Entrar no RentalOps' }),
+      screen.getByRole('heading', { name: 'Entrar no Locatto' }),
     ).toBeVisible();
     expect(
       screen.queryByRole('heading', { name: 'Operação' }),
@@ -136,7 +136,7 @@ describe('closed team access', () => {
       finishSessionCheck(response(401));
     });
     const heading = screen.getByRole('heading', {
-      name: 'Entrar no RentalOps',
+      name: 'Entrar no Locatto',
     });
     expect(heading).toHaveFocus();
     expect(

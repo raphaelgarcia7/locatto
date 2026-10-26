@@ -12,12 +12,12 @@ from sqlalchemy import func, select, text
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
 
-from rentalops_api.capacity import capacity_view
-from rentalops_api.catalog_models import Product
-from rentalops_api.catalog_storage import PhotoStorage
-from rentalops_api.contract_contracts import SignatureCommand
-from rentalops_api.contracts import ContractService
-from rentalops_api.handover_contracts import (
+from locatto_api.capacity import capacity_view
+from locatto_api.catalog_models import Product
+from locatto_api.catalog_storage import PhotoStorage
+from locatto_api.contract_contracts import SignatureCommand
+from locatto_api.contracts import ContractService
+from locatto_api.handover_contracts import (
     FinancialAgreementCommand,
     ForecastCommand,
     HandoverCommand,
@@ -25,10 +25,10 @@ from rentalops_api.handover_contracts import (
     ResolutionCommand,
     ReturnCommand,
 )
-from rentalops_api.handover_models import Handover, IncidentResolution, ReturnEvent
-from rentalops_api.handovers import HandoverService
-from rentalops_api.rental_models import RentalAllocation
-from rentalops_api.rentals import RentalError
+from locatto_api.handover_models import Handover, IncidentResolution, ReturnEvent
+from locatto_api.handovers import HandoverService
+from locatto_api.rental_models import RentalAllocation
+from locatto_api.rentals import RentalError
 
 from ..unit.test_contract_contracts import image_bytes
 from .test_contracts import issue_command, ready
@@ -749,7 +749,7 @@ def test_r08_ret_ten_sent_eight_fit_two_missing_then_cleaning_not_double_counted
 
 
 def test_r11_ret_actual_out_cancel_extension_partial_and_completed_copy(custody):
-    from rentalops_api.quotation_contracts import QuotationDraft
+    from locatto_api.quotation_contracts import QuotationDraft
 
     from .test_quotations import command_for
     from .test_rental_changes import cancel, change_command
@@ -822,7 +822,7 @@ def test_ret06_distinct_attendants_cannot_double_return_or_maintenance_decision(
     from dataclasses import replace
     from datetime import timedelta
 
-    from rentalops_api.models import AuthSession, User
+    from locatto_api.models import AuthSession, User
 
     service, actor, identifier, _, _ = custody
     with service.factory.begin() as session:
@@ -1033,8 +1033,8 @@ def test_r11_ret_concurrent_last_unit_return_and_new_confirmation(custody):
 
 
 def test_r11_late_conflict_visible_without_cancel_and_stock_adjustment_race(custody):
-    from rentalops_api.catalog import CatalogService
-    from rentalops_api.catalog_contracts import StockAdjustment
+    from locatto_api.catalog import CatalogService
+    from locatto_api.catalog_contracts import StockAdjustment
 
     from .test_rentals import confirmation
 
@@ -1091,8 +1091,8 @@ def test_r11_late_conflict_visible_without_cancel_and_stock_adjustment_race(cust
 def test_ret01_contract_finance_race_reads_locked_versions_no_signature_bypass(
     custody, concurrent
 ):
-    from rentalops_api.payment_contracts import CorrectionCommand
-    from rentalops_api.payment_errors import PaymentError
+    from locatto_api.payment_contracts import CorrectionCommand
+    from locatto_api.payment_errors import PaymentError
 
     from .test_payments import versions
 

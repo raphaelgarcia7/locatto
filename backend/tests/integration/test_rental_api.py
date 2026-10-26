@@ -2,11 +2,11 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from rentalops_api.catalog_models import Product
-from rentalops_api.main import app
-from rentalops_api.quotation_routes import quotation_service
-from rentalops_api.rental_routes import rental_service
-from rentalops_api.rentals import RentalService
+from locatto_api.catalog_models import Product
+from locatto_api.main import app
+from locatto_api.quotation_routes import quotation_service
+from locatto_api.rental_routes import rental_service
+from locatto_api.rentals import RentalService
 
 from .test_payment_api import HEADERS, login
 from .test_payment_api import client as payment_client

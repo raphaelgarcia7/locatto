@@ -127,7 +127,7 @@ def main() -> None:
     workspace = args.workspace.resolve(strict=True)
     if not workspace.is_dir():
         parser.error("workspace must be an existing directory")
-    lock = workspace / ".rentalops" / "automation.lock"
+    lock = workspace / ".locatto" / "automation.lock"
     if args.action == "status":
         print(json.dumps(status(lock)))
         return

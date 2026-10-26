@@ -2,9 +2,9 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from rentalops_api.main import app
-from rentalops_api.rental_changes import RentalChangeService
-from rentalops_api.rental_routes import rental_service
+from locatto_api.main import app
+from locatto_api.rental_changes import RentalChangeService
+from locatto_api.rental_routes import rental_service
 
 from .test_payment_api import HEADERS, login
 from .test_payments import versions
@@ -53,7 +53,7 @@ def test_private_changes_versions_strict_origin_csrf_replay_history_and_no_logs(
     for path in paths:
         for headers in ({}, {"Origin": "https://other.invalid"}):
             assert http.post(path, headers=headers, json={}).status_code == 403
-    from rentalops_api.catalog_models import Product
+    from locatto_api.catalog_models import Product
 
     with service.factory.begin() as session:
         session.get(Product, payments[3][2]["vase"]).total_quantity = 6

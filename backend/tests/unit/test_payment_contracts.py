@@ -4,8 +4,8 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-from rentalops_api.payment_contracts import ReceiptCommand, ReconciliationCommand
-from rentalops_api.quotation_contracts import SAO_PAULO
+from locatto_api.payment_contracts import ReceiptCommand, ReconciliationCommand
+from locatto_api.quotation_contracts import SAO_PAULO
 
 
 def receipt_body(**changes):

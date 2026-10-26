@@ -17,17 +17,17 @@ from time import monotonic
 from typing import Any
 from uuid import uuid4
 
-from rentalops_api.catalog_storage import CatalogError, PhotoStorage
-from rentalops_api.config import DatabaseSettings
-from rentalops_api.operations import (
+from locatto_api.catalog_storage import CatalogError, PhotoStorage
+from locatto_api.config import DatabaseSettings
+from locatto_api.operations import (
     OperationsError,
     maintenance,
     operation_root,
     private_path,
 )
-from rentalops_api.payment_errors import PaymentError
-from rentalops_api.payment_storage import ProofStorage
-from rentalops_api.readiness import check_schema, schema_head
+from locatto_api.payment_errors import PaymentError
+from locatto_api.payment_storage import ProofStorage
+from locatto_api.readiness import check_schema, schema_head
 from sqlalchemy import Connection, create_engine, inspect, text
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -323,7 +323,7 @@ def restore(
         not discardable
         or url.host not in {"127.0.0.1", "localhost", "::1"}
         or url.query
-        or not re.fullmatch(r"rentalops_restore_test_[0-9a-f]{32}", url.database or "")
+        or not re.fullmatch(r"locatto_restore_test_[0-9a-f]{32}", url.database or "")
     ):
         raise OperationsError("Explicit local disposable recovery database required.")
     private_path(target_storage)

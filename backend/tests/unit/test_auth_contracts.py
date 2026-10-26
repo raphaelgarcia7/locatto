@@ -2,9 +2,9 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import OperationalError
 
-from rentalops_api.auth import AuthSettings, normalize_email, validate_password
-from rentalops_api.auth_routes import LoginPayload, PasswordPayload, auth_service
-from rentalops_api.main import app
+from locatto_api.auth import AuthSettings, normalize_email, validate_password
+from locatto_api.auth_routes import LoginPayload, PasswordPayload, auth_service
+from locatto_api.main import app
 
 
 def test_passphrases_email_and_secret_representations():
@@ -50,7 +50,7 @@ def test_production_cookie_and_configuration_repr():
     settings = AuthSettings.from_values(
         {
             "APP_ENV": "production",
-            "AUTH_ORIGIN": "https://rentalops.example.invalid",
+            "AUTH_ORIGIN": "https://locatto.example.invalid",
             "AUTH_RATE_KEY": "x" * 32,
         }
     )

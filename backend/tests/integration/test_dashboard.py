@@ -11,22 +11,22 @@ from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
 from sqlalchemy import event, select, text
 
-from rentalops_api.dashboard import DashboardService
-from rentalops_api.dashboard_contracts import (
+from locatto_api.dashboard import DashboardService
+from locatto_api.dashboard_contracts import (
     CalendarQuery,
     DayQuery,
     DayView,
     UpcomingQuery,
 )
-from rentalops_api.handover_contracts import (
+from locatto_api.handover_contracts import (
     FinancialAgreementCommand,
     ForecastCommand,
     OperationalCommand,
 )
-from rentalops_api.models import Base
-from rentalops_api.payment_contracts import AppliedReceiptCommand, CorrectionCommand
-from rentalops_api.quotation_models import Quotation, QuotationVersion
-from rentalops_api.rental_models import Rental
+from locatto_api.models import Base
+from locatto_api.payment_contracts import AppliedReceiptCommand, CorrectionCommand
+from locatto_api.quotation_models import Quotation, QuotationVersion
+from locatto_api.rental_models import Rental
 
 from ..conftest import migration_config
 from .test_handovers import command, handover, receive, resolve

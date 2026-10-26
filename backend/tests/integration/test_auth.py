@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Engine, event, func, inspect, select, text
 from sqlalchemy.exc import IntegrityError, OperationalError
 
-from rentalops_api.auth import (
+from locatto_api.auth import (
     COOKIE_NAME,
     PASSWORD_HASHER,
     AuthError,
@@ -19,11 +19,11 @@ from rentalops_api.auth import (
     AuthSettings,
     token_hash,
 )
-from rentalops_api.auth_cli import main as cli
-from rentalops_api.auth_routes import auth_service
-from rentalops_api.database import build_session_factory
-from rentalops_api.main import app
-from rentalops_api.models import (
+from locatto_api.auth_cli import main as cli
+from locatto_api.auth_routes import auth_service
+from locatto_api.database import build_session_factory
+from locatto_api.main import app
+from locatto_api.models import (
     AuthAudit,
     AuthSession,
     LoginFailure,
@@ -389,7 +389,7 @@ def test_login_password_work_does_not_hold_counter_or_account_locks(service):
         checked.append(True)
         return PASSWORD_HASHER.verify(encoded, password)
 
-    with patch("rentalops_api.auth.PASSWORD_HASHER", wraps=PASSWORD_HASHER) as worker:
+    with patch("locatto_api.auth.PASSWORD_HASHER", wraps=PASSWORD_HASHER) as worker:
         worker.verify.side_effect = verify
         assert service.login(EMAIL, PASSWORD, "probe")[1].user_id
     assert checked == [True]
@@ -412,7 +412,7 @@ def test_login_rejects_password_result_if_account_changes_during_verification(
             service.deactivate(EMAIL)
         return valid
 
-    with patch("rentalops_api.auth.PASSWORD_HASHER", wraps=PASSWORD_HASHER) as worker:
+    with patch("locatto_api.auth.PASSWORD_HASHER", wraps=PASSWORD_HASHER) as worker:
         worker.verify.side_effect = verify
         expect_error(401, lambda: service.login(EMAIL, PASSWORD, "stale-worker"))
     with service.factory() as db:
@@ -427,7 +427,7 @@ def test_login_rejects_password_result_if_account_changes_during_verification(
 def test_login_exhausted_budget_does_not_start_password_work(service):
     for _ in range(10):
         expect_error(401, lambda: service.login(EMAIL, PASSWORD, "budget-worker"))
-    with patch("rentalops_api.auth.PASSWORD_HASHER", wraps=PASSWORD_HASHER) as worker:
+    with patch("locatto_api.auth.PASSWORD_HASHER", wraps=PASSWORD_HASHER) as worker:
         expect_error(429, lambda: service.login(EMAIL, PASSWORD, "budget-worker"))
         worker.verify.assert_not_called()
 
@@ -580,7 +580,7 @@ def test_http_contracts_csrf_protected_identity_cookie_no_secret_errors(
 
 def test_production_cookie_secure_and_login_ignores_supplied_cookie(service):
     initialize(service)
-    service.settings = AuthSettings("https://rentalops.example.invalid", True, "x" * 32)
+    service.settings = AuthSettings("https://locatto.example.invalid", True, "x" * 32)
     app.dependency_overrides[auth_service] = lambda: service
     try:
         with TestClient(app, base_url=service.settings.origin) as client:
@@ -606,12 +606,12 @@ def test_cli_exact_target_idempotent_no_secret_and_failure(service, capsys):
         with (
             patch("sys.argv", ["auth_cli", command, "--email", email]),
             patch(
-                "rentalops_api.auth_cli.AuthSettings.from_environment",
+                "locatto_api.auth_cli.AuthSettings.from_environment",
                 return_value=service.settings,
             ),
-            patch("rentalops_api.auth_cli.build_engine") as engine,
-            patch("rentalops_api.auth_cli.DatabaseSettings.from_environment"),
-            patch("rentalops_api.auth_cli.AuthService", return_value=service),
+            patch("locatto_api.auth_cli.build_engine") as engine,
+            patch("locatto_api.auth_cli.DatabaseSettings.from_environment"),
+            patch("locatto_api.auth_cli.AuthService", return_value=service),
         ):
             cli()
             engine.return_value.dispose.assert_called_once()
@@ -675,7 +675,7 @@ def test_ineligible_password_link_never_reaches_hasher(service, condition):
             db.get(User, user_id).password_hash = encoded
     if condition == "unknown":
         token = "synthetic-unknown-token"
-    with patch("rentalops_api.auth.PASSWORD_HASHER", wraps=PASSWORD_HASHER) as hasher:
+    with patch("locatto_api.auth.PASSWORD_HASHER", wraps=PASSWORD_HASHER) as hasher:
         expect_error(
             400, lambda: service.set_password(token, PASSWORD, "synthetic-peer")
         )
@@ -690,9 +690,7 @@ def test_password_set_invalid_http_attempts_persist_without_hash_or_secret(
 ):
     app.dependency_overrides[auth_service] = lambda: service
     try:
-        with patch(
-            "rentalops_api.auth.PASSWORD_HASHER", wraps=PASSWORD_HASHER
-        ) as hasher:
+        with patch("locatto_api.auth.PASSWORD_HASHER", wraps=PASSWORD_HASHER) as hasher:
             with TestClient(app, base_url=ORIGIN) as client:
                 # A non-browser caller can forge Origin; it still hits this budget.
                 payload = {"token": "synthetic-missing-token", "password": PASSWORD}
@@ -733,7 +731,7 @@ def test_password_set_invalid_http_attempts_persist_without_hash_or_secret(
 
 
 def test_password_set_origin_budget_cannot_be_evaded_with_random_tokens(service):
-    with patch("rentalops_api.auth.PASSWORD_HASHER", wraps=PASSWORD_HASHER) as hasher:
+    with patch("locatto_api.auth.PASSWORD_HASHER", wraps=PASSWORD_HASHER) as hasher:
         for n in range(30):
             expect_error(
                 400,
@@ -768,7 +766,7 @@ def test_concurrent_password_set_budget_bounds_invalid_tokens_without_hash(servi
         except AuthError as failure:
             return failure.status
 
-    with patch("rentalops_api.auth.PASSWORD_HASHER", wraps=PASSWORD_HASHER) as hasher:
+    with patch("locatto_api.auth.PASSWORD_HASHER", wraps=PASSWORD_HASHER) as hasher:
         with ThreadPoolExecutor(max_workers=12) as executor:
             outcomes = list(executor.map(attempt, range(12)))
         assert outcomes.count(400) == 10 and outcomes.count(429) == 2
@@ -804,7 +802,7 @@ def test_concurrent_valid_password_attempts_bound_hashes_and_consume_once(
                 rejected.wait(timeout=15)
             return failure.status
 
-    with patch("rentalops_api.auth.PASSWORD_HASHER", wraps=PASSWORD_HASHER) as hasher:
+    with patch("locatto_api.auth.PASSWORD_HASHER", wraps=PASSWORD_HASHER) as hasher:
         hasher.hash.side_effect = hash_after_all_admitted
         with ThreadPoolExecutor(max_workers=12) as executor:
             futures = [executor.submit(attempt, n) for n in range(12)]
@@ -859,7 +857,7 @@ def test_link_revalidated_when_state_changes_during_hash(
         except AuthError as failure:
             return failure.status
 
-    with patch("rentalops_api.auth.PASSWORD_HASHER", wraps=PASSWORD_HASHER) as hasher:
+    with patch("locatto_api.auth.PASSWORD_HASHER", wraps=PASSWORD_HASHER) as hasher:
         hasher.hash.side_effect = delayed_hash
         with ThreadPoolExecutor(max_workers=1) as executor:
             future = executor.submit(consume)
@@ -889,7 +887,7 @@ def test_link_revalidated_when_state_changes_during_hash(
 def test_hash_failure_does_not_consume_link_or_refund_persistent_budget(service):
     user_id, _ = service.create_user(EMAIL)
     token = service.issue_link(EMAIL, "access")
-    with patch("rentalops_api.auth.PASSWORD_HASHER", wraps=PASSWORD_HASHER) as hasher:
+    with patch("locatto_api.auth.PASSWORD_HASHER", wraps=PASSWORD_HASHER) as hasher:
         hasher.hash.side_effect = HashingError("synthetic-private-error")
         expect_error(503, lambda: service.set_password(token, PASSWORD, "same-peer"))
     with service.factory() as db:

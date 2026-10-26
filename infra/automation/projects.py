@@ -199,9 +199,7 @@ def main() -> None:
             parser.error(
                 "move requires owner, workspace, statuses and approved revision"
             )
-        lock = status(
-            args.workspace.resolve(strict=True) / ".rentalops/automation.lock"
-        )
+        lock = status(args.workspace.resolve(strict=True) / ".locatto/automation.lock")
         if (
             lock.get("requires_review")
             or lock.get("record", {}).get("owner") != args.owner

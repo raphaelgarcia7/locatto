@@ -80,7 +80,7 @@ async function post(page: Page, path: string, data: object, status = 200) {
 }
 async function seed(
   page: Page,
-  backendOrigin = process.env.RENTALOPS_TEST_CONTROL_ORIGIN ??
+  backendOrigin = process.env.LOCATTO_TEST_CONTROL_ORIGIN ??
     'http://127.0.0.1:8000',
   skipContract = false,
 ) {
@@ -289,7 +289,7 @@ test('guided rental: remaining payment, saved preparation, named pickup and chec
 }, info) => {
   const { quotation, rental, product } = await seed(
     page,
-    process.env.RENTALOPS_TEST_CONTROL_ORIGIN,
+    process.env.LOCATTO_TEST_CONTROL_ORIGIN,
     true,
   );
   await page.goto(`/locacoes?orcamento=${quotation.id}`);
@@ -419,8 +419,7 @@ async function visual(page: Page, info: TestInfo, name: string) {
     page.locator('.customer-contact:visible'),
   ];
   const directory =
-    process.env.RENTALOPS_EVIDENCE_DIR ??
-    'test-results/executor-rop014/evidence';
+    process.env.LOCATTO_EVIDENCE_DIR ?? 'test-results/executor-rop014/evidence';
   await region.screenshot({
     path: `${directory}/${info.project.name}-${name}.png`,
     mask,

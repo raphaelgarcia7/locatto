@@ -1,8 +1,8 @@
 # ROP-008 — Evidências do catálogo
 
-Plano humano `catalog-v1`, [issue #8](https://github.com/raphaelgarcia7/rentalops/issues/8), revisão aprovada `2026-10-03T14:02:35Z`, SHA256 do corpo UTF-8 `9ce4b34d465e21aa35843a1c0e1b670349983e1045a345d9ed1f3aa2bac6b72b`. O executor leu o corpo completo pelo conector GitHub antes de editar e reconfirmou revisão e igualdade integral do corpo antes dos commits. Dependências #3/#7/#21 Done e merges em develop foram verificadas pelo coordenador antes do despacho. Status do Project é autoritativo; este documento não declara Done.
+Plano humano `catalog-v1`, [issue #8](https://github.com/raphaelgarcia7/locatto/issues/8), revisão aprovada `2026-10-03T14:02:35Z`, SHA256 do corpo UTF-8 `9ce4b34d465e21aa35843a1c0e1b670349983e1045a345d9ed1f3aa2bac6b72b`. O executor leu o corpo completo pelo conector GitHub antes de editar e reconfirmou revisão e igualdade integral do corpo antes dos commits. Dependências #3/#7/#21 Done e merges em develop foram verificadas pelo coordenador antes do despacho. Status do Project é autoritativo; este documento não declara Done.
 
-Executor único `gpt-6.1-sol/high`, sem planner, outros executores, substituição de modelo ou API paga. Checkout `C:/Users/Raphael/.codex/worktrees/rentalops-catalog/rmg-chatbot`, branch `codex/8-catalog`. Base `31c6d7a37eaa02be6578aff77ba5748eed7d655c`; código/README da entrega inicial validados no commit `bfb0d51758b5434ac781efb35263048576364c96` (`feat: add authenticated product and kit catalog`), head documental inicial `0f263b4f5584ba513f307c05063938a0c40ce7cf`. A correção de revisão abaixo produz novo head exato registrado no journal/handoff, pois um arquivo não contém o SHA de seu próprio commit. Revisão independente deve comparar o head final completo à base.
+Executor único `gpt-6.1-sol/high`, sem planner, outros executores, substituição de modelo ou API paga. Checkout `C:/Users/Raphael/.codex/worktrees/locatto-catalog/rmg-chatbot`, branch `codex/8-catalog`. Base `31c6d7a37eaa02be6578aff77ba5748eed7d655c`; código/README da entrega inicial validados no commit `bfb0d51758b5434ac781efb35263048576364c96` (`feat: add authenticated product and kit catalog`), head documental inicial `0f263b4f5584ba513f307c05063938a0c40ce7cf`. A correção de revisão abaixo produz novo head exato registrado no journal/handoff, pois um arquivo não contém o SHA de seu próprio commit. Revisão independente deve comparar o head final completo à base.
 
 Raiz compartilhada `C:/Projects/praxis/rmg-chatbot` somente lida para guidance/standards/business rules/delivery/ADR-001 e regressões de infra; mudanças acumuladas do usuário não foram copiadas. Lock `rop008-catalog-20261003-89a88b95` mantido, checkpoints completos preservam os campos anteriores. Nenhuma publicação, PR, mudança de issue/Project, merge, deploy, liberação/expiração de lock ou implementação da #9 pelo executor.
 
@@ -38,7 +38,7 @@ Sem componentes internos de produto, kits aninhados, reservas, alocações/holds
 
 ## Pipeline local
 
-Ambiente Windows, Python 3.14.7, uv 0.12.12, Node 24.18.0/npm 11.16.0, PostgreSQL oficial 17.10; imagens e contas somente sintéticas. Comandos backend na raiz do checkout, frontend em `frontend/`; integração recebe `TEST_DATABASE_URL=postgresql+psycopg://rentalops_test@127.0.0.1:15437/rentalops_test`, distinto do desenvolvimento. Infra compartilhada é executada sem copiar seus fontes.
+Ambiente Windows, Python 3.14.7, uv 0.12.12, Node 24.18.0/npm 11.16.0, PostgreSQL oficial 17.10; imagens e contas somente sintéticas. Comandos backend na raiz do checkout, frontend em `frontend/`; integração recebe `TEST_DATABASE_URL=postgresql+psycopg://locatto_test@127.0.0.1:15437/locatto_test`, distinto do desenvolvimento. Infra compartilhada é executada sem copiar seus fontes.
 
 | Comando | Resultado observado |
 | --- | --- |
@@ -69,9 +69,9 @@ Warnings preservados: Starlette recomenda httpx2 e avisa alias AnyIO BlockingPor
 
 ## Banco, arquivos e limpeza segura
 
-Cluster descartável oficial `C:/Users/Raphael/.codex/tmp/rop007-postgres-20261003-5d9bf762/data`, binários `C:/Program Files/PostgreSQL/17/bin`, PID principal52696, listener verificado somente `127.0.0.1:15437`. Conta/banco sintéticos `rentalops_test`; nenhum serviço existente, senha, conta real ou configuração de produção alterados. Cada pytest e harness validam alvo seguro e usam schemas `rentalops_test_<UUID>` próprios; somente esses namespaces são removidos. Browser usa tempfile privado próprio fora do Git, imagens geradas sintéticas e teardown explícito dos seus arquivos/schema. Nenhuma foto real criada, copiada ou apagada.
+Cluster descartável oficial `C:/Users/Raphael/.codex/tmp/rop007-postgres-20261003-5d9bf762/data`, binários `C:/Program Files/PostgreSQL/17/bin`, PID principal52696, listener verificado somente `127.0.0.1:15437`. Conta/banco sintéticos `locatto_test`; nenhum serviço existente, senha, conta real ou configuração de produção alterados. Cada pytest e harness validam alvo seguro e usam schemas `locatto_test_<UUID>` próprios; somente esses namespaces são removidos. Browser usa tempfile privado próprio fora do Git, imagens geradas sintéticas e teardown explícito dos seus arquivos/schema. Nenhuma foto real criada, copiada ou apagada.
 
-Depois da suíte completa e novamente após o rerun final, consulta `SELECT count(*) FROM pg_namespace WHERE nspname LIKE 'rentalops_test_%'` retornou **0**, sem listeners8000/4173; só15437 em127.0.0.1/PID52696 permaneceu. Cluster15437 fica disponível para revisor; lock permanece. Nenhum banco/diretório do usuário foi limpo. Produção não importa endpoints `__test` nem aplica DDL em startup. Fotos de teste só existem em temporary directory própria durante o harness.
+Depois da suíte completa e novamente após o rerun final, consulta `SELECT count(*) FROM pg_namespace WHERE nspname LIKE 'locatto_test_%'` retornou **0**, sem listeners8000/4173; só15437 em127.0.0.1/PID52696 permaneceu. Cluster15437 fica disponível para revisor; lock permanece. Nenhum banco/diretório do usuário foi limpo. Produção não importa endpoints `__test` nem aplica DDL em startup. Fotos de teste só existem em temporary directory própria durante o harness.
 
 ## Inspeção visual e limites
 

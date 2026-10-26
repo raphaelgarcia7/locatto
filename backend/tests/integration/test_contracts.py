@@ -15,9 +15,9 @@ from sqlalchemy import func, select, text
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
 
-from rentalops_api.catalog_models import Kit, KitItem, Product, ProductPhoto
-from rentalops_api.catalog_storage import PhotoStorage, normalize_image
-from rentalops_api.contract_contracts import (
+from locatto_api.catalog_models import Kit, KitItem, Product, ProductPhoto
+from locatto_api.catalog_storage import PhotoStorage, normalize_image
+from locatto_api.contract_contracts import (
     CompanyCommand,
     ContractIssue,
     ContractPreview,
@@ -26,18 +26,18 @@ from rentalops_api.contract_contracts import (
     SignatureCommand,
     SignatureValidation,
 )
-from rentalops_api.contract_models import (
+from locatto_api.contract_models import (
     CompanyRevision,
     ContractEvent,
     ContractRequest,
     ContractSeries,
     ContractVersion,
 )
-from rentalops_api.contracts import ContractService
-from rentalops_api.customer_models import Customer
-from rentalops_api.models import Base
-from rentalops_api.payment_errors import PaymentError
-from rentalops_api.rental_models import RentalAllocation
+from locatto_api.contracts import ContractService
+from locatto_api.customer_models import Customer
+from locatto_api.models import Base
+from locatto_api.payment_errors import PaymentError
+from locatto_api.rental_models import RentalAllocation
 
 from ..conftest import migration_config
 from ..unit.test_contract_contracts import image_bytes, synthetic_cpf
@@ -226,7 +226,7 @@ def test_ctr02_missing_corrupt_photo_renderer_and_template_fail_closed(contracts
         with pytest.raises(PaymentError) as error:
             service.issue(identifier, command, actor)
     assert error.value.code == "renderer_unavailable"
-    with patch("rentalops_api.contracts.TEMPLATE_DIGEST", "0" * 64):
+    with patch("locatto_api.contracts.TEMPLATE_DIGEST", "0" * 64):
         with pytest.raises(PaymentError) as error:
             service.issue(identifier, command, actor)
     assert error.value.code == "template_unavailable"

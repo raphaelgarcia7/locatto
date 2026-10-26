@@ -28,7 +28,7 @@ test('real PostgreSQL: private first access, login, logout, recovery and deactiv
     'Visão geral',
   );
   const cookies = await page.context().cookies();
-  const cookie = cookies.find((item) => item.name === 'rentalops_session');
+  const cookie = cookies.find((item) => item.name === 'locatto_session');
   expect(cookie?.httpOnly).toBe(true);
   expect(cookie?.sameSite).toBe('Lax');
   expect(await page.evaluate(() => Object.keys(localStorage))).toEqual([]);
@@ -54,7 +54,7 @@ test('real PostgreSQL: private first access, login, logout, recovery and deactiv
   // Fresh page load revalidates server-side revocation without mocked API.
   await page.reload();
   await expect(
-    page.getByRole('heading', { name: 'Entrar no RentalOps' }),
+    page.getByRole('heading', { name: 'Entrar no Locatto' }),
   ).toBeVisible();
   await page.goto(`/definir-senha#token=${recovery.token}`);
   await page
@@ -80,7 +80,7 @@ test('real PostgreSQL: private first access, login, logout, recovery and deactiv
   ).toBe(200);
   await page.reload();
   await expect(
-    page.getByRole('heading', { name: 'Entrar no RentalOps' }),
+    page.getByRole('heading', { name: 'Entrar no Locatto' }),
   ).toBeVisible();
   await page.getByLabel('E-mail', { exact: true }).fill(account.email);
   await page

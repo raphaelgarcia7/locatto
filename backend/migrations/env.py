@@ -2,7 +2,7 @@
 
 from alembic import context
 
-from rentalops_api import (
+from locatto_api import (
     catalog_models,  # noqa: F401 - register catalog metadata
     contract_models,  # noqa: F401 - register contract metadata
     customer_models,  # noqa: F401 - register customer metadata
@@ -11,9 +11,9 @@ from rentalops_api import (
     quotation_models,  # noqa: F401 - register quotation metadata
     rental_models,  # noqa: F401 - register rental metadata
 )
-from rentalops_api.config import DatabaseSettings
-from rentalops_api.database import build_engine
-from rentalops_api.models import Base
+from locatto_api.config import DatabaseSettings
+from locatto_api.database import build_engine
+from locatto_api.models import Base
 
 
 def migrate(connection):

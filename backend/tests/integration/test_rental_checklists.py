@@ -7,10 +7,10 @@ from uuid import UUID, uuid4
 import pytest
 from pypdf import PdfReader
 
-from rentalops_api.contract_pdf import render_separation_checklist
-from rentalops_api.rental_checklists import ChecklistCommand, ChecklistService
-from rentalops_api.rental_models import Rental
-from rentalops_api.rentals import RentalError
+from locatto_api.contract_pdf import render_separation_checklist
+from locatto_api.rental_checklists import ChecklistCommand, ChecklistService
+from locatto_api.rental_models import Rental
+from locatto_api.rentals import RentalError
 
 from .test_rentals import confirmation, paid
 from .test_rentals import rentals as rentals
@@ -99,8 +99,8 @@ def test_checklist_stale_composition_clears_checks_but_preserves_extra_labels(re
     service, identifier, actor, _, original = prepared(rentals)
     saved, _ = service.save(identifier, payload(service.get(identifier)), actor)
     # Exercise a changed commercial snapshot without bypassing any real command guard.
-    from rentalops_api.rental_checklists import checklist_view
-    from rentalops_api.rental_models import RentalChecklist
+    from locatto_api.rental_checklists import checklist_view
+    from locatto_api.rental_models import RentalChecklist
 
     with original.factory() as session:
         rental = session.get(Rental, identifier)

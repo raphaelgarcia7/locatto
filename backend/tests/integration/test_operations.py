@@ -28,21 +28,21 @@ from infra.operations.backup import (
 )
 from sqlalchemy import create_engine, text
 
-from rentalops_api.auth import AuthError, AuthService, AuthSettings
-from rentalops_api.catalog import CatalogService
-from rentalops_api.catalog_contracts import ReasonCommand
-from rentalops_api.catalog_storage import CatalogError, PhotoStorage
-from rentalops_api.config import DatabaseSettings
-from rentalops_api.database import build_engine, build_session_factory
-from rentalops_api.main import app
-from rentalops_api.operations import (
+from locatto_api.auth import AuthError, AuthService, AuthSettings
+from locatto_api.catalog import CatalogService
+from locatto_api.catalog_contracts import ReasonCommand
+from locatto_api.catalog_storage import CatalogError, PhotoStorage
+from locatto_api.config import DatabaseSettings
+from locatto_api.database import build_engine, build_session_factory
+from locatto_api.main import app
+from locatto_api.operations import (
     OperationsError,
     active_operation,
     maintenance,
     private_path,
 )
-from rentalops_api.quotation_contracts import QuotationWrite
-from rentalops_api.quotations import QuotationService
+from locatto_api.quotation_contracts import QuotationWrite
+from locatto_api.quotations import QuotationService
 
 from ..conftest import migration_config
 from ..database_safety import test_settings as safe_settings
@@ -64,7 +64,7 @@ def recovery(tmp_path, monkeypatch):
     names = []
 
     def database(kind):
-        name = f"rentalops_{kind}_test_{uuid4().hex}"
+        name = f"locatto_{kind}_test_{uuid4().hex}"
         with administrator.connect().execution_options(
             isolation_level="AUTOCOMMIT"
         ) as db:
@@ -419,9 +419,7 @@ def test_ready_unusable_private_storage_fail_closed_and_recovers(recovery, monke
                 return False
             return original_access(path, mode)
 
-        with patch(
-            "rentalops_api.catalog_storage.os.access", side_effect=storage_access
-        ):
+        with patch("locatto_api.catalog_storage.os.access", side_effect=storage_access):
             response = client.get("/ready")
             assert response.status_code == 503
             assert response.json() == {"status": "unavailable"}
@@ -554,7 +552,7 @@ def test_actual_nginx_backend_logs_redact_private_data(recovery, tmp_path):
                 sys.executable,
                 "-m",
                 "uvicorn",
-                "rentalops_api.main:app",
+                "locatto_api.main:app",
                 "--host",
                 "127.0.0.1",
                 "--port",

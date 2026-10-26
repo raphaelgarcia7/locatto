@@ -2,11 +2,11 @@
 
 ## Scope, approval and revision
 
-- Approved issue: [#9](https://github.com/raphaelgarcia7/rentalops/issues/9), `customers-v1`, `updated_at=2026-10-03T14:02:37Z`.
+- Approved issue: [#9](https://github.com/raphaelgarcia7/locatto/issues/9), `customers-v1`, `updated_at=2026-10-03T14:02:37Z`.
 - Exact approved UTF-8 body SHA-256: `83ed04f04754c053b04688f5de442844f8524f71c074f60fd70ec67c60172e66`. Re-fetched unchanged before handoff.
 - Base: `e1217093afdb8722472bb57cc0dbed1a564af1a2` (catalog PR #25 integrated). Coordinator verified direct/transitive prerequisites #3/#7/#21 Done and remotely merged before dispatch; this execution did not waive those gates.
 - Implementation SHA: `62e307bc657787933f7b5a889d1a9015dc0bc38b`, branch `codex/9-customers`. The following evidence-only commit changes no executable code. Resolve the final review head with `git rev-parse HEAD`; the coordinator records that exact SHA in the handoff/journal.
-- Isolated checkout: `C:/Users/Raphael/.codex/worktrees/rentalops-customers/rmg-chatbot`. Shared root was used for guidance/automation checks, not copied wholesale or published.
+- Isolated checkout: `C:/Users/Raphael/.codex/worktrees/locatto-customers/rmg-chatbot`. Shared root was used for guidance/automation checks, not copied wholesale or published.
 - Sole executor: `gpt-6.1-sol/high`; lock owner `rop009-customers-20261003-4fb81199`, task `issue9`, confirmed before edits and at handoff. No lock release, GitHub writes, push, PR, merge, main/deploy changes or successor execution by this executor.
 
 Read guidance: shared-root AGENTS.md, engineering standards/delivery workflow, business rules, modular architecture decision, checkout README and complete approved issue. Changes stay within customers, existing shell integration and regressions, incremental migration and documentation. Independent `gpt-6-sol/high` review of the exact final SHA and remote publication/checks/merge remain coordinator gates; this document is not a review or Done claim.
@@ -41,7 +41,7 @@ UI reuses shell/tokens/catalog form primitives. Progressive list/search/paginati
 
 ## Commands and observed results
 
-Commands run from the checkout unless noted. Test database only: official disposable PostgreSQL 17.10, `127.0.0.1:15437`, database/user `rentalops_test`, `TEST_DATABASE_URL=postgresql+psycopg://rentalops_test@127.0.0.1:15437/rentalops_test`. No password, real service/account/data, migration against development or unowned cleanup used. UUID schemas are created/dropped by existing fail-closed fixtures; browser temporary photo storage is owned by its harness.
+Commands run from the checkout unless noted. Test database only: official disposable PostgreSQL 17.10, `127.0.0.1:15437`, database/user `locatto_test`, `TEST_DATABASE_URL=postgresql+psycopg://locatto_test@127.0.0.1:15437/locatto_test`. No password, real service/account/data, migration against development or unowned cleanup used. UUID schemas are created/dropped by existing fail-closed fixtures; browser temporary photo storage is owned by its harness.
 
 | Exact command | Result |
 | --- | --- |
@@ -68,7 +68,7 @@ Warnings preserved: Starlette TestClient deprecates httpx in favor of httpx2; An
 ## Visual inspection and limitations
 
 Local evidence directory (ignored, preserved for reviewer):
-`C:/Users/Raphael/.codex/worktrees/rentalops-customers/rmg-chatbot/frontend/test-results/evidence/`.
+`C:/Users/Raphael/.codex/worktrees/locatto-customers/rmg-chatbot/frontend/test-results/evidence/`.
 HTML report: `frontend/playwright-report/index.html`. There are 40 customer captures, six real-flow phases and four controlled-state phases at each width; contact/document/address values are masked at capture time, names/notes are explicitly synthetic. No real credential or document capture is published/tracked.
 
 Final-run representative captures manually opened and inspected:

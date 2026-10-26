@@ -4,9 +4,9 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-from rentalops_api.rental_changes import copy_draft, guard_cancellation, guard_change
-from rentalops_api.rental_contracts import CancellationCommand, ResumptionCommand
-from rentalops_api.rentals import RentalError
+from locatto_api.rental_changes import copy_draft, guard_cancellation, guard_change
+from locatto_api.rental_contracts import CancellationCommand, ResumptionCommand
+from locatto_api.rentals import RentalError
 
 
 def snapshot():

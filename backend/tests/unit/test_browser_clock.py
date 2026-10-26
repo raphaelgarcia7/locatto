@@ -7,15 +7,15 @@ from types import SimpleNamespace
 
 import pytest
 
-from rentalops_api.auth_routes import auth_service
-from rentalops_api.contract_routes import contract_service
-from rentalops_api.handover_routes import handover_service
-from rentalops_api.payment_routes import payment_service
-from rentalops_api.quotation_contracts import validity_state
-from rentalops_api.quotation_routes import quotation_service
-from rentalops_api.quotations import QuotationService
-from rentalops_api.rental_changes import RentalChangeService
-from rentalops_api.rental_routes import rental_service
+from locatto_api.auth_routes import auth_service
+from locatto_api.contract_routes import contract_service
+from locatto_api.handover_routes import handover_service
+from locatto_api.payment_routes import payment_service
+from locatto_api.quotation_contracts import validity_state
+from locatto_api.quotation_routes import quotation_service
+from locatto_api.quotations import QuotationService
+from locatto_api.rental_changes import RentalChangeService
+from locatto_api.rental_routes import rental_service
 from tests import browser_server
 
 

@@ -107,8 +107,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
   }, [checkSession]);
 
   useEffect(() => {
-    window.addEventListener('rentalops-session-ended', ended);
-    return () => window.removeEventListener('rentalops-session-ended', ended);
+    window.addEventListener('locatto-session-ended', ended);
+    return () => window.removeEventListener('locatto-session-ended', ended);
   }, [ended]);
 
   useEffect(() => {
@@ -227,13 +227,13 @@ export function AuthGate({ children }: { children: ReactNode }) {
             Pular para o conteúdo
           </a>
           <main className="auth-card" id="auth-content">
-            <p className="section-kicker">RENTALOPS · ACESSO DA EQUIPE</p>
+            <p className="section-kicker">LOCATTO · ACESSO DA EQUIPE</p>
             <h1 ref={title} tabIndex={-1}>
               {checking
                 ? 'Verificando acesso…'
                 : token
                   ? 'Definir sua senha'
-                  : 'Entrar no RentalOps'}
+                  : 'Entrar no Locatto'}
             </h1>
             {notice && (
               <p className="auth-feedback" role="status">

@@ -13,18 +13,18 @@ from sqlalchemy import inspect, select, text
 from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
-from rentalops_api.auth import Identity
-from rentalops_api.catalog_models import Kit, KitItem, Product
-from rentalops_api.customer_models import Customer
-from rentalops_api.database import build_session_factory
-from rentalops_api.models import AuthSession, Base, User
-from rentalops_api.quotation_contracts import (
+from locatto_api.auth import Identity
+from locatto_api.catalog_models import Kit, KitItem, Product
+from locatto_api.customer_models import Customer
+from locatto_api.database import build_session_factory
+from locatto_api.models import AuthSession, Base, User
+from locatto_api.quotation_contracts import (
     QuotationDraft,
     QuotationSearch,
     QuotationWrite,
 )
-from rentalops_api.quotation_models import Quotation, QuotationAudit, QuotationVersion
-from rentalops_api.quotations import QuotationError, QuotationService
+from locatto_api.quotation_models import Quotation, QuotationAudit, QuotationVersion
+from locatto_api.quotations import QuotationError, QuotationService
 
 from ..conftest import migration_config
 

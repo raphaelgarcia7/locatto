@@ -117,4 +117,4 @@ def test_independent_processes_cannot_claim_same_workspace(tmp_path):
     assert sum(result.returncode == 0 for result in results) == 1
     assert all(result.returncode in (0, 1) and not result.stderr for result in results)
     # The winning process has exited; ownership survives until explicit release.
-    assert task_lock.status(tmp_path / ".rentalops" / "automation.lock")["occupied"]
+    assert task_lock.status(tmp_path / ".locatto" / "automation.lock")["occupied"]

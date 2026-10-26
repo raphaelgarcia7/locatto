@@ -3,7 +3,7 @@ from datetime import date
 import pytest
 from pydantic import ValidationError
 
-from rentalops_api.dashboard_contracts import CalendarQuery, DayQuery, UpcomingQuery
+from locatto_api.dashboard_contracts import CalendarQuery, DayQuery, UpcomingQuery
 
 
 @pytest.mark.parametrize(

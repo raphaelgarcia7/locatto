@@ -52,7 +52,7 @@ Paths below are relative to this repository. All test data are synthetic.
 ## Final local commands and results
 
 Windows PowerShell; checkout
-`C:/Users/Raphael/.codex/worktrees/rentalops-customers/rmg-chatbot`.
+`C:/Users/Raphael/.codex/worktrees/locatto-customers/rmg-chatbot`.
 Frontend commands run from its `frontend/` directory. All commands below exited 0.
 No assertions were skipped or weakened to pass.
 
@@ -62,7 +62,7 @@ No assertions were skipped or weakened to pass.
 | `uv run --project backend ruff check backend C:/Projects/praxis/rmg-chatbot/infra/automation C:/Projects/praxis/rmg-chatbot/infra/tests` | All checks passed. |
 | `uv run --project backend ruff format --check backend C:/Projects/praxis/rmg-chatbot/infra/automation C:/Projects/praxis/rmg-chatbot/infra/tests` | 54 files already formatted. |
 | `uv run --project backend mypy backend/src` | Success, 22 source files. |
-| `$env:TEST_DATABASE_URL='postgresql+psycopg://rentalops_test@127.0.0.1:15437/rentalops_test'; uv run --project backend pytest backend/tests C:/Projects/praxis/rmg-chatbot/infra/tests -q` | **283 passed, 2 warnings, 179.29s**; includes real PG integration and shared infrastructure tests. |
+| `$env:TEST_DATABASE_URL='postgresql+psycopg://locatto_test@127.0.0.1:15437/locatto_test'; uv run --project backend pytest backend/tests C:/Projects/praxis/rmg-chatbot/infra/tests -q` | **283 passed, 2 warnings, 179.29s**; includes real PG integration and shared infrastructure tests. |
 | `uv export --project backend --locked --all-groups --no-emit-project --format requirements-txt -o C:/Users/Raphael/.codex/tmp/rop010-audit-requirements.txt` followed by `uv run --project backend pip-audit --disable-pip --no-deps -r C:/Users/Raphael/.codex/tmp/rop010-audit-requirements.txt` | No known vulnerabilities; full lock export retained hashes/pins. |
 | `npm ci` | 243 installed / 244 audited, 0 vulnerabilities. |
 | `npm run lint` | ESLint passed. |
@@ -70,7 +70,7 @@ No assertions were skipped or weakened to pass.
 | `npm run test` | **5 files, 44 tests passed**, final 13.64s. |
 | `npm audit --audit-level=high` | 0 vulnerabilities. |
 | `npm run build` | TypeScript/Vite passed; 120 modules; CSS 20.61 kB (gzip 4.89), JS 340.49 kB (gzip 101.58); final Vite 1.00s. |
-| `$env:TEST_DATABASE_URL='postgresql+psycopg://rentalops_test@127.0.0.1:15437/rentalops_test'; npm run test:e2e` | **100 passed, 2.8m**, no retry configured. Uses already-built production output through Vite preview, real disposable API/PG. |
+| `$env:TEST_DATABASE_URL='postgresql+psycopg://locatto_test@127.0.0.1:15437/locatto_test'; npm run test:e2e` | **100 passed, 2.8m**, no retry configured. Uses already-built production output through Vite preview, real disposable API/PG. |
 | `git diff --check` and `git diff --cached --check` | Passed. |
 | `gitleaks.exe git --pre-commit --staged --redact --no-banner .` | No leaks, implementation staged diff ~179.30 kB. |
 | `gitleaks.exe git --redact --no-banner --log-opts=--all .` | No leaks, initial 20 commits / ~2.24 MB. |
@@ -97,7 +97,7 @@ configured LF-to-CRLF normalization. No production-build warning occurred.
   (followed by its status), triggering the sentinel assertion. This is the client
   library logging the intentionally invalid synthetic URL, not server logging of
   a body. The final test captures the actual production namespaces
-  `rentalops_api`, `uvicorn.access`, `uvicorn.error` at INFO, the same scoped policy
+  `locatto_api`, `uvicorn.access`, `uvicorn.error` at INFO, the same scoped policy
   as the customer regression. No application/access/error logger was excluded or
   disabled to pass; sentinel absence in all captured server logs and every error
   response is still asserted, including forced SQL exception/503. Application
@@ -123,7 +123,7 @@ configured LF-to-CRLF normalization. No production-build warning occurred.
   only the duplicate nested link; disabled refresh until options/current source
   are available and added a delayed-options component regression. All original
   expected behavior remains asserted. Both full subsequent matrices passed 100.
-- During final rerun the operator supplied `RENTALOPS_TEST_DATABASE_URL` instead
+- During final rerun the operator supplied `LOCATTO_TEST_DATABASE_URL` instead
   of required `TEST_DATABASE_URL`. The safe fixture failed before connection/DDL:
   194 passed / 1 failed / 88 setup errors; browser harness startup was refused.
   Correct variable reruns produced 283/283 and 100/100 above. No unsafe fallback
@@ -171,10 +171,10 @@ was tested.
 ## Persistence safety, reproducibility and handoff
 
 Real disposable PostgreSQL **17.10**, loopback `127.0.0.1:15437`, database/user
-`rentalops_test`; no production/local-development account changed. Fail-closed target
+`locatto_test`; no production/local-development account changed. Fail-closed target
 validation precedes DDL. All fixture/harness schemas have validated unique UUID
 names; teardown drops only their owned namespaces/storage. Final read-only check
-after both suites: **0 remaining rentalops_test_* schemas; 0 other connections**.
+after both suites: **0 remaining locatto_test_* schemas; 0 other connections**.
 API port 8000 and production-preview port 4173 are no longer listening. The inherited
 disposable PostgreSQL process PID 52696 on 15437 remains available for independent
 review; it was not created or stopped by this executor. No test/preview service is

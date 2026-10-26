@@ -228,7 +228,7 @@ test('real customers: progressive contact, document, versions, stable links and 
   ).toBe(204);
   expect((await save(page, 'PATCH')).status()).toBe(401);
   await expect(
-    page.getByRole('heading', { name: 'Entrar no RentalOps' }),
+    page.getByRole('heading', { name: 'Entrar no Locatto' }),
   ).toBeVisible();
   await page
     .getByRole('textbox', { name: 'E-mail', exact: true })

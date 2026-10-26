@@ -4,16 +4,16 @@ from uuid import UUID
 import pytest
 from infra.operations.backup import verified_package
 
-from rentalops_api.database import build_engine, build_session_factory
-from rentalops_api.operations import OperationsError
-from rentalops_api.payment_contracts import (
+from locatto_api.database import build_engine, build_session_factory
+from locatto_api.operations import OperationsError
+from locatto_api.payment_contracts import (
     PaymentCommand,
     ReceiptCommand,
     ReconciliationCommand,
 )
-from rentalops_api.payment_errors import PaymentError
-from rentalops_api.payment_storage import ProofStorage
-from rentalops_api.payments import PaymentService
+from locatto_api.payment_errors import PaymentError
+from locatto_api.payment_storage import ProofStorage
+from locatto_api.payments import PaymentService
 
 from ..unit.test_payment_storage import pdf
 from .test_operations import point, recover

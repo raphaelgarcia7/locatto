@@ -1,6 +1,6 @@
 # ROP-006 — delivery-controls-v1
 
-Issue [#6](https://github.com/raphaelgarcia7/rentalops/issues/6), plano manual
+Issue [#6](https://github.com/raphaelgarcia7/locatto/issues/6), plano manual
 revalidado diretamente no Harness em 2026-10-10T22:39:34Z. Revisão aprovada:
 `updated_at=2026-10-09T00:27:47Z`, SHA-256 UTF-8 do body
 `62abe0cd9c7760230544acb0ebbbcd237b6ea62d8f6f67de57485c84bad4046d`.
@@ -11,8 +11,8 @@ Código validado: `6603546df76cda11c6c09f581e09042ff6478988`.
 O head completo que inclui este registro fica no journal/handoff e nos checks;
 um arquivo não pode conter o SHA do próprio commit.
 
-[PR #33](https://github.com/raphaelgarcia7/rentalops/pull/33) é a entrega.
-[PR #34](https://github.com/raphaelgarcia7/rentalops/pull/34) é exclusivamente
+[PR #33](https://github.com/raphaelgarcia7/locatto/pull/33) é a entrega.
+[PR #34](https://github.com/raphaelgarcia7/locatto/pull/34) é exclusivamente
 o experimento negativo, identificado **never merge**. Ambas foram anexadas ao chat.
 Não houve merge, deploy, push direto/force, bypass, alteração de main, grant novo,
 criação/exportação de credencial, API paga ou implementação ROP-017+.
@@ -55,10 +55,10 @@ UI autenticada, não uma tabela local. Estado após ensaio: In progress.
 
 ## Proteção real develop
 
-Depois de [Quality38142803805 SUCCESS](https://github.com/raphaelgarcia7/rentalops/actions/runs/38142803805)
+Depois de [Quality38142803805 SUCCESS](https://github.com/raphaelgarcia7/locatto/actions/runs/38142803805)
 no código6603546 e readback de todos os cinco check-runs, o contexto exato
 `quality-gate`, app GitHub Actions15368, foi fixado no
-[ruleset24880667](https://github.com/raphaelgarcia7/rentalops/rules/24880667).
+[ruleset24880667](https://github.com/raphaelgarcia7/locatto/rules/24880667).
 Criado em2026-10-11T13:29:07Z; API confirmou active, apenas
 `refs/heads/develop`, bypass_actors vazio e current_user_can_bypass=never.
 Regras: PR obrigatório/squash, non_fast_forward e deletion proibidos;
@@ -97,13 +97,13 @@ Não é execução substituta do pipeline de produto: a Quality completa roda na
 
 | Caso | Run / head | Job necessário | Final gate |
 | --- | --- | --- | --- |
-| backend falha | [38129256236](https://github.com/raphaelgarcia7/rentalops/actions/runs/38129256236), 442cfb4fb676796c90fbc3622dfb7038d480b199 | backend FAILURE | FAILURE |
+| backend falha | [38129256236](https://github.com/raphaelgarcia7/locatto/actions/runs/38129256236), 442cfb4fb676796c90fbc3622dfb7038d480b199 | backend FAILURE | FAILURE |
 | frontend falha | mesmo run/head | frontend FAILURE | FAILURE |
 | browser falha | mesmo run/head | browser FAILURE | FAILURE |
 | secrets falha | mesmo run/head | secrets FAILURE | FAILURE |
 | job omitido | mesmo run/head | backend SKIPPED | FAILURE |
-| segredo deliberadamente inválido/sintético | [38141688672](https://github.com/raphaelgarcia7/rentalops/actions/runs/38141688672), 22ae81fc7309c8b389a34948a1cb03819d4f3de3 | FAILURE no scanner (Gitleaks8.30.1; 1 finding sintético; exit1) | FAILURE |
-| cancelamento durante job | [38141796964](https://github.com/raphaelgarcia7/rentalops/actions/runs/38141796964), 12cd6568221270c6c2ad53a9f22a5be5b868d5f7 | backend CANCELLED; demais SUCCESS | FAILURE, recebeu cancelled |
+| segredo deliberadamente inválido/sintético | [38141688672](https://github.com/raphaelgarcia7/locatto/actions/runs/38141688672), 22ae81fc7309c8b389a34948a1cb03819d4f3de3 | FAILURE no scanner (Gitleaks8.30.1; 1 finding sintético; exit1) | FAILURE |
+| cancelamento durante job | [38141796964](https://github.com/raphaelgarcia7/locatto/actions/runs/38141796964), 12cd6568221270c6c2ad53a9f22a5be5b868d5f7 | backend CANCELLED; demais SUCCESS | FAILURE, recebeu cancelled |
 
 Na primeira tentativa de segredo, o valor sintético não correspondia à regex
 atual de AWS (`[A-Z2-7]`): scanner reportou zero e gate SUCCESS. **Prova inválida**,
@@ -116,12 +116,12 @@ Os testes locais também recusam valor ausente/vazio/desconhecido para cada job.
 
 ## Falhas originais e correções verificáveis
 
-1. [38129113532](https://github.com/raphaelgarcia7/rentalops/actions/runs/38129113532),
+1. [38129113532](https://github.com/raphaelgarcia7/locatto/actions/runs/38129113532),
    d012189c053222311428da7ff93643512220b53a: backend apt não encontrou client17;
    browser 134 PASS/2 FAIL no zoom200% mobile320; frontend/secrets SUCCESS;
    quality-gate FAILURE. Gitleaks action inspecionada só escaneava range da PR,
    portanto substituída por CLI checksum-verified `git --log-opts='--all'`.
-2. [38141818333](https://github.com/raphaelgarcia7/rentalops/actions/runs/38141818333),
+2. [38141818333](https://github.com/raphaelgarcia7/locatto/actions/runs/38141818333),
    4fb83c4fde6a012d8e15f01d91b6c0128ec903bd: backend 578 PASS/3 FAIL. nginx Debian
    usa `/etc/nginx/mime.types`, não `bin/conf/mime.types`; Docker PG retornou
    inet_server_addr172.18.0.2, contrariando corretamente o guard loopback; Compose
@@ -130,7 +130,7 @@ Os testes locais também recusam valor ausente/vazio/desconhecido para cada job.
    a200% (root345/client320). Log original detalha elementos/medidas, sem inferir
    que fosse a mesma causa inicial. Gate FAILURE.
 3. fbd336d9615028fe1390cee2522eae63aec475c4,
-   [38142712864](https://github.com/raphaelgarcia7/rentalops/actions/runs/38142712864):
+   [38142712864](https://github.com/raphaelgarcia7/locatto/actions/runs/38142712864):
    erro de configuração antes de jobs, contexto runner.temp não permitido em job.env.
    Anotação da UI preservada; movido para shell step/GITHUB_ENV em6603546.
    Isso não é prova negativa de execução e não é PASS.
@@ -171,7 +171,7 @@ Linux nativa privada. Alterações finais do código validadas, sem skips:
 | regressão final produção/zoom/axe | 8 PASS, um worker, quatro larguras, 2.0min |
 
 Quality remota do código6603546:
-[run38142803805](https://github.com/raphaelgarcia7/rentalops/actions/runs/38142803805),
+[run38142803805](https://github.com/raphaelgarcia7/locatto/actions/runs/38142803805),
 **backend/frontend/browser/secrets/quality-gate todos SUCCESS**. Backend587 PASS,
 2 warnings69.46s; runner PG17.11 PGDG, Compose5.3.0 checksum OK; pip-audit sem
 vulnerabilidade. Frontend84 PASS/build/lint/formato/npm audit sem vulnerabilidade.
@@ -218,13 +218,13 @@ ou outros navegadores. Não se afirma validação de todos os dispositivos.
 
 ## Recursos, interrupção e handoff
 
-Checkout isolado `C:/Users/Raphael/.codex/worktrees/rentalops-customers/rmg-chatbot`.
+Checkout isolado `C:/Users/Raphael/.codex/worktrees/locatto-customers/rmg-chatbot`.
 Raiz compartilhada suja preservada; somente políticas necessárias foram publicadas,
 sem adição em massa de arquivos acumulados. Ensaio SQLite usa tmp_path, nunca o
 journal real. Owner permanece ocupado até o coordenador confirmar agentes parados.
 
 Fixture exclusiva `/home/rop004-rehearsal/rop006-DDg4pzHR`, banco sintético
-`rentalops_delivery_test`, PG loopback15446. Configuração privada não versionada,
+`locatto_delivery_test`, PG loopback15446. Configuração privada não versionada,
 sem impressão/cópia de senha. Sources/source-final/source-verified preservados
 para reprodutibilidade; novos outputs em run01/run02/run03 antes de reruns.
 Ferramentas já existentes da fixture11 foram usadas somente para leitura/execução,
@@ -237,7 +237,7 @@ do MESMO agente/owner/round0/PR33 após confirmação real ordinaryUsageAllowed=
 primary3/secondary16 em2026-10-11T12:59:32UTC. Nenhum reset/crédito/API/fallback.
 Reconciliação encontrou resultados completos e falhas; não se repetiu teste só
 pela interrupção. Logs originais e backups ficam na raiz, fora de Git:
-`.rentalops/rop006-evidence/run01`, `run02`, `run03`. URLs remotas acima tornam
+`.locatto/rop006-evidence/run01`, `run02`, `run03`. URLs remotas acima tornam
 falhas/provas auditáveis; retenção do artifact é7dias, cópia local preservada.
 
 Revisão independente exata, merge protegido develop, Project Done e liberação do

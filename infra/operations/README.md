@@ -23,9 +23,9 @@ alerta no inventário privado de operação; nenhum contato pessoal entra neste 
    separado: testar certificado, cadeia, renovação, redirects e cookies Secure no
    endereço real antes de exposição. Este nginx interno não certifica outro proxy.
 2. Diretórios absolutos separados, fora do checkout/Git e de qualquer pasta pública:
-   `/srv/rentalops/database`, `/srv/rentalops/photos`, `/srv/rentalops/operations`,
-   `/srv/rentalops/backups`, `/srv/rentalops/scratch`; segredos em `/etc/rentalops`.
-   Criar também os roots `/srv/rentalops` e `/etc/rentalops` com mode0700. Cada
+   `/srv/locatto/database`, `/srv/locatto/photos`, `/srv/locatto/operations`,
+   `/srv/locatto/backups`, `/srv/locatto/scratch`; segredos em `/etc/locatto`.
+   Criar também os roots `/srv/locatto` e `/etc/locatto` com mode0700. Cada
    diretório de volume e seu root privado devem ter mode0700 e dono correto:
    fotos/operations UID10001 do backend; banco
    usuário do PostgreSQL da imagem. Arquivos privados mode0600. Rejeitamos links e
@@ -37,11 +37,11 @@ alerta no inventário privado de operação; nenhum contato pessoal entra neste 
    `docker compose config` completo (pode expandir variáveis privadas):
 
    ```dotenv
-   DATABASE_VOLUME=/srv/rentalops/database
-   STORAGE_VOLUME=/srv/rentalops/photos
-   OPERATIONS_VOLUME=/srv/rentalops/operations
-   BACKEND_ENV_FILE=/etc/rentalops/backend.env
-   POSTGRES_PASSWORD_FILE=/etc/rentalops/postgres-password
+   DATABASE_VOLUME=/srv/locatto/database
+   STORAGE_VOLUME=/srv/locatto/photos
+   OPERATIONS_VOLUME=/srv/locatto/operations
+   BACKEND_ENV_FILE=/etc/locatto/backend.env
+   POSTGRES_PASSWORD_FILE=/etc/locatto/postgres-password
    LOCAL_PORT=8080
    ```
 
@@ -49,7 +49,7 @@ alerta no inventário privado de operação; nenhum contato pessoal entra neste 
    exata HTTPS sem barra final e `AUTH_RATE_KEY` aleatória com pelo menos32bytes.
    Compose fixa APP_ENV=production e caminhos internos dos dois volumes. Não incluir
    URL/segredo em argv, captura, Git, monitoramento, logs ou shell com tracing.
-   PostgreSQL usa senha por secret file. `rentalops_bootstrap` é somente bootstrap;
+   PostgreSQL usa senha por secret file. `locatto_bootstrap` é somente bootstrap;
    criar conta de runtime separada sem superuser/CREATEDB/CREATEROLE, com privilégios
    necessários às tabelas/sequências e execução dos triggers. Conta de migração
    separada fica em terminal privado; usar `psql \password` para definir senha sem
@@ -62,9 +62,9 @@ alerta no inventário privado de operação; nenhum contato pessoal entra neste 
    `.dockerignore` exclui secrets, Git, caches e evidências. Rodar:
 
    ```sh
-   uv run --project backend python -m infra.operations.runtime validate --env-file /etc/rentalops/compose.env --project rentalops-preparation
-   uv run --project backend python -m infra.operations.runtime build --env-file /etc/rentalops/compose.env --project rentalops-preparation
-   uv run --project backend python -m infra.operations.runtime up --env-file /etc/rentalops/compose.env --project rentalops-preparation
+   uv run --project backend python -m infra.operations.runtime validate --env-file /etc/locatto/compose.env --project locatto-preparation
+   uv run --project backend python -m infra.operations.runtime build --env-file /etc/locatto/compose.env --project locatto-preparation
+   uv run --project backend python -m infra.operations.runtime up --env-file /etc/locatto/compose.env --project locatto-preparation
    ```
 
    **A entrada suportada para build/start é `infra.operations.runtime`, não o
@@ -148,9 +148,9 @@ chave de decriptação não deve acompanhar os pacotes no destino externo.
 
 ```sh
 umask 077
-age-keygen -o /etc/rentalops/backup-identity.txt
-age-keygen -y /etc/rentalops/backup-identity.txt > /etc/rentalops/backup-recipient.txt
-uv run --project backend python -m infra.operations.backup backup --db-url-env DATABASE_URL --storage-root /srv/rentalops/photos --operations-root /srv/rentalops/operations --output-dir /srv/rentalops/backups --recipient-file /etc/rentalops/backup-recipient.txt
+age-keygen -o /etc/locatto/backup-identity.txt
+age-keygen -y /etc/locatto/backup-identity.txt > /etc/locatto/backup-recipient.txt
+uv run --project backend python -m infra.operations.backup backup --db-url-env DATABASE_URL --storage-root /srv/locatto/photos --operations-root /srv/locatto/operations --output-dir /srv/locatto/backups --recipient-file /etc/locatto/backup-recipient.txt
 ```
 
 Carregar `DATABASE_URL` e `OPERATIONS_ROOT` de arquivo/env privado sem imprimir.
@@ -175,9 +175,9 @@ criptográfica por checksum do receipt. Plaintext temporário exige disco privad
 espaço e política de criptografia do host; remoção não certifica apagamento físico.
 
 ```sh
-uv run --project backend python -m infra.operations.backup verify --manifest /srv/rentalops/backups/point-PLACEHOLDER/manifest.json --identity-file /etc/rentalops/backup-identity.txt --scratch-root /srv/rentalops/scratch
-uv run --project backend python -m infra.operations.backup copy --manifest /srv/rentalops/backups/point-PLACEHOLDER/manifest.json --copy-dir /srv/rentalops/offhost-mounted-destination
-uv run --project backend python -m infra.operations.backup status --output-dir /srv/rentalops/backups
+uv run --project backend python -m infra.operations.backup verify --manifest /srv/locatto/backups/point-PLACEHOLDER/manifest.json --identity-file /etc/locatto/backup-identity.txt --scratch-root /srv/locatto/scratch
+uv run --project backend python -m infra.operations.backup copy --manifest /srv/locatto/backups/point-PLACEHOLDER/manifest.json --copy-dir /srv/locatto/offhost-mounted-destination
+uv run --project backend python -m infra.operations.backup status --output-dir /srv/locatto/backups
 ```
 
 `verify` decripta/autentica tudo e rejeita duplicatas, traversal, links, membros
@@ -204,7 +204,7 @@ Definir eliminação legal/operacional e testar recuperação periódica antes d
 1. Declarar incidente, bloquear acesso de usuários e registrar hora segura/início
    da indisponibilidade. Confirmar o ponto escolhido e a idade para RPO observado.
 2. Em PostgreSQL de recuperação isolado em loopback, escolher banco novo
-   `rentalops_restore_test_<32hex>` e diretório privado novo vazio. Não apontar a CLI
+   `locatto_restore_test_<32hex>` e diretório privado novo vazio. Não apontar a CLI
    para produção: exige nome descartável, host local e `--discardable-target`;
    recusa query redirections, qualquer objeto/schema não padrão e storage não vazio.
    Restore cria somente esse banco novo se ausente; não faz DROP/overwrite. Erro

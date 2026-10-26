@@ -8,14 +8,14 @@ from uuid import UUID, uuid4
 import pytest
 from sqlalchemy import event
 
-from rentalops_api.capacity import outstanding_demand
-from rentalops_api.catalog_storage import PhotoStorage
-from rentalops_api.contract_contracts import SignatureCommand
-from rentalops_api.contracts import ContractService
-from rentalops_api.handovers import HandoverService
-from rentalops_api.payment_contracts import CorrectionCommand
-from rentalops_api.payments import PaymentService
-from rentalops_api.rental_effects import rental_summary
+from locatto_api.capacity import outstanding_demand
+from locatto_api.catalog_storage import PhotoStorage
+from locatto_api.contract_contracts import SignatureCommand
+from locatto_api.contracts import ContractService
+from locatto_api.handovers import HandoverService
+from locatto_api.payment_contracts import CorrectionCommand
+from locatto_api.payments import PaymentService
+from locatto_api.rental_effects import rental_summary
 
 from ..unit.test_contract_contracts import image_bytes
 from .test_contracts import issue_command, ready
@@ -116,10 +116,10 @@ def test_history_reuses_only_current_reads_and_preserves_every_version(
     try:
         with (
             patch(
-                "rentalops_api.quotations.rental_summary", wraps=rental_summary
+                "locatto_api.quotations.rental_summary", wraps=rental_summary
             ) as summary,
             patch(
-                "rentalops_api.quotations.outstanding_demand", wraps=outstanding_demand
+                "locatto_api.quotations.outstanding_demand", wraps=outstanding_demand
             ) as physical,
             patch.object(
                 PaymentService,

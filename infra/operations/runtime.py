@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import dotenv_values
-from rentalops_api.operations import OperationsError, private_path
+from locatto_api.operations import OperationsError, private_path
 
 COMPOSE = Path(__file__).resolve().with_name("compose.yaml")
 PATHS = {
@@ -116,7 +116,7 @@ def compose_command(command: list[str], environment: dict[str, str]) -> str:
 
 def run(action: str, env_file: Path, project: str) -> None:
     if action not in {"validate", "build", "up"} or not re.fullmatch(
-        r"rentalops-[a-z0-9][a-z0-9-]{1,48}", project
+        r"locatto-[a-z0-9][a-z0-9-]{1,48}", project
     ):
         raise OperationsError("Invalid preparation command.")
     environment, paths = configuration(env_file)

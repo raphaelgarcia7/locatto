@@ -106,7 +106,7 @@ export async function contractRequest<T>(
   });
   if (!response.ok) {
     if (response.status === 401)
-      window.dispatchEvent(new Event('rentalops-session-ended'));
+      window.dispatchEvent(new Event('locatto-session-ended'));
     const data = (await response.json().catch(() => ({}))) as {
       detail?: string;
     };
