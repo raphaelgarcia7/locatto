@@ -1,6 +1,7 @@
 import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useDebouncedValue } from '../components/useDebouncedValue';
 import { SearchPicker } from '../components/SearchPicker';
+import { Icon, type IconName } from '../components/Icon';
 import { AuthContext } from '../authContext';
 import { customerRequest } from '../customers/api';
 import type { CustomerPageData } from '../customers/api';
@@ -24,6 +25,13 @@ const metricHints: Record<Queue, string> = {
   overdue: 'Devoluções em atraso',
   debt: 'Saldos para acompanhar',
   occurrence: 'Atenção da equipe',
+};
+const metricIcons: Record<Queue, IconName> = {
+  pickup: 'truck',
+  return: 'box',
+  overdue: 'clock',
+  debt: 'wallet',
+  occurrence: 'alert',
 };
 
 export function DashboardPage() {
@@ -213,6 +221,7 @@ export function DashboardPage() {
           disabled={loading || calendarLoading}
           onClick={() => setRefresh((value) => value + 1)}
         >
+          <Icon name="refresh" size={18} />
           Atualizar painel
         </button>
       </header>
@@ -238,7 +247,14 @@ export function DashboardPage() {
             aria-label={`${queueLabels[kind]} ${loading || error ? '—' : (day?.queues[kind].total ?? '—')}`}
             onClick={() => selectQueue(kind)}
           >
-            <span className="operations-metric-label">{queueLabels[kind]}</span>
+            <span className="operations-metric-topline">
+              <span className="operations-metric-icon">
+                <Icon name={metricIcons[kind]} size={19} />
+              </span>
+              <span className="operations-metric-label">
+                {queueLabels[kind]}
+              </span>
+            </span>
             <strong>
               {loading || error ? '—' : (day?.queues[kind].total ?? '—')}
             </strong>
@@ -248,7 +264,10 @@ export function DashboardPage() {
       </div>
 
       <details className="operations-filter-disclosure">
-        <summary>Filtrar operação{filtered ? ' · filtros ativos' : ''}</summary>
+        <summary>
+          <Icon name="filter" size={18} />
+          <span>Filtrar operação{filtered ? ' · filtros ativos' : ''}</span>
+        </summary>
         <form
           className="operations-filters"
           onSubmit={(event) => {

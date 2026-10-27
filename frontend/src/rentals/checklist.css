@@ -1,9 +1,9 @@
 .preparation-checklist {
   margin-top: 1.5rem;
   padding: clamp(1rem, 3vw, 1.75rem);
-  border: 1px solid #bbd5f8;
+  border: 1px solid var(--line);
   border-radius: 1rem;
-  background: #f8fbff;
+  background: var(--primary-soft);
 }
 .preparation-checklist header h3 {
   margin-block: 0.4rem;
@@ -20,12 +20,12 @@
 }
 .preparation-checklist progress {
   width: 100%;
-  accent-color: #16865e;
+  accent-color: var(--success);
   height: 0.7rem;
 }
 .checklist-progress {
   font-weight: 600;
-  color: #225ab6;
+  color: var(--primary);
 }
 .checklist-rows {
   padding: 0;
@@ -39,7 +39,7 @@
   align-items: center;
   padding: 0.65rem 0.8rem;
   background: white;
-  border: 1px solid #dce6f3;
+  border: 1px solid var(--line);
   border-radius: 0.7rem;
 }
 .preparation-checklist .checklist-rows label {
@@ -64,7 +64,7 @@
   margin: 0;
   flex: 0 0 1.25rem;
   appearance: auto;
-  accent-color: #16865e;
+  accent-color: var(--success);
 }
 .preparation-checklist .checklist-rows button {
   margin: 0;
@@ -81,8 +81,8 @@
   }
 }
 .checklist-rows li:has(input:checked) {
-  background: #eefaf4;
-  border-color: #a8d9c0;
+  background: var(--success-soft);
+  border-color: var(--success-border);
 }
 .checklist-add {
   display: grid;
@@ -103,8 +103,8 @@
   justify-self: start;
 }
 .checklist-success {
-  color: #096343;
-  background: #e6f7ef;
+  color: var(--success);
+  background: var(--success-soft);
   border-radius: 0.6rem;
   padding: 0.85rem;
 }

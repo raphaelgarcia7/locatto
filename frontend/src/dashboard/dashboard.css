@@ -22,11 +22,11 @@
   overflow-wrap: anywhere;
 }
 .operations-page-heading {
-  margin-bottom: 2rem;
+  margin-bottom: 22px;
 }
 .operations-page-heading h1 {
   margin: 0 0 0.35rem;
-  font-size: clamp(1.7rem, 3vw, 2.25rem);
+  font-size: 30px;
   letter-spacing: -0.06rem;
 }
 .operations-page-heading p {
@@ -36,18 +36,19 @@
 }
 .operations-summary-heading {
   gap: 0.5rem;
-  margin-bottom: 1rem;
+  margin-bottom: 10px;
 }
 .operations-summary-heading h2 {
   margin: 0;
-  font-size: 1rem;
+  font-size: 14px;
+  font-weight: 700;
 }
 .operations-summary-heading > span {
   color: var(--muted);
   font-size: 0.85rem;
 }
 .operations-filter-disclosure {
-  margin-block: 1rem 1.5rem;
+  margin-block: 12px;
   font-size: 0.9rem;
 }
 .operations-filter-disclosure summary {
@@ -55,11 +56,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1.5rem;
-  min-height: 44px;
-  padding: 0.65rem 1rem;
+  gap: 10px;
+  min-height: 36px;
+  padding: 6px 12px;
   border: 1px solid var(--primary);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   background: var(--primary-soft);
   list-style: none;
   color: var(--primary-dark);
@@ -98,7 +99,7 @@
 }
 .operations-filters input,
 .operations-filters select {
-  border-color: #b8cbdc;
+  border-color: var(--line);
   border-radius: 10px;
 }
 .operations-filters .catalog-actions button {
@@ -108,7 +109,7 @@
 }
 .operations-filters .operations-clear {
   background: var(--surface);
-  border-color: #b8cbdc;
+  border-color: var(--line);
   color: var(--muted);
 }
 .operations-filters > label {
@@ -119,25 +120,25 @@
   max-width: 100%;
   flex-wrap: wrap;
   display: inline-flex;
-  padding: 4px;
-  gap: 4px;
+  padding: 2px;
+  gap: 2px;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   background: var(--cream);
 }
 .operations-view button {
-  min-height: 40px;
-  padding: 0.5rem 1rem;
+  min-height: 34px;
+  padding: 6px 18px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 4px;
   color: var(--muted);
   background: transparent;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
 }
 .operations-view [aria-pressed='true'] {
   background: var(--primary);
-  color: #fff;
+  color: var(--surface);
 }
 .operations-eyebrow {
   display: block;
@@ -150,65 +151,66 @@
 .operations-queues {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0.75rem;
+  gap: 10px;
 }
 .operations-queues .operations-metric {
   --metric-accent: var(--primary);
-  --metric-surface: #e8f4ff;
+  --metric-surface: var(--primary-soft);
   display: grid;
   align-content: start;
   text-align: left;
-  gap: 0.65rem;
+  gap: 5px;
   min-width: 0;
-  padding: 16px;
+  min-height: 117px;
+  padding: 12px 14px;
   background: var(--metric-surface);
   color: var(--ink);
   border: 1px solid var(--line);
-  border-top: 3px solid var(--metric-accent);
-  border-radius: 14px;
+  border-top: 1px solid var(--metric-accent);
+  border-radius: var(--radius-sm);
   font: inherit;
   cursor: pointer;
-  box-shadow: 0 3px 12px #20324703;
+  box-shadow: 0 3px 12px var(--focus-shadow);
 }
 .operations-metric-label {
   overflow-wrap: anywhere;
-  font-size: 0.82rem;
-  font-weight: 600;
-  min-height: 2.5em;
+  font-size: 9.5px;
+  letter-spacing: -0.2px;
+  font-weight: 500;
   min-width: 0;
 }
 .operations-queues strong {
-  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-size: 34px;
   line-height: 1;
-  font-weight: 650;
+  font-weight: 700;
   color: var(--metric-accent);
 }
 .operations-metric-hint {
   min-width: 0;
   overflow-wrap: anywhere;
-  font-size: 0.73rem;
+  font-size: 10px;
   color: var(--muted);
   line-height: 1.45;
 }
 .operations-queues .operations-metric--return {
-  --metric-accent: #2f67ad;
-  --metric-surface: #eaf2ff;
+  --metric-accent: var(--primary-dark);
+  --metric-surface: var(--accent-soft);
 }
 .operations-queues .operations-metric--overdue {
-  --metric-accent: #b35a13;
-  --metric-surface: #fff0df;
+  --metric-accent: var(--warning);
+  --metric-surface: var(--warning-soft);
 }
 .operations-queues .operations-metric--debt {
-  --metric-accent: #886510;
-  --metric-surface: #fff6d9;
+  --metric-accent: var(--success);
+  --metric-surface: var(--success-soft);
 }
 .operations-queues .operations-metric--occurrence {
   --metric-accent: var(--red);
-  --metric-surface: #ffebe7;
+  --metric-surface: var(--danger-soft);
 }
 .operations-queues .is-selected {
   border-color: var(--metric-accent);
-  box-shadow: 0 3px 12px #20324712;
+  box-shadow: 0 3px 12px var(--focus-shadow);
 }
 .operations-rows {
   list-style: none;
@@ -217,8 +219,8 @@
   gap: 1rem;
 }
 .operations-rows > li {
-  background: #fff;
-  border: 1px solid #dbe6f0;
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 16px;
   padding: 1.25rem;
   min-width: 0;
@@ -228,10 +230,10 @@
   overflow-wrap: anywhere;
 }
 .operations-state {
-  border: 1px solid #8196aa;
+  border: 1px solid var(--border-strong);
   border-radius: 8px;
   padding: 0.4rem 0.6rem;
-  color: #2b4c69;
+  color: var(--ink);
   font-size: 0.85rem;
 }
 .operations-rows dl {
@@ -244,7 +246,7 @@
   min-width: 0;
 }
 .operations-rows dt {
-  color: #5b6d80;
+  color: var(--muted);
   font-size: 0.8rem;
   margin-bottom: 0.3rem;
 }
@@ -254,39 +256,40 @@
   overflow-wrap: anywhere;
 }
 .operations-warning {
-  color: #5c3e10;
-  background: #fff6df;
+  color: var(--warning);
+  background: var(--warning-soft);
   padding: 0.75rem;
   border-radius: 8px;
 }
 .operations-empty {
   padding: 2rem 1rem;
-  background: #fff;
-  border: 1px solid #dbe6f0;
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 12px;
   margin-block: 1rem;
 }
 .operations-calendar {
   background: var(--surface);
-  padding: 1.5rem;
-  border-radius: 18px;
+  padding: 20px;
+  border-radius: var(--radius);
   border: 1px solid var(--line);
 }
 .operations-calendar-heading h2 {
-  font-size: clamp(1.05rem, 2vw, 1.3rem);
+  font-size: 20px;
+  font-weight: 700;
   margin: 0;
   line-height: 1.5;
 }
 .operations-calendar-toolbar {
-  margin-top: 1.5rem;
+  margin-top: 8px;
 }
 .operations-calendar-navigation {
   display: flex;
   gap: 0.5rem;
 }
 .operations-calendar-navigation button {
-  min-width: 44px;
-  min-height: 40px;
+  min-width: 42px;
+  min-height: 34px;
   padding: 0.4rem 0.8rem;
 }
 .operations-calendar-navigation button[aria-label] {
@@ -312,7 +315,7 @@
   background: var(--primary);
 }
 .operations-calendar-legend .operations-legend-return::before {
-  background: #2f67ad;
+  background: var(--primary);
 }
 .operations-week,
 .operations-days {
@@ -323,7 +326,7 @@
 .operations-calendar-scroll {
   overflow-x: auto;
   max-width: 100%;
-  padding: 3px;
+  padding: 2px;
 }
 .operations-calendar-grid {
   min-width: 630px;
@@ -332,45 +335,51 @@
   min-width: 770px;
 }
 .operations-week {
-  margin-block: 0.5rem;
+  margin: 0;
+  padding-block: 7px;
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  border-radius: 4px 4px 0 0;
+  background: var(--cream);
   text-align: center;
   color: var(--muted);
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 400;
+  text-transform: uppercase;
 }
 .operations-days {
   background: var(--line);
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 0 0 4px 4px;
   overflow: hidden;
 }
 .operations-days button {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 0.65rem;
-  padding: 0.5rem;
+  gap: 4px;
+  padding: 4px 6px;
   background: var(--surface);
   border: 2px solid transparent;
   color: var(--ink);
   min-width: 0;
-  min-height: 112px;
+  min-height: 40px;
   font: inherit;
   cursor: pointer;
   text-align: left;
 }
 .operations-days button:hover {
-  background: #edf6ff;
+  background: var(--primary-soft);
 }
 .operations-day-number {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  align-self: flex-start;
-  min-width: 28px;
-  height: 28px;
+  align-self: flex-end;
+  min-width: 24px;
+  height: 24px;
   font-size: 0.85rem;
-  font-weight: 600;
+  font-weight: 500;
 }
 .operations-day-number small {
   font-weight: 400;
@@ -385,6 +394,9 @@
   display: grid;
   gap: 4px;
 }
+.operations-day-events:has(> .operations-day-empty) {
+  display: none;
+}
 .operations-event {
   display: block;
   padding: 4px 5px;
@@ -394,24 +406,22 @@
   overflow-wrap: anywhere;
 }
 .operations-event--pickup {
-  background: #d8ebfc;
-  color: #1c5c91;
+  background: var(--primary-soft);
+  color: var(--primary);
 }
 .operations-event-short {
   display: none;
 }
 .operations-event--return {
-  background: #dceaff;
-  color: #245897;
+  background: var(--primary-soft);
+  color: var(--primary);
 }
 .operations-day-empty {
-  color: #94a6b6;
-  font-size: 0.8rem;
-  padding-inline: 5px;
+  display: none;
 }
 .operations-days button.is-selected {
   border-color: var(--primary);
-  background: #edf6ff;
+  background: var(--primary-soft);
 }
 .operations-calendar-grid--week .operations-days button {
   min-height: 220px;
@@ -429,7 +439,7 @@
 .operations-calendar-footnote {
   margin-bottom: 0;
 }
-@media (max-width: 1100px) {
+@media (max-width: 960px) {
   .operations-queues {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }

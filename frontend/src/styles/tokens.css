@@ -1,0 +1,57 @@
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  src: url('/fonts/plus-jakarta-sans-variable.ttf') format('truetype');
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --font-family: 'Plus Jakarta Sans', sans-serif;
+  --ink: #1f1720;
+  --text: var(--ink);
+  --muted: #6f6570;
+  --primary: #4a223a;
+  --primary-dark: #603149;
+  --primary-soft: #f5edf2;
+  --accent: #c98b73;
+  --accent-strong: #a75643;
+  --accent-soft: #f8eee8;
+  --cream: #f7f3ee;
+  --surface: #fffcf9;
+  --surface-raised: #ffffff;
+  --surface-translucent: #fffcf999;
+  --sidebar: #faf7f4;
+  --line: #e7ded6;
+  --border: var(--line);
+  --border-strong: #a99b98;
+  --focus-ring: #87526f;
+  --focus-shadow: #4a223a18;
+  --success: #4e7a5d;
+  --success-soft: #eff4ed;
+  --success-border: #b6c7b0;
+  --warning: #945b18;
+  --warning-accent: #b87522;
+  --warning-soft: #fff4e5;
+  --warning-border: #e8cca4;
+  --red: #b83e42;
+  --red-dark: #963037;
+  --danger: var(--red);
+  --danger-soft: #fff0f0;
+  --danger-border: #e6bfc0;
+  --overlay: #1f172066;
+  --shadow-sm: 0 2px 6px #4a223a0a;
+  --shadow-md: 0 8px 24px #4a223a10;
+  --shadow-modal: 0 20px 64px #1f172026;
+  --radius: 12px;
+  --radius-sm: 6px;
+  --radius-field: 8px;
+  --space: 8px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --sidebar-width: 202px;
+}

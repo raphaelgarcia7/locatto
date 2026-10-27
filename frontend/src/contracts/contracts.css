@@ -3,14 +3,14 @@
   overflow-wrap: anywhere;
 }
 .contract-panel fieldset {
-  border: 1px solid var(--border, #c5d0c9);
+  border: 1px solid var(--border, var(--line));
   border-radius: 12px;
   padding: 1rem;
   margin: 1rem 0;
   min-width: 0;
 }
 .contract-panel legend {
-  font-weight: 650;
+  font-weight: 600;
   padding: 0 0.35rem;
 }
 .contract-grid {
@@ -23,7 +23,7 @@
   flex-direction: column;
   gap: 0.4rem;
   margin-bottom: 0.75rem;
-  font-weight: 550;
+  font-weight: 500;
 }
 .contract-panel input,
 .contract-panel textarea,
@@ -33,10 +33,10 @@
   box-sizing: border-box;
   min-height: 44px;
   padding: 0.65rem;
-  border: 1px solid #899d92;
+  border: 1px solid var(--border-strong);
   border-radius: 7px;
   background: white;
-  color: #203b38;
+  color: var(--ink);
   font: inherit;
 }
 .contract-panel input[type='checkbox'] {
@@ -62,8 +62,8 @@
   margin: 1rem 0;
 }
 .contract-pending {
-  border-left: 4px solid #956331;
-  background: #fff8e9;
+  border-left: 4px solid var(--warning);
+  background: var(--warning-soft);
   padding: 1rem;
   border-radius: 8px;
 }
@@ -74,7 +74,7 @@
   padding: 0;
 }
 .contract-history > li {
-  border: 1px solid #c5d0c9;
+  border: 1px solid var(--line);
   padding: 1rem;
   border-radius: 12px;
 }
@@ -84,7 +84,7 @@
 }
 .contract-status {
   border-radius: 8px;
-  background: #edf3ef;
+  background: var(--success-soft);
   padding: 1rem;
 }
 .contract-panel pre {

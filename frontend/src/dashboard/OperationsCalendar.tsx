@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import type { KeyboardEvent } from 'react';
-import { dateLabel, localToday } from './api';
+import { addDays, dateLabel, localToday } from './api';
 import type { Calendar } from './api';
 import { calendarDates, moveCalendar } from './calendar';
 import type { CalendarView } from './calendar';
@@ -42,7 +42,12 @@ export function OperationsCalendar({
           timeZone: 'UTC',
         }).format(new Date(`${anchor}T12:00:00Z`))
       : `${dateLabel(dates[0])} – ${dateLabel(dates[6])}`;
-  const offset = (new Date(`${dates[0]}T12:00:00Z`).getUTCDay() + 6) % 7;
+  const offset =
+    view === 'month' ? new Date(`${dates[0]}T12:00:00Z`).getUTCDay() : 0;
+  const weekdays =
+    view === 'month'
+      ? ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+      : ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 
   function navigate(event: KeyboardEvent, index: number) {
     const next =
@@ -152,11 +157,20 @@ export function OperationsCalendar({
             className={`operations-calendar-grid operations-calendar-grid--${view}`}
           >
             <div className="operations-week" aria-hidden="true">
-              {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map((day) => (
+              {weekdays.map((day) => (
                 <span key={day}>{day}</span>
               ))}
             </div>
             <div className="operations-days" aria-describedby="calendar-help">
+              {Array.from({ length: offset }, (_, index) => (
+                <span
+                  key={`previous-${index}`}
+                  className="operations-day-ghost"
+                  aria-hidden="true"
+                >
+                  {Number(addDays(dates[0], index - offset).slice(-2))}
+                </span>
+              ))}
               {dates.map((date, index) => {
                 const day = counts.get(date);
                 const pickup = day?.pickup ?? 0;

@@ -50,7 +50,7 @@
 .payment-guide {
   padding: 1.25rem;
   margin-block: 1rem 1.5rem;
-  border: 1px solid #b7d1f7;
+  border: 1px solid var(--line);
   border-top: 4px solid var(--primary);
   border-radius: 12px;
   background: var(--primary-soft);
@@ -131,7 +131,7 @@
 }
 .payment-milestone--done {
   background: var(--success-soft);
-  border-color: #9acdb7;
+  border-color: var(--success-border);
   color: var(--success);
 }
 .payment-due {

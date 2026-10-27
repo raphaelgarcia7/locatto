@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Link, NavLink, useLocation } from 'react-router';
 import { modules } from '../modules';
 import { BrandLogo } from './BrandLogo';
+import { Icon } from './Icon';
 
 export function AppShell({
   children,
@@ -42,6 +43,7 @@ export function AppShell({
         <div className="sidebar-label">MINHA LOCADORA</div>
         <nav className="main-nav" aria-label="Navegação principal">
           <NavLink className="nav-item" to="/" end>
+            <Icon name="home" size={20} />
             Visão geral
           </NavLink>
           {modules.map((module) => (
@@ -51,6 +53,10 @@ export function AppShell({
               to={module.path}
               end
             >
+              <Icon
+                name={module.path === '/parametros' ? 'settings' : module.icon}
+                size={20}
+              />
               {module.title}
             </NavLink>
           ))}
@@ -62,11 +68,12 @@ export function AppShell({
             <strong>{pageTitle}</strong>
           </div>
           <button
-            className="auth-retry auth-danger"
+            className="auth-retry app-signout"
             type="button"
             disabled={logoutBusy}
             onClick={logout}
           >
+            <Icon name="logout" size={18} />
             {logoutBusy ? 'Saindo…' : 'Sair'}
           </button>
         </header>

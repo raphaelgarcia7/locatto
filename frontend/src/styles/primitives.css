@@ -1,0 +1,349 @@
+/* Shared presentation for existing native controls and feature components. */
+button,
+input,
+select,
+textarea,
+summary,
+pre {
+  font-family: var(--font-family);
+}
+
+:root :is(.auth-button, .auth-retry, .text-link) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+  line-height: 1.4;
+  transition:
+    background-color 140ms,
+    border-color 140ms,
+    box-shadow 140ms;
+}
+
+:root .auth-button {
+  box-shadow: var(--shadow-sm);
+}
+
+:root .auth-retry {
+  background: var(--surface);
+  color: var(--primary);
+  border-color: var(--border-strong);
+}
+
+:root .auth-retry:hover:not(:disabled) {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+}
+
+:root .auth-danger {
+  color: var(--surface-raised);
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
+:root .auth-danger:hover:not(:disabled) {
+  color: var(--surface-raised);
+  background: var(--red-dark);
+  border-color: var(--red-dark);
+}
+
+:root .app-signout {
+  min-height: 36px;
+  padding: 8px 12px;
+  color: var(--surface-raised);
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+  font-size: 12px;
+}
+
+:root .app-signout:hover:not(:disabled) {
+  color: var(--surface-raised);
+  background: var(--primary);
+}
+
+:root :is(input, select, textarea):not([type='checkbox']):not([type='radio']) {
+  font-family: var(--font-family);
+  font-size: 14px;
+  color: var(--ink);
+  border-color: var(--border-strong);
+  border-radius: var(--radius-field);
+  background-color: var(--surface);
+  transition:
+    border-color 140ms,
+    box-shadow 140ms;
+}
+
+:root :is(input, select, textarea):focus {
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 3px var(--focus-shadow);
+}
+
+:root :is(input, select, textarea)[aria-invalid='true'] {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+}
+
+:root :is(input[type='checkbox'], input[type='radio'], progress) {
+  accent-color: var(--success);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+  opacity: 0.9;
+}
+
+label,
+.catalog-workspace label {
+  font-weight: 500;
+  font-size: 13px;
+}
+
+:root
+  :is(
+    .catalog-panel,
+    .catalog-card,
+    .state-panel,
+    .quotation-summary,
+    .quotation-workflow,
+    .quotation-secondary,
+    .quotation-stock-details,
+    .operations-calendar,
+    .payment-milestone,
+    .preparation-checklist
+  ) {
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+:root :is(.catalog-category-dialog, [role='dialog']) {
+  box-shadow: var(--shadow-modal);
+}
+
+:root .catalog-category-dialog::backdrop {
+  background: var(--overlay);
+  backdrop-filter: blur(3px);
+}
+
+:root .search-picker > ul {
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-md);
+}
+
+:root :is(.catalog-badge, .operations-state, .quotation-state) {
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+}
+
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+
+th {
+  background: var(--cream);
+  color: var(--muted);
+  font-weight: 600;
+  text-align: left;
+}
+
+th,
+td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--line);
+}
+
+.page-heading h1 {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -1px;
+}
+
+.page-heading p {
+  font-size: 14px;
+}
+
+.catalog-panel h2 {
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.catalog-panel h3,
+.catalog-card h2 {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+/* Decorative assets are shared by the shell, never repeated in feature cards. */
+.app-shell::before,
+.app-shell::after,
+.auth-layout::before {
+  content: '';
+  position: fixed;
+  z-index: -1;
+  pointer-events: none;
+  background: url('/images/celebration-balloons.png') center / contain no-repeat;
+}
+
+.app-shell::before {
+  top: -165px;
+  right: 52px;
+  width: 480px;
+  height: 650px;
+  opacity: 0.17;
+  transform: rotate(-8deg);
+}
+
+.app-shell::after {
+  bottom: -290px;
+  left: -120px;
+  width: 340px;
+  height: 610px;
+  opacity: 0.28;
+  transform: rotate(-8deg);
+}
+
+.auth-layout {
+  isolation: isolate;
+  position: relative;
+}
+
+.auth-layout::before {
+  right: -80px;
+  top: -120px;
+  width: 580px;
+  height: 850px;
+  opacity: 0.22;
+}
+
+.operations-metric-topline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  min-height: 34px;
+}
+
+.operations-metric-icon {
+  flex: 0 0 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--metric-accent) 10%, transparent);
+  color: var(--metric-accent);
+}
+
+.operations-queues .operations-metric--pickup {
+  --metric-accent: var(--primary);
+  --metric-surface: var(--primary-soft);
+}
+
+.operations-queues .operations-metric--return {
+  --metric-accent: var(--primary-dark);
+  --metric-surface: var(--accent-soft);
+}
+
+.operations-queues .operations-metric--overdue {
+  --metric-accent: var(--warning);
+  --metric-surface: var(--warning-soft);
+}
+
+.operations-queues .operations-metric--debt {
+  --metric-accent: var(--success);
+  --metric-surface: var(--success-soft);
+}
+
+.operations-queues .operations-metric--occurrence {
+  --metric-accent: var(--danger);
+  --metric-surface: var(--danger-soft);
+}
+
+.operations-queues .operations-metric.is-selected {
+  box-shadow: var(--shadow-sm);
+}
+
+.operations-queues .operations-metric {
+  box-shadow: none;
+}
+
+.operations-page-heading > button {
+  min-height: 38px;
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
+.operations-filter-disclosure > summary {
+  background: var(--surface);
+  border-color: var(--border-strong);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.operations-filter-disclosure > summary > span {
+  flex: 1;
+}
+
+:root .operations-calendar-legend .operations-legend-return::before {
+  background: var(--accent-strong);
+}
+
+.operations-event--return {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.operations-day-ghost {
+  padding: 12px;
+  text-align: right;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+@media (max-width: 960px) {
+  .app-shell::before {
+    right: -130px;
+    opacity: 0.15;
+  }
+  .app-shell::after {
+    opacity: 0.12;
+  }
+}
+
+@media (max-width: 600px) {
+  .operations-page-heading h1,
+  .page-heading h1 {
+    font-size: 26px;
+  }
+  .operations-metric-label {
+    font-size: 11px;
+  }
+  .operations-metric-hint {
+    font-size: 11px;
+  }
+  .operations-queues strong {
+    font-size: 30px;
+  }
+  .operations-metric-topline {
+    gap: 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root * {
+    transition: none;
+    animation: none;
+  }
+}
+
+@media print {
+  .app-shell::before,
+  .app-shell::after {
+    display: none;
+  }
+}

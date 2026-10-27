@@ -68,6 +68,38 @@ function renderPage() {
 }
 afterEach(() => vi.unstubAllGlobals());
 
+it('presents month weeks from Sunday without changing actionable dates or keyboard navigation', async () => {
+  const select = vi.fn();
+  const { container } = render(
+    <OperationsCalendar
+      data={[]}
+      anchor="2026-10-26"
+      selected="2026-10-26"
+      view="month"
+      loading={false}
+      error=""
+      onSelect={select}
+      onNavigate={vi.fn()}
+      onViewChange={vi.fn()}
+      onRetry={vi.fn()}
+    />,
+  );
+  expect(
+    container.querySelector('.operations-week')?.firstChild,
+  ).toHaveTextContent('Dom');
+  expect(container.querySelectorAll('.operations-day-ghost')).toHaveLength(4);
+  expect(container.querySelectorAll('.operations-days button')).toHaveLength(
+    31,
+  );
+  const first = screen.getByRole('button', { name: /^01\/10\/2026:/ });
+  expect(first).toHaveStyle({ gridColumnStart: 5 });
+  const user = userEvent.setup();
+  await user.click(first);
+  expect(select).toHaveBeenCalledWith('2026-10-01');
+  await user.keyboard('{ArrowRight}');
+  expect(screen.getByRole('button', { name: /^02\/10\/2026:/ })).toHaveFocus();
+});
+
 it('ignores obsolete responses and hides prior counts while a new query is pending or fails', async () => {
   const pending: ((value: {
     ok: boolean;

@@ -6,5 +6,7 @@ frontend/** text eol=lf
 *.jpeg binary
 *.webp binary
 *.ico binary
+*.ttf binary
+*.woff2 binary
 # The human-approved source is byte-pinned, including its original line endings.
 backend/src/locatto_api/contract_template_v04.md -text
