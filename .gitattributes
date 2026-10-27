@@ -1,4 +1,10 @@
 # Keep the existing Prettier checks reproducible on Windows checkouts.
 frontend/** text eol=lf
+# Images must remain byte-identical to the supplied assets.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ico binary
 # The human-approved source is byte-pinned, including its original line endings.
 backend/src/locatto_api/contract_template_v04.md -text
