@@ -159,10 +159,10 @@
   display: grid;
   align-content: start;
   text-align: left;
-  gap: 5px;
+  gap: 8px;
   min-width: 0;
-  min-height: 117px;
-  padding: 12px 14px;
+  min-height: 136px;
+  padding: 16px 14px;
   background: var(--metric-surface);
   color: var(--ink);
   border: 1px solid var(--line);
@@ -358,12 +358,12 @@
   flex-direction: column;
   align-items: stretch;
   gap: 4px;
-  padding: 4px 6px;
+  padding: 8px 6px;
   background: var(--surface);
   border: 2px solid transparent;
   color: var(--ink);
   min-width: 0;
-  min-height: 40px;
+  min-height: 64px;
   font: inherit;
   cursor: pointer;
   text-align: left;
