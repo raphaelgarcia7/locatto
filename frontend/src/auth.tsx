@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { AuthContext } from './authContext';
+import { BrandLogo } from './components/BrandLogo';
 
 type Identity = {
   user_id: string;
@@ -227,6 +228,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
             Pular para o conteúdo
           </a>
           <main className="auth-card" id="auth-content">
+            <BrandLogo className="auth-brand-logo" />
             <p className="section-kicker">LOCATTO · ACESSO DA EQUIPE</p>
             <h1 ref={title} tabIndex={-1}>
               {checking

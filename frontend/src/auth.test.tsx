@@ -140,6 +140,9 @@ describe('closed team access', () => {
     });
     expect(heading).toHaveFocus();
     expect(
+      screen.getByRole('img', { name: 'Locatto · Locação para celebrar' }),
+    ).toHaveAttribute('src', '/locatto-logo.png');
+    expect(
       screen.queryByRole('heading', { name: 'Operação' }),
     ).not.toBeInTheDocument();
     expect(screen.queryByText(/Google/)).not.toBeInTheDocument();

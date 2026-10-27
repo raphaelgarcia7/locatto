@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { Link, NavLink, useLocation } from 'react-router';
 import { modules } from '../modules';
+import { BrandLogo } from './BrandLogo';
 
 export function AppShell({
   children,
@@ -36,16 +37,7 @@ export function AppShell({
       </a>
       <aside className="sidebar" aria-label="Espaço de trabalho">
         <Link className="brand" to="/" aria-label="Locatto, início">
-          <span className="brand-mark" aria-hidden="true">
-            <span />
-            <span />
-            <span />
-          </span>
-          <span>
-            <strong>
-              rental<span>ops</span>
-            </strong>
-          </span>
+          <BrandLogo />
         </Link>
         <div className="sidebar-label">MINHA LOCADORA</div>
         <nav className="main-nav" aria-label="Navegação principal">

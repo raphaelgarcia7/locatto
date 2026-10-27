@@ -41,6 +41,17 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('workspace routing', () => {
+  it('uses the supplied logo as the home link', () => {
+    renderRoute();
+    const home = screen.getByRole('link', { name: 'Locatto, início' });
+    expect(within(home).getByRole('img')).toHaveAttribute(
+      'src',
+      '/locatto-logo.png',
+    );
+    expect(within(home).getByRole('img')).toHaveAccessibleName(
+      'Locatto · Locação para celebrar',
+    );
+  });
   it('keeps the overview focused on the dashboard and modules in the navigation', () => {
     renderRoute();
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
